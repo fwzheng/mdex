@@ -1,4 +1,9 @@
-**Languages: [English](README.md) | [简体中文](README.zh-CN.md)**
+<details>
+<summary><b>🌐 语言：简体中文</b> —— 点击切换其它语言</summary>
+
+[English](README.md) · **[简体中文](README.zh-CN.md)** · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [العربية](README.ar.md)
+
+</details>
 
 # MDeX（macOS · Windows · Linux · 完全离线 · Tauri v2）
 
@@ -11,6 +16,16 @@
 - 支持 `.md` / `.markdown` / `.html`；可设为 `.md` 默认打开方式，双击即开。
 
 > 适用：科研 / 涉密单位 / 内网 / 出差断网。无广告、无遥测、无数据上传。
+
+---
+
+## 🌐 语言
+
+界面提供 **11 种语言**：简体中文、English、Français、Deutsch、Español、Português、Italiano、Русский、日本語、한국어、العربية。
+
+- 随时在工具栏「语言」菜单切换，选择会被记忆、跨会话保留。
+- **阿拉伯语自动从右向左（RTL）排版**——正文、标题、列表符号以及整个工具栏镜像到右侧；内嵌的代码块、LaTeX 公式、英文术语与版本号始终保持左到右（LTR），绝不被翻转。
+- 本 README 本身也已翻译为全部 11 种语言——请用本页最顶部的选择器切换。
 
 ---
 

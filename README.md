@@ -1,4 +1,9 @@
-**Languages: [English](README.md) | [简体中文](README.zh-CN.md)**
+<details>
+<summary><b>🌐 Language: English</b> — click to choose another language</summary>
+
+**[English](README.md)** · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [العربية](README.ar.md)
+
+</details>
 
 
 # MDeX (macOS · Windows · Linux · Fully Offline · Tauri v2)
@@ -12,6 +17,16 @@ An offline-first Markdown reader & editor for **air-gapped / intranet / disconne
 - Supports `.md` / `.markdown` / `.html`; can be set as the default `.md` handler — double-click to open.
 
 > Suited for: **research / intranets / privacy protection** scenarios. No ads, no telemetry, no data upload.
+
+---
+
+## 🌐 Languages
+
+The interface ships in **11 languages**: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية.
+
+- Switch at any time from the toolbar's language menu; your choice is remembered across sessions.
+- **Arabic is rendered right-to-left (RTL)** automatically — body text, headings, list markers and the whole toolbar mirror to the right; embedded code blocks, LaTeX math, English terms and version numbers stay left-to-right, never mirrored.
+- This README is itself translated into all 11 languages — use the selector at the very top of this page.
 
 ---
 
