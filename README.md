@@ -1,195 +1,195 @@
-# MDeX（macOS · Windows · Linux · 完全离线 · Tauri v2）
+# MDeX (macOS · Windows · Linux · Fully Offline · Tauri v2)
 
-> **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
+> **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
-一个面向 **离线 / 内网 / 隐私保护** 场景的 Markdown 阅读编辑器。所有文件都在本地处理，**不联网、不上传、无云端同步**。
+An offline-first Markdown reader & editor for **air-gapped / intranet / disconnected** use. Every file is processed locally — **no network, no uploads, no cloud sync**.
 
-- 纯前端单 HTML（无 Vue / React），Tauri v2 仅提供原生外壳（窗口、菜单、文件对话框）。
-- **运行时零网络请求**：`marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` 及 KaTeX 全部 woff2 字体，均以内联 / base64 方式打进单个 `index.html`。
-- 支持 `.md` / `.markdown` / `.html`；可设为 `.md` 默认打开方式，双击即开。
+- A single self-contained HTML frontend (no Vue / React); Tauri v2 provides only the native shell (windows, menus, file dialogs).
+- **Zero runtime network requests**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` and all KaTeX woff2 fonts are inlined / base64-embedded into a single `index.html`.
+- Supports `.md` / `.markdown` / `.html`; can be set as the default `.md` handler — double-click to open.
 
-> 适用：科研 / 涉密单位 / 内网 / 出差断网。无广告、无遥测、无数据上传。
-
----
-
-## ✨ 核心功能
-
-- **多标签页 + 多窗口**：同时打开多个文件；未保存的修改用圆点标记，关闭时询问是否保存；中键点击标签可快速关闭。双击 `.md` 文件按需开独立窗口（一文件一窗口）；已在某窗口打开的文件再次双击会**置顶该窗口**而非重复打开。
-- **实时分屏预览**：拖动中间分隔条调整比例；工具栏按钮轮换「分屏 / 仅编辑 / 仅预览」。
-- **点击定位**：点击编辑器某处，预览自动滚到对应位置；点击预览某处，编辑器光标跳到对应位置。
-- **搜索替换**：查找、逐个替换、全部替换，显示匹配数。
-- **数学公式**：行内 `$…$` 与块级 `$$…$$`（也支持 `\(...\)`、`\[...\]`），由 KaTeX 渲染；超长公式自动按运算符折行，无法折行的等比缩小。
-- **代码高亮**：自动识别语言着色；大文档按视口懒加载，避免卡顿。
-- **Mermaid 图**：` ```mermaid ` 代码块渲染为流程图 / 时序图 / 类图 / 状态图 / 甘特图 / 饼图等。
-- **图片**：粘贴 / 拖拽 / 选择，自动转 base64 嵌入；也可用相对路径引用本地图片；图片默认居中显示。
-- **表格**：GFM 表格；窄表按内容居中，宽表在容器内横向滚动，不被裁切。
-- **文献引用（BibTeX）**：`[@key]` / `\cite{key}` 写法，numeric 风格，文末自动生成「参考文献」表，正文 [n] 与条目**双向跳转**；支持文档内嵌 ` ```bibtex ` 块或单独加载 `.bib` 库。
-- **HTML 支持**：可直接打开 `.html` 渲染预览；支持 HTML ↔ Markdown 互转。
-- **主题 / 语言**：深色 / 浅色主题，**11 种界面语言**（中文、English、Français、Deutsch、Русский、Italiano、日本語、한국어、Español、Português、العربية——阿拉伯语自动右到左）。
-- **自动草稿**：内容定时暂存，意外关闭 / 崩溃后可恢复。
-- **字数统计**：状态栏实时显示字数 / 行数 / 词数 / 字符数，及当前行列号。
-- **拖拽打开**：拖拽 `.md` 文件到窗口直接打开；拖拽图片直接插入。
-- **多格式导出**：另存为 Markdown / HTML / PDF（矢量打印 + 高清位图）/ LaTeX。
+> Suited for: **research / intranets / privacy protection** scenarios. No ads, no telemetry, no data upload.
 
 ---
 
-## ⌨️ 快捷键
+## ✨ Features
 
-macOS 用 `⌘`，Windows / Linux 用 `Ctrl`。
+- **Multi-tab + multi-window**: open several files at once; unsaved changes are marked with a dot, and you are asked before closing; middle-click a tab to close it. Double-clicking a `.md` opens its own window (one file per window); double-clicking a file already open **focuses that window** instead of reopening it.
+- **Live split preview**: drag the divider to resize; the toolbar button cycles Split / Editor / Preview.
+- **Click-to-position**: click in the editor to scroll the preview; click in the preview to jump the cursor in the editor.
+- **Search & replace**: find, replace one or all, with match count.
+- **Math**: inline `$…$` and block `$$…$$` (also `\(...\)`, `\[...\]`), rendered by KaTeX; long equations wrap at operators or auto-shrink.
+- **Code highlighting**: language auto-detected; large docs lazy-highlight by viewport to stay smooth.
+- **Mermaid diagrams**: a ` ```mermaid ` block renders as flowchart / sequence / class / state / Gantt / pie, etc.
+- **Images**: paste / drop / pick — auto-embedded as base64; relative local paths also work; images are centered by default.
+- **Tables**: GFM tables; narrow tables are centered to content, wide ones scroll horizontally without clipping.
+- **Citations (BibTeX)**: `[@key]` / `\cite{key}` syntax, numeric style; a References list is generated at the end, with two-way jumps between in-text `[n]` and the entry; supports an embedded ` ```bibtex ` block or a separately loaded `.bib`.
+- **HTML support**: open `.html` files for rendering; convert between HTML and Markdown.
+- **Theme / language**: dark / light, **11 UI languages** (中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية — Arabic auto right-to-left).
+- **Auto-draft**: content is saved periodically and restored after an unexpected close / crash.
+- **Word count**: the status bar shows characters / lines / words live, plus the current row & column.
+- **Drag-and-drop**: drop a `.md` file onto the window to open it; drop an image to insert it.
+- **Export**: save as Markdown / HTML / PDF (vector + raster) / LaTeX.
 
-| 快捷键 | 功能 |
+---
+
+## ⌨️ Shortcuts
+
+Use `⌘` on macOS, `Ctrl` on Windows / Linux.
+
+| Shortcut | Action |
 | --- | --- |
-| `⌘/Ctrl + N` | 新建 |
-| `⌘/Ctrl + O` | 打开文件 |
-| `⌘/Ctrl + S` | 保存 |
-| `⌘/Ctrl + Shift + S` | 另存为 |
-| `⌘/Ctrl + W` | 关闭标签页 |
-| `⌘/Ctrl + Shift + W` | 关闭窗口 |
-| `⌘/Ctrl + F` | 查找 |
-| `⌘/Ctrl + H` | 替换 |
-| `⌘/Ctrl + B` / `I` / `E` | 加粗 / 斜体 / 行内代码 |
-| `⌘/Ctrl + K` | 插入链接 |
-| `Tab` | 缩进 2 空格 |
-| `Alt/Option + 拖拽` | 矩形（列）选取 |
-| `Alt/Option + Shift + ←↑↓→` | 扩展列选取 |
-| `Esc` | 取消列选取 |
+| `⌘/Ctrl + N` | New |
+| `⌘/Ctrl + O` | Open file |
+| `⌘/Ctrl + S` | Save |
+| `⌘/Ctrl + Shift + S` | Save As |
+| `⌘/Ctrl + W` | Close tab |
+| `⌘/Ctrl + Shift + W` | Close window |
+| `⌘/Ctrl + F` | Find |
+| `⌘/Ctrl + H` | Replace |
+| `⌘/Ctrl + B` / `I` / `E` | Bold / Italic / Inline code |
+| `⌘/Ctrl + K` | Insert link |
+| `Tab` | Indent 2 spaces |
+| `Alt/Option + drag` | Rectangular (column) select |
+| `Alt/Option + Shift + ←↑↓→` | Extend column select |
+| `Esc` | Cancel column select |
 
-> 多窗口下，快捷键只作用于当前焦点窗口。
-
----
-
-## 📝 语法速查
-
-**Markdown**：标题 `# / ## / ###`、加粗 `**文本**`、斜体 `*文本*`、删除线 `~~文本~~`、行内代码 `` `代码` ``、代码块（三反引号围起，可标语言）、引用 `> 文本`、列表 `- / 1.`、任务列表 `- [ ] / - [x]`、链接 `[文字](URL)`、图片 `![描述](URL)`、分割线 `---`、表格 `| A | B |`。
-
-**数学公式**：行内 `$E = mc^2$`；块级 `$$\int_0^1 x\,dx$$`（可跨行）。使用 LaTeX 语法，由 KaTeX 渲染；代码块内的 `$` 不会被当作公式分隔符。支持 `align` / `aligned`、矩阵、分段函数 `cases` 等环境。
-
-**文献引用**：正文写 `[@key]` 或 `[@a; @b]`（LaTeX 兼容 `\cite{key}`），在文档中用 ` ```bibtex ` 块内嵌文献库，或用「文献」按钮加载 `.bib`。文末自动生成参考文献表，正文 `[n]` 可点击跳转。
+> With multiple windows open, shortcuts only affect the focused window.
 
 ---
 
-## 📤 导出（另存为）
+## 📝 Cheat sheet
 
-点击「另存为」后选择格式：
+**Markdown**: headings `# / ## / ###`, bold `**text**`, italic `*text*`, strikethrough `~~text~~`, inline code `` `code` ``, code blocks (triple backticks, with optional language), quote `> text`, lists `- / 1.`, task list `- [ ] / - [x]`, link `[text](url)`, image `![alt](url)`, divider `---`, tables `| A | B |`.
 
-- **Markdown (.md)**：保存源文件，并更新当前标签的文件名与路径。
-- **HTML (.html)**：导出独立 HTML 文件，内联排版 CSS + 代码高亮；数学公式保留 `$…$` 字面量，由内联 KaTeX 自动渲染。
-- **PDF 矢量打印**：调用系统打印对话框，文字与公式矢量输出，任意放大清晰。选「存储为 PDF」即可保存。
-- **PDF 高清位图**：直接生成 PDF 文件（无需对话框），可选低 / 中 / 高三种分辨率；按块边界分页，不切断公式 / 标题 / 代码块等。
-- **LaTeX (.tex)**：转换为可编译的 `.tex` 源（含 documentclass 与宏包，数学公式原样保留），导出副本。
+**Math**: inline `$E = mc^2$`; block `$$\int_0^1 x\,dx$$` (may span lines). Uses LaTeX syntax, rendered by KaTeX; `$` inside code blocks is not treated as a math delimiter. Supports `align` / `aligned`, matrices, `cases` and other common environments.
+
+**Citations**: write `[@key]` or `[@a; @b]` in the text (LaTeX-compatible `\cite{key}`), embed the library via a ` ```bibtex ` block or load a `.bib` with the "Refs" button. A References list is generated at the end; in-text `[n]` is clickable.
 
 ---
 
-## 🔒 离线与安全
+## 📤 Export (Save As)
 
-- 运行时**零网络请求**。构建产物 `dist/index.html` 经脚本自检：无任何 `src=` / `href=` / `url()` / `@import` 形式的外链。
-- 严格的 CSP（仅本机 IPC，无外网）；文件全部本地读写，不上传。
-- 验证：关闭 Wi-Fi / 拔网线后启动，公式、图片、代码高亮、Mermaid 均正常。
-- `dist/index.html` 中仍可见约十几处 `https://github.com/…` 字样，它们全部位于 `marked` / `highlight.js` 等**许可证与来源注释**里，是纯文本，**不会发起任何网络请求**；为尊重开源许可证未强行删除。
+Click "Save As" and pick a format:
+
+- **Markdown (.md)**: save the source and update the current tab's name / path.
+- **HTML (.html)**: self-contained HTML with inlined CSS + code highlighting; math kept as `$…$` literal, auto-rendered by inlined KaTeX.
+- **PDF vector**: system print dialog, vector output, crisp at any zoom. Choose "Save as PDF".
+- **PDF raster**: generates a PDF file directly (no dialog), with low / medium / high resolution; paginated at block boundaries (no broken equations / headings / code).
+- **LaTeX (.tex)**: converted to a compilable `.tex` source (with documentclass and packages; math kept as-is). Exports a copy.
 
 ---
 
-## 📦 安装
+## 🔒 Offline & security
 
-### 下载预编译包
-从 [Releases](./) 下载对应平台安装包：macOS（`.dmg`，通用 arm64+x86_64）、Windows（`.exe` / `.msi`）、Linux（`.AppImage` / `.deb` / '.rpm'）。
+- **Zero runtime network requests.** The build output `dist/index.html` is self-checked: no `src=` / `href=` / `url()` / `@import` external links.
+- Strict CSP (local IPC only, no WAN); all files are read/written locally, nothing uploaded.
+- Verify: turn off Wi-Fi / unplug the cable and launch — math, images, code highlighting and Mermaid all work.
+- `dist/index.html` still shows ~a dozen `https://github.com/…` strings; these all live inside **license / source comments** of `marked` / `highlight.js` etc. — plain text that **never triggers a request**; left intact to respect the open-source licenses.
 
-### macOS 打开未签名程序（绕过 Gatekeeper）
-本程序未做开发者签名 / 公证（离线场景通常无法联网公证）。首次打开会被拦截，任选其一：
+---
 
-- **命令行（推荐）**：把 `.app` 拖进「应用程序」后
+## 📦 Installation
+
+### Prebuilt downloads
+Grab the installer for your platform from [Releases](./): macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe` / `.msi`), Linux (`.deb` / `.AppImage`).
+
+### Opening the unsigned app on macOS (bypass Gatekeeper)
+This app is not developer-signed / notarized (offline scenarios usually can't notarize online). The first launch is blocked — pick one:
+
+- **CLI (recommended)**: drag `.app` into Applications, then
   ```bash
   xattr -dr com.apple.quarantine "/Applications/MDeX.app"
   ```
-- **图形界面**：Finder 里右键 `.app` →「打开」→ 弹窗里再点「打开」；或「系统设置 → 隐私与安全性」→ 拉到底点「仍要打开」。
+- **GUI**: in Finder, right-click the `.app` → "Open" → "Open" again in the dialog; or "System Settings → Privacy & Security" → scroll down → "Open Anyway".
 
 ---
 
-## 🛠️ 从源码构建
+## 🛠️ Build from source
 
-### 环境准备（一次性，macOS）
+### One-time setup (macOS)
 ```bash
-xcode-select --install                       # Xcode 命令行工具
-rustup target add aarch64-apple-darwin x86_64-apple-darwin   # 通用二进制需要两个
+xcode-select --install                       # Xcode command-line tools
+rustup target add aarch64-apple-darwin x86_64-apple-darwin   # both needed for universal
 npm install                                  # Tauri CLI
-npm run fetch                                # 下载前端依赖到 vendor/（仅此一步联网）
+npm run fetch                                # download frontend deps into vendor/ (online only here)
 ```
 
-### 本地开发
+### Local development
 ```bash
-npm run tauri dev        # 先 build dist/index.html，再启动应用窗口
+npm run tauri dev        # builds dist/index.html, then launches the app window
 ```
 
-### 构建
+### Build
 ```bash
-# 仅 Apple Silicon（更快）
+# Apple Silicon only (faster)
 npm run tauri build
 
-# 通用二进制（Apple Silicon + Intel，交付用）
+# Universal binary (Apple Silicon + Intel, for distribution)
 npm run tauri build -- --target universal-apple-darwin
 ```
 
-产物：
+Output:
 ```
 src-tauri/target/universal-apple-darwin/release/bundle/
 ├── macos/MDeX.app
 └── dmg/MDeX_1.1.0_universal.dmg
 ```
 
-### Windows / Linux / 跨平台
-- **Windows 原生编译**（产出 NSIS `.exe` 安装器）：见 [BUILD-WINDOWS.md](./BUILD-WINDOWS.md)。
-- **Linux / macOS Intel / 其它跨平台**：见 [BUILD-CROSS.md](./BUILD-CROSS.md)。
+### Windows / Linux / cross-platform
+- **Native Windows build** (produces an NSIS `.exe` installer): see [BUILD-WINDOWS.md](./BUILD-WINDOWS.md).
+- **Linux / macOS Intel / other cross-platform**: see [BUILD-CROSS.md](./BUILD-CROSS.md).
 
-前端 `dist/index.html` 跨平台无需改动；只需在目标平台调整打包配置（`tauri.conf.json` 的 `bundle.targets` 增 `nsis` / `deb` / `appimage`，并安装 WebView2 / webkit2gtk 等系统依赖）。
+The frontend `dist/index.html` needs no changes across platforms; just adjust bundling on the target OS (`tauri.conf.json` `bundle.targets` adds `nsis` / `deb` / `appimage`, plus system deps like WebView2 / webkit2gtk).
 
 ---
 
-## 📁 目录结构
+## 📁 Project structure
 
 ```
 markdown/
-├── app-shell.html          # 前端源文件（HTML+CSS+JS，含全部应用逻辑）
+├── app-shell.html          # frontend source (HTML+CSS+JS, all app logic)
 ├── tools/
-│   ├── fetch-vendor.mjs    # 一次性下载依赖到 vendor/（仅准备阶段联网）
-│   └── build-html.mjs      # 把 vendor 内联进 dist/index.html（KaTeX 字体→base64）
-├── dist/index.html         # 构建产物：完全离线的单文件（Tauri 的 frontendDist）
-├── vendor/                 # 下载缓存（.gitignore）
-├── package.json            # @tauri-apps/cli + 脚本
+│   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ (online only here)
+│   └── build-html.mjs      # inline vendor into dist/index.html (KaTeX fonts → base64)
+├── dist/index.html         # build output: fully offline single file (Tauri frontendDist)
+├── vendor/                 # download cache (.gitignore)
+├── package.json            # @tauri-apps/cli + scripts
 └── src-tauri/
     ├── Cargo.toml          # tauri 2 + tauri-plugin-dialog / single-instance
     ├── build.rs            # tauri_build::build()
-    ├── tauri.conf.json     # 窗口 1200×750、严格 CSP、图标、.md 关联、菜单钩子
+    ├── tauri.conf.json     # 1200×750 window, strict CSP, icons, .md association, menu hooks
     ├── capabilities/default.json
-    ├── icons/              # cargo tauri icon 生成的全套图标
-    └── src/{main.rs, lib.rs}   # 菜单 + 文件读写 + 多窗口路由
+    ├── icons/              # full icon set from `cargo tauri icon`
+    └── src/{main.rs, lib.rs}   # menus + file IO + multi-window routing
 ```
 
 ---
 
-## 🎨 自定义
+## 🎨 Customization
 
-| 想改 | 位置 |
+| To change | Where |
 | --- | --- |
-| 应用名 / Bundle ID | `src-tauri/tauri.conf.json` 的 `productName` / `identifier` |
-| 窗口尺寸 | `tauri.conf.json` → `app.windows[0]`（默认 1200×750） |
-| 图标 | 替换源图后 `npm run icon` |
-| 主题色 / 字体 | `app-shell.html` 顶部 `:root` CSS 变量 |
-| 菜单项 | `src-tauri/src/lib.rs` 的 `build_menu()` |
-| 界面文案 / 帮助文档 | `app-shell.html` 的 `I18N` / `HELP_STRINGS` |
-| 依赖版本 | `tools/fetch-vendor.mjs` 顶部 `VERSIONS`（改完 `npm run fetch -- --force`） |
+| App name / Bundle ID | `src-tauri/tauri.conf.json` → `productName` / `identifier` |
+| Window size | `tauri.conf.json` → `app.windows[0]` (default 1200×750) |
+| Icons | replace the source image, then `npm run icon` |
+| Theme colors / fonts | `:root` CSS variables atop `app-shell.html` |
+| Menu items | `build_menu()` in `src-tauri/src/lib.rs` |
+| UI strings / help doc | `I18N` / `HELP_STRINGS` in `app-shell.html` |
+| Dependency versions | `VERSIONS` atop `tools/fetch-vendor.mjs` (then `npm run fetch -- --force`) |
 
 ---
 
-## 📄 许可证
+## 📄 License
 
-本项目自身代码依据 **Apache License 2.0** 开源。
+This project's own code is open-sourced under the **Apache License 2.0**.
 
-- 完整许可证文本见 [LICENSE](./LICENSE)。
-- 第三方组件版权与许可证声明见 [NOTICE](./NOTICE)（marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown / mermaid / @retorquere/bibtex-parser 及 Tauri 等，各自遵循 MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0）。
-- 依据 Apache-2.0，再分发须保留 LICENSE 与 NOTICE，并在修改过的文件中标注改动。
+- Full license text: [LICENSE](./LICENSE).
+- Third-party component notices: [NOTICE](./NOTICE) (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown / mermaid / @retorquere/bibtex-parser and Tauri, etc., each under MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).
+- Under Apache-2.0, redistribution must retain LICENSE and NOTICE and indicate changes in modified files.
 
 ---
 
-## 📬 联系
+## 📬 Contact
 
-问题与建议欢迎联系：**郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>**
+For problems or suggestions: **郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>**
