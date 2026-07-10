@@ -73,7 +73,7 @@
   .tabs::-webkit-scrollbar { height: 4px; }
   .tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   .tab {
-    display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px;
+    display: inline-flex; align-items: center; gap: 6px; padding-block: 4px; padding-inline: 10px 6px;
     border-radius: 6px; font-size: 12px; color: var(--fg-muted); cursor: default;
     white-space: nowrap; flex: 0 1 180px; min-width: 96px; transition: background .12s, color .12s;
   }
@@ -99,7 +99,7 @@
   .btn.primary { background: var(--accent); color: var(--accent-fg); }
   .btn.primary:hover { filter: brightness(1.08); background: var(--accent); }
   .btn.active { background: var(--accent); color: var(--accent-fg); }
-  select.btn { padding-right: 9px; text-align: center; text-align-last: center; }
+  select.btn { padding-inline-end: 9px; text-align: center; text-align-last: center; }
 
   /* ---------- 主区域 ---------- */
   .main { flex: 1; display: grid; grid-template-columns: 1fr 5px 1fr; min-height: 0; }
@@ -162,16 +162,29 @@
   #preview a { color: var(--accent); text-decoration: none; }
   #preview a:hover { text-decoration: underline; }
   #preview strong { font-weight: 600; }
-  #preview ul, #preview ol { margin: 0 0 1em; padding-left: 2em; }
+  #preview ul, #preview ol { margin: 0 0 1em; padding-inline-start: 2em; }
   #preview li + li { margin-top: .25em; }
   #preview blockquote { margin: 0 0 1em; padding: 0 1em; color: var(--fg-muted);
-    border-left: .25em solid var(--border); }
+    border-inline-start: .25em solid var(--border); }
   #preview hr { border: 0; border-top: 1px solid var(--border); margin: 1.8em 0; }
   #preview code { font-family: var(--mono); font-size: .88em; background: var(--code-bg);
     padding: .2em .4em; border-radius: 5px; }
   #preview pre { background: var(--code-bg); padding: 14px 16px; border-radius: var(--radius);
     overflow-x: auto; margin: 0 0 1em; border: 1px solid var(--border); }
   #preview pre code { background: none; padding: 0; font-size: .85em; line-height: 1.5; }
+  /* RTL（<html dir="rtl">，如阿拉伯语）：代码块 / 行内代码 / LaTeX 公式始终保持 LTR，
+     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.1.0)等由 Unicode 双向算法
+     天然在 RTL 段落内保持 LTR，无需额外处理。
+     选择器含 #preview/.katex，buildStandaloneHtml 导出时会随样式一并收集，故导出文档同样生效。 */
+  html[dir="rtl"] #preview pre,
+  html[dir="rtl"] #preview code,
+  html[dir="rtl"] #preview .katex,
+  html[dir="rtl"] #preview .katex-display,
+  html[dir="rtl"] .help-body pre,
+  html[dir="rtl"] .help-body code { direction: ltr; unicode-bidi: isolate; text-align: start; }
+  /* RTL：方向性图标（左右箭头、侧边栏折叠等）水平镜像；给元素加 .rtl-mirror 即生效。
+     当前界面无此类图标，留作扩展钩子。 */
+  html[dir="rtl"] .rtl-mirror { transform: scaleX(-1); }
   #preview img { max-width: 100%; border-radius: var(--radius); }
   /* 图片与表格默认居中：所有「含图片」的段落/列表项/单元格/引用整体居中，
      不再用 only-child，避免「有的居中、有的靠左」的混排（所有含图块一律居中）。 */
@@ -186,13 +199,13 @@
   /* mermaid 图：包一层 .mermaid-wrap，居中、宽图横向滚动；错误回退为代码块 */
   #preview .mermaid-wrap { margin: 0 0 1em; text-align: center; overflow-x: auto; }
   #preview .mermaid-wrap > svg { max-width: 100%; height: auto; }
-  #preview .mermaid-err { color: #d33; font-family: var(--mono); font-size: .85em; text-align: left;
+  #preview .mermaid-err { color: #d33; font-family: var(--mono); font-size: .85em; text-align: start;
     background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; overflow-x: auto; }
   #preview th, #preview td { border: 1px solid var(--border); padding: 6px 13px; }
   #preview th { background: var(--bg-alt); font-weight: 600; }
   #preview tr:nth-child(2n) { background: var(--bg-alt); }
-  #preview li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.2em; }
-  #preview li input[type="checkbox"] { margin: 0 .5em 0 0; }
+  #preview li:has(> input[type="checkbox"]) { list-style: none; margin-inline-start: -1.2em; }
+  #preview li input[type="checkbox"] { margin: 0; margin-inline-end: .5em; }
   #preview .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
   .mdmath { display: block; } /* display 公式容器（包 .katex-display），便于折行重渲 */
   /* 超长 display 公式：wrapDisplayMath() 优先在顶层 = + - 处折行重渲为多行（gathered），
@@ -202,7 +215,7 @@
   .statusbar { display: flex; align-items: center; gap: 14px; padding: 4px 16px;
     font-size: 11px; color: var(--fg-muted); background: var(--bg-alt);
     border-top: 1px solid var(--border); }
-  .statusbar .right { margin-left: auto; display: flex; gap: 14px; }
+  .statusbar .right { margin-inline-start: auto; display: flex; gap: 14px; }
 
   /* ---------- 拖拽遮罩 ---------- */
   .dropmask { position: fixed; inset: 0; background: rgba(9,105,218,.12);
@@ -218,7 +231,7 @@
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* ---------- PDF 导出进度（非阻塞浮标）---------- */
-  #pdf-progress { position: fixed; right: 18px; bottom: 56px; background: var(--fg); color: var(--bg);
+  #pdf-progress { position: fixed; inset-inline-end: 18px; bottom: 56px; background: var(--fg); color: var(--bg);
     padding: 9px 16px; border-radius: 8px; font-size: 13px; box-shadow: var(--shadow); z-index: 150;
     display: none; align-items: center; gap: 9px; pointer-events: none; }
   #pdf-progress.show { display: flex; }
@@ -283,7 +296,7 @@
   .help-body .pron-line { font-size: 1.1em; background: var(--code-bg); padding: .5em .8em;
     border-radius: 6px; margin: 0 0 1em; }
   .help-body .pron-line code { font-size: 1em; background: none; padding: 0; }
-  .help-body ul, .help-body ol { margin: 0 0 .8em; padding-left: 1.6em; }
+  .help-body ul, .help-body ol { margin: 0 0 .8em; padding-inline-start: 1.6em; }
   .help-body li + li { margin-top: .2em; }
   .help-body code { font-family: var(--mono); font-size: .88em; background: var(--code-bg);
     padding: .12em .35em; border-radius: 4px; }
@@ -291,7 +304,7 @@
     overflow-x: auto; margin: 0 0 .9em; border: 1px solid var(--border); }
   .help-body pre code { background: none; padding: 0; font-size: .85em; }
   .help-body table { border-collapse: collapse; margin: 0 0 .9em; }
-  .help-body th, .help-body td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  .help-body th, .help-body td { border: 1px solid var(--border); padding: 5px 12px; text-align: start; }
   .help-body th { background: var(--bg-alt); font-weight: 600; }
   .help-body .contact { margin-top: 1em; padding: 12px 16px; background: var(--bg-alt);
     border: 1px solid var(--border); border-radius: 8px; }
@@ -312,9 +325,9 @@
   .pdf-capture h3 { font-size: 1.15em; }
   .pdf-capture p { margin: 0 0 .8em; text-align: justify; }
   .pdf-capture a { color: #0969da; }
-  .pdf-capture ul,.pdf-capture ol { margin: 0 0 .8em; padding-left: 2em; }
+  .pdf-capture ul,.pdf-capture ol { margin: 0 0 .8em; padding-inline-start: 2em; }
   .pdf-capture li + li { margin-top: .2em; }
-  .pdf-capture blockquote { margin: 0 0 .8em; padding: 0 1em; color: #555; border-left: .25em solid #ccc; }
+  .pdf-capture blockquote { margin: 0 0 .8em; padding: 0 1em; color: #555; border-inline-start: .25em solid #ccc; }
   .pdf-capture hr { border: 0; border-top: 1px solid #ccc; margin: 1.4em 0; }
   .pdf-capture code { font-family: var(--mono); font-size: .88em; background: #f6f8fa; padding: .15em .35em; border-radius: 4px; }
   .pdf-capture pre { background: #f6f8fa; padding: 12px 14px; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; }
@@ -337,16 +350,16 @@
   .cite a:hover { text-decoration: underline; }
   .bibliography { margin-top: 2em; padding-top: 1em; border-top: 1px solid var(--border); }
   .bibliography h2 { font-size: 1.15em; margin: 0 0 .6em; font-weight: 600; }
-  .biblist { list-style: none; padding-left: 0; margin: 0; }
-  .bibitem { margin: .4em 0; line-height: 1.55; padding-left: 2.6em; text-indent: -2.6em; }
+  .biblist { list-style: none; padding-inline-start: 0; margin: 0; }
+  .bibitem { margin: .4em 0; line-height: 1.55; padding-inline-start: 2.6em; text-indent: -2.6em; }
   .bibitem .bib-title { font-weight: 500; }
   .bibitem em { font-style: italic; }
   .bibitem.bib-flash { background: var(--border); border-radius: 4px; box-shadow: 0 0 0 4px var(--border); transition: background .2s; }
-  .bib-back { color: var(--accent); font-weight: 600; text-decoration: none; cursor: pointer; margin-right: 4px; }
+  .bib-back { color: var(--accent); font-weight: 600; text-decoration: none; cursor: pointer; margin-inline-end: 4px; }
   .bib-back:hover { text-decoration: underline; }
   .cite-jump-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
   .cite-jump-item {
-    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: start;
     padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
     background: var(--bg-alt); color: var(--fg); font: inherit; font-size: 13px; cursor: pointer;
   }
@@ -361,13 +374,13 @@
   /* 📚 文献库按钮浮层（已加载时点按钮弹出：更换 / 卸载） */
   .bib-wrap { position: relative; display: inline-flex; }
   .bib-pop {
-    position: absolute; top: calc(100% + 4px); right: 0; z-index: 50;
+    position: absolute; top: calc(100% + 4px); inset-inline-end: 0; z-index: 50;
     min-width: 168px; padding: 4px; border-radius: 8px;
     background: var(--bg-alt); border: 1px solid var(--border);
     box-shadow: 0 6px 20px rgba(0,0,0,.15);
   }
   .bib-pop-item {
-    display: block; width: 100%; text-align: left; padding: 7px 10px; margin: 0;
+    display: block; width: 100%; text-align: start; padding: 7px 10px; margin: 0;
     border: 0; border-radius: 5px; background: transparent; color: var(--fg);
     font: inherit; font-size: 13px; cursor: pointer;
   }
@@ -3288,6 +3301,9 @@ def fib(n):
     },
   };
   let curLang = "zh";
+  // 从右向左（RTL）语言集合：切换到这些语言时设 <html dir="rtl">，正文/标题/列表自动右起排版。
+  // 当前仅阿拉伯语(ar)；将来新增希伯来语(he)/乌尔都语(ur)/波斯语(fa) 等加进此集合即可。
+  const RTL_LANGS = new Set(["ar"]);
   function t(k) { return (I18N[curLang] && I18N[curLang][k]) || I18N.zh[k] || k; }
   function setLang(lang) {
     if (!I18N[lang]) lang = "zh";
@@ -3299,8 +3315,10 @@ def fib(n):
   }
   function applyLang() {
     document.documentElement.lang = curLang;
-    // 不做 RTL 翻转：所有语言（含阿拉伯语）均保持 LTR 布局，仅界面文案翻译。
-    // 阿拉伯字符本身在任何方向下都能正确成形，避免菜单/分栏/文字被翻转。
+    // RTL：阿拉伯语等从右向左语言设 <html dir="rtl">，正文/标题/列表自动右起排版、项目符号落最右；
+    // 代码块/行内代码/LaTeX 公式等内嵌 LTR 内容由样式表局部强制 direction:ltr（双向孤岛），不被整体镜像。
+    // 中文/英文/日韩等其余语言保持 dir="ltr"。逻辑边距一律用 inline-start/inline-end（见样式表）。
+    document.documentElement.dir = RTL_LANGS.has(curLang) ? "rtl" : "ltr";
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.getAttribute("data-i18n")); });
     document.querySelectorAll("[data-i18n-title]").forEach((el) => { el.title = t(el.getAttribute("data-i18n-title")); });
     document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.getAttribute("data-i18n-ph")); });
@@ -4612,7 +4630,7 @@ def fib(n):
     const mermaidBoot = mermaidSrc ?
       '<script>mermaid.initialize({startOnLoad:false,securityLevel:"strict",theme:(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"default")});<\/script>\n' +
       '<script>Array.from(document.querySelectorAll("pre code.language-mermaid")).forEach(function(el){var pre=el.parentElement,src=el.textContent;mermaid.render("mmd-"+Math.random().toString(36).slice(2),src).then(function(r){var d=document.createElement("div");d.className="mermaid-wrap";d.innerHTML=r.svg;pre.replaceWith(d);}).catch(function(e){var d=document.createElement("pre");d.className="mermaid-err";d.textContent=src+"\\n\\n"+(e&&e.message||e);pre.replaceWith(d);});});<\/script>\n' : "";
-    return '<!DOCTYPE html>\n<html lang="' + (curLang || "zh") + '">\n<head>\n<meta charset="UTF-8">\n' +
+    return '<!DOCTYPE html>\n<html lang="' + (curLang || "zh") + '" dir="' + (RTL_LANGS.has(curLang) ? "rtl" : "ltr") + '">\n<head>\n<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>' +
       escapeHtml(title || "MDeX") + '</title>\n' +
       '<link rel="stylesheet" href="' + KATEX_CDN + '/katex.min.css" crossorigin>\n' +
