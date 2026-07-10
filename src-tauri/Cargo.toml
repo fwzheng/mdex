@@ -1,0 +1,35 @@
+[package]
+name = "mdex"
+version = "1.1.0"
+description = "macOS 离线 Markdown 阅读编辑器"
+authors = ["郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>"]
+license = "Apache-2.0"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "mdex_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["sync"] }
+base64 = "0.22"
+
+# 仅 Windows/Linux：拦截“应用已运行时再双击文件”的第二个进程，把 argv 转给现有实例。
+# macOS 天然单实例（走 Apple Event），不需要此插件。
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = "s"

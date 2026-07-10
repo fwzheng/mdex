@@ -1,0 +1,75 @@
+MDeX
+Copyright 2026 郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>
+
+This product (MDeX) is licensed under the Apache License 2.0; it also bundles the
+third-party components listed below, each copyright its respective authors and used
+under its original license terms. When redistributing this product, this NOTICE file
+and the copyright/license statements of each component must be retained.
+
+本产品（MDeX）自身代码依据 Apache License 2.0 授权；同时包含以下第三方组件，
+其各自版权归对应作者所有，并按其原始许可证条款使用。再分发本产品时，须同时
+保留本 NOTICE 文件与各组件的版权/许可声明。
+
+================================================================================
+前端组件（构建时内联进 dist/index.html，运行时完全离线）
+================================================================================
+
+marked  12.0.2
+  Copyright (c) 2011-2024, Christopher Jeffrey.
+  License: MIT — https://opensource.org/license/mit
+
+KaTeX  0.16.11
+  Copyright (c) 2013-2020 Khan Academy and other contributors.
+  License: MIT — https://opensource.org/license/mit
+
+highlight.js  11.9.0
+  Copyright (c) 2006-2023, Ivan Sagalaev and contributors.
+  License: BSD-3-Clause — https://opensource.org/license/bsd-3-clause
+
+DOMPurify  3.1.6
+  Copyright (c) Cure53 and other contributors.
+  License: Apache-2.0 OR MPL-2.0
+  （本项目按 Apache-2.0 方式使用）
+
+jsPDF  2.5.2
+  Copyright (c) 2010-2021 James Hall <james@parall.ax> and contributors.
+  License: MIT — https://opensource.org/license/mit
+
+html2canvas-pro  1.5.3
+  Copyright (c) 2024 yorickshan; based on html2canvas by Niklas von Hertzen.
+  License: MIT — https://opensource.org/license/mit
+
+Mermaid  10.9.3
+  Copyright (c) 2014-2024 Knut Sveidqvist and Mermaid contributors.
+  License: MIT — https://opensource.org/license/mit
+
+================================================================================
+Rust / Tauri 组件（Cargo 依赖）
+================================================================================
+
+Tauri (tauri, tauri-build, tauri-utils, tauri-runtime, tauri-runtime-wry,
+tauri-plugin-dialog, tauri-plugin-fs 等)
+  Copyright (c) the Tauri Programme and contributors.
+  License: Apache-2.0 OR MIT
+
+wry / tao
+  Copyright (c) the Tauri Programme and contributors.
+  License: Apache-2.0 OR MIT (tao: Apache-2.0)
+
+tokio
+  Copyright (c) Tokio Contributors.
+  License: MIT
+
+serde / serde_json
+  Copyright (c) serde-rs and contributors.
+  License: MIT OR Apache-2.0
+
+base64
+  Copyright (c) Alice Maz and contributors.
+  License: MIT OR Apache-2.0
+
+================================================================================
+联系方式
+================================================================================
+
+问题与建议欢迎联系：郑法伟 <fwzheng@bit.edu.cn>
