@@ -1,3 +1,6 @@
+**Languages: [English](README.md) | [简体中文](README.zh-CN.md)**
+
+
 # MDeX (macOS · Windows · Linux · Fully Offline · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
