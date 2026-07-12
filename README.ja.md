@@ -1,12 +1,12 @@
 <details>
 <summary><b>🌐 言語：日本語</b> — クリックして他の言語を選択</summary>
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · **[日本語](README.ja.md)** · [한국어](README.ko.md) · [العربية](README.ar.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · **[日本語](README.ja.md)** · [한국어](README.ko.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [ਪੰਜਾਬੀ](README.pa.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md) · [اردو](README.ur.md) · [Монгол (Кирилл)](README.mn.md)
 
 </details>
 
 
-# MDeX (macOS · Windows · Linux · 完全オフライン · Tauri v2)
+# MDeX v1.2.0 (macOS · Windows · Linux · 完全オフライン · Tauri v2)
 
 > **MDeX** · 「エム・デックス」と発音します（/ˌemˈdɛks/）— アルファベットの M に続けて「dex」、2音節です。
 
@@ -22,11 +22,11 @@
 
 ## 🌐 言語
 
-インターフェースは **11 言語** で提供されます: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية.
+インターフェースは **17 言語** で提供されます: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл).
 
 - ツールバーの言語メニューからいつでも切り替えできます。選択はセッションをまたいで記憶されます。
 - **العربية（アラビア語）は自動的に右から左（RTL）へ表示されます** — 本文、見出し、リストマーカー、ツールバー全体が右側に反転します。埋め込みのコードブロック、LaTeX 数式、英語の用語、バージョン番号は左から右のままで、反転しません。
-- この README 自体も全 11 言語に翻訳されています — このページの最上部にあるセレクタをご利用ください。
+- この README 自体も全 17 言語に翻訳されています — このページの最上部にあるセレクタをご利用ください。
 
 ---
 
@@ -43,11 +43,14 @@
 - **テーブル**: GFM テーブル。狭いテーブルは内容に合わせて中央寄せ、広いテーブルは切り詰めなしで水平スクロールします。
 - **引用（BibTeX）**: `[@key]` / `\cite{key}` 構文、数字スタイル。末尾に参考文献リストを生成し、本文中の `[n]` と項目を双方向ジャンプで結びます。埋め込みの ` ```bibtex ` ブロックや、別途読み込んだ `.bib` に対応します。
 - **HTML サポート**: `.html` ファイルを開いてレンダリング。HTML と Markdown 間の相互変換も可能。
-- **テーマ / 言語**: ダーク / ライト、**11 の UI 言語**（中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية — アラビア語は自動で右から左へ）。
+- **テーマ / 言語**: ダーク / ライト、**17 の UI 言語**（中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл) — アラビア語とウルドゥー語は自動で右から左へ）。
 - **自動下書き**: 内容を定期的に保存し、予期しない終了 / クラッシュ後に復元します。
 - **文字数カウント**: ステータスバーに 文字 / 行 / 単語 をライブ表示し、現在の行と列も表示します。
 - **ドラッグ＆ドロップ**: `.md` ファイルをウィンドウにドロップして開き、画像をドロップして挿入します。
 - **エクスポート**: Markdown / HTML / PDF（ベクター＋ラスター）/ LaTeX で保存。
+- **文字色**：ツールバーのパレットが選択範囲を `<span style="color:…">` で囲みます。
+- **戻る / 進む**：ドキュメントとカーソル位置の統合履歴；◀ ▶ ボタン、`Alt+←/→`。
+- **リンクをたどる**：プレビュー内のリンクをクリックすると新しいタブで開きます（http はシステムブラウザ）。現在のドキュメントは置き換わりません。
 
 ---
 
@@ -110,55 +113,31 @@ macOS では `⌘`、Windows / Linux では `Ctrl` を使います。
 ## 📦 インストール
 
 ### ビルド済みダウンロード
-[Releases](./) から各プラットフォームのインストーラを取得してください: macOS（`.dmg`、universal arm64 + x86_64）、Windows（`.exe` / `.msi`）、Linux（`.deb` / `.AppImage`）。
+いずれかのソースからお使いのプラットフォームのインストーラをダウンロード:
+
+- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
+- **ミラーサイト**: <https://www.spinss.cn/>
+
+macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
 
 ### macOS で署名なしアプリを開く（Gatekeeper をバイパス）
-このアプリはデベロッパ署名 / 公証を受けていません（オフライン環境では通常、オンライン公証ができません）。初回起動はブロックされます — いずれかを選んでください:
 
-- **CLI（推奨）**: `.app` をアプリケーションにドラッグした後、
-  ```bash
-  xattr -dr com.apple.quarantine "/Applications/MDeX.app"
-  ```
-- **GUI**: Finder で `.app` を右クリック → 「開く」→ ダイアログで再度「開く」。または「システム設定 → プライバシーとセキュリティ」→ 下にスクロール → 「このまま開く」。
+このアプリはデベロッパ署名 / 公証を受けて**いません**（オフライン環境では通常、オンライン公証ができません）。macOS 12+、**とくに macOS 26 (Tahoe)** では、`.dmg` から直接起動したり、コピー直後のビルドを起動すると **"MDeX.app is damaged and can't be opened."** で失敗します。これは Gatekeeper の動作であり、実際の破損ではありません。Terminal で修正してください:
+
+1. **まず `MDeX.app` を `.dmg` から `/Applications` へドラッグしてください** — dmg から直接実行してはいけません（App Translocation と `com.apple.provenance` 属性の原因になり、これが macOS 26 で「破損」と表示される本当の原因です）。
+2. 属性を消去して再署名します:
+   ```bash
+   xattr -cr /Applications/MDeX.app
+   codesign --force --deep --sign - /Applications/MDeX.app
+   ```
+   > `com.apple.provenance` は SIP で保護されており、`sudo` を使っても削除**できません**。再署名すると署名がリセットされ、Gatekeeper が起動を許可します。`spctl` はアドホック署名に対して `rejected` を報告し続けますが、これは想定通りで、`open` は**ブロックされません**。
+3. `open /Applications/MDeX.app` で起動してください（またはダブルクリック）。初回起動で一度だけプロンプトが出る場合があります — **システム設定 → プライバシーとセキュリティ → このまま開く** で確認するか、アプリを右クリック → **開く** で進めてください。
 
 ---
 
 ## 🛠️ ソースからビルド
 
-### 1回限りのセットアップ（macOS）
-```bash
-xcode-select --install                       # Xcode command-line tools
-rustup target add aarch64-apple-darwin x86_64-apple-darwin   # both needed for universal
-npm install                                  # Tauri cli
-npm run fetch                                # download frontend deps into vendor/ (online only here)
-```
-
-### ローカル開発
-```bash
-npm run tauri dev        # builds dist/index.html, then launches the app window
-```
-
-### ビルド
-```bash
-# Apple Silicon only (faster)
-npm run tauri build
-
-# Universal binary (Apple Silicon + Intel, for distribution)
-npm run tauri build -- --target universal-apple-darwin
-```
-
-出力:
-```
-src-tauri/target/universal-apple-darwin/release/bundle/
-├── macos/MDeX.app
-└── dmg/MDeX_1.1.0_universal.dmg
-```
-
-### Windows / Linux / クロスプラットフォーム
-- **ネイティブ Windows ビルド**（NSIS `.exe` インストーラを生成）: [BUILD-WINDOWS.md](./BUILD-WINDOWS.md) を参照。
-- **Linux / macOS Intel / その他クロスプラットフォーム**: [BUILD-CROSS.md](./BUILD-CROSS.md) を参照。
-
-フロントエンドの `dist/index.html` はプラットフォーム間で変更不要。ターゲット OS 上でバンドリングを調整するだけです（`tauri.conf.json` の `bundle.targets` に `nsis` / `deb` / `appimage` を追加、加えて WebView2 / webkit2gtk などのシステム依存物）。
+ソースコード: <https://github.com/fwzheng/mdex>. ビルド手順はリポジトリ内の説明に従ってください（セットアップ・依存関係・ビルドコマンドはそちらに記載）。
 
 ---
 
@@ -200,11 +179,11 @@ markdown/
 
 ## 📄 ライセンス
 
-本プロジェクト自身のコードは **Apache License 2.0** の下でオープンソース化されています。
+本プロジェクト自身のコードは **Apache License 2.0** でオープンソースです。
 
-- ライセンス全文: [LICENSE](./LICENSE)。
-- サードパーティコンポーネントの表記: [NOTICE](./NOTICE)（marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown / mermaid / @retorquere/bibtex-parser および Tauri など。それぞれ MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0 の下にあります）。
-- Apache-2.0 の下では、再配布にあたり LICENSE と NOTICE を保持し、変更したファイルには変更内容を示す必要があります。
+サードパーティコンポーネント：本プロジェクトは一部のサードパーティコンポーネント（marked、KaTeX、highlight.js、DOMPurify、jsPDF、html2canvas-pro、turndown、mermaid、@retorquere/bibtex-parser、Tauri など）を使用しています。それぞれの著作権およびライセンス表記は該当ソースファイルを参照してください。これらのコンポーネントはそれぞれ MIT、BSD-3-Clause、Apache-2.0、MPL-2.0 などのオープンソースライセンスに従います。
+
+配布要件：Apache-2.0 ライセンスに基づき、本プロジェクトを再配布する場合は LICENSE および NOTICE ファイルを保持してください。ソースファイルを改変した場合は、該当ファイルに明確にその旨を記載してください。
 
 ---
 

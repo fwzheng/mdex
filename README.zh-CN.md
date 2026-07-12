@@ -1,11 +1,11 @@
 <details>
 <summary><b>🌐 语言：简体中文</b> —— 点击切换其它语言</summary>
 
-[English](README.md) · **[简体中文](README.zh-CN.md)** · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [العربية](README.ar.md)
+[English](README.md) · **[简体中文](README.zh-CN.md)** · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [ਪੰਜਾਬੀ](README.pa.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md) · [اردو](README.ur.md) · [Монгол (Кирилл)](README.mn.md)
 
 </details>
 
-# MDeX（macOS · Windows · Linux · 完全离线 · Tauri v2）
+# MDeX v1.2.0（macOS · Windows · Linux · 完全离线 · Tauri v2）
 
 > **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
 
@@ -21,11 +21,11 @@
 
 ## 🌐 语言
 
-界面提供 **11 种语言**：简体中文、English、Français、Deutsch、Español、Português、Italiano、Русский、日本語、한국어、العربية。
+界面提供 **17 种语言**：简体中文、English、Français、Deutsch、Español、Português、Italiano、Русский、日本語、한국어、العربية、हिन्दी、ਪੰਜਾਬੀ、Tiếng Việt、Bahasa Indonesia、اردو、Монгол (Кирилл)。
 
 - 随时在工具栏「语言」菜单切换，选择会被记忆、跨会话保留。
 - **阿拉伯语自动从右向左（RTL）排版**——正文、标题、列表符号以及整个工具栏镜像到右侧；内嵌的代码块、LaTeX 公式、英文术语与版本号始终保持左到右（LTR），绝不被翻转。
-- 本 README 本身也已翻译为全部 11 种语言——请用本页最顶部的选择器切换。
+- 本 README 本身也已翻译为全部 17 种语言——请用本页最顶部的选择器切换。
 
 ---
 
@@ -42,11 +42,14 @@
 - **表格**：GFM 表格；窄表按内容居中，宽表在容器内横向滚动，不被裁切。
 - **文献引用（BibTeX）**：`[@key]` / `\cite{key}` 写法，numeric 风格，文末自动生成「参考文献」表，正文 [n] 与条目**双向跳转**；支持文档内嵌 ` ```bibtex ` 块或单独加载 `.bib` 库。
 - **HTML 支持**：可直接打开 `.html` 渲染预览；支持 HTML ↔ Markdown 互转。
-- **主题 / 语言**：深色 / 浅色主题，**11 种界面语言**（中文、English、Français、Deutsch、Русский、Italiano、日本語、한국어、Español、Português、العربية——阿拉伯语自动右到左）。
+- **主题 / 语言**：深色 / 浅色主题，**17 种界面语言**（中文、English、Français、Deutsch、Русский、Italiano、日本語、한국어、Español、Português、العربية、हिन्दी、ਪੰਜਾਬੀ、Tiếng Việt、Bahasa Indonesia、اردو、Монгол (Кирилл)——阿拉伯语、乌尔都语自动右到左）。
 - **自动草稿**：内容定时暂存，意外关闭 / 崩溃后可恢复。
 - **字数统计**：状态栏实时显示字数 / 行数 / 词数 / 字符数，及当前行列号。
 - **拖拽打开**：拖拽 `.md` 文件到窗口直接打开；拖拽图片直接插入。
 - **多格式导出**：另存为 Markdown / HTML / PDF（矢量打印 + 高清位图）/ LaTeX。
+- **文字颜色**：工具栏色板把选区包成 `<span style="color:…">`（行内彩色）。
+- **前进 / 返回**：跨文档与光标位置的统一导航历史；◀ ▶ 按钮，`Alt+←/→`。
+- **跟随链接**：预览中点链接在**新标签页**打开目标文件（http 链接走系统浏览器），当前文档不被替换。
 
 ---
 
@@ -109,55 +112,31 @@ macOS 用 `⌘`，Windows / Linux 用 `Ctrl`。
 ## 📦 安装
 
 ### 下载预编译包
-从 [Releases](./) 下载对应平台安装包：macOS（`.dmg`，通用 arm64+x86_64）、Windows（`.exe` / `.msi`）、Linux（`.AppImage` / `.deb` / '.rpm'）。
+从任一来源下载对应平台的安装包:
+
+- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
+- **备用站点**: <https://www.spinss.cn/>
+
+macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
 
 ### macOS 打开未签名程序（绕过 Gatekeeper）
-本程序未做开发者签名 / 公证（离线场景通常无法联网公证）。首次打开会被拦截，任选其一：
 
-- **命令行（推荐）**：把 `.app` 拖进「应用程序」后
-  ```bash
-  xattr -dr com.apple.quarantine "/Applications/MDeX.app"
-  ```
-- **图形界面**：Finder 里右键 `.app` →「打开」→ 弹窗里再点「打开」；或「系统设置 → 隐私与安全性」→ 拉到底点「仍要打开」。
+本程序**未做**开发者签名 / 公证（离线场景通常无法联网公证）。在 macOS 12+，**尤其是 macOS 26（Tahoe）** 上，从 `.dmg` 直接运行、或刚复制出来的副本会报 **"MDeX.app is damaged and can't be opened"（已损坏，无法打开）**——这是 Gatekeeper 拦截，并非真的损坏。在终端执行：
+
+1. **先把 `MDeX.app` 从 `.dmg` 拖到 `/Applications`（应用程序）**——切勿直接在 dmg 里双击运行（会触发 App Translocation 与 `com.apple.provenance` 属性，这才是 macOS 26 上「已损坏」的真因）。
+2. 清除属性并重新签名：
+   ```bash
+   xattr -cr /Applications/MDeX.app
+   codesign --force --deep --sign - /Applications/MDeX.app
+   ```
+   > `com.apple.provenance` 受 SIP 保护，**即使 `sudo` 也删不掉**；重新签名会重置签名链，使 Gatekeeper 放行。`spctl` 对 ad-hoc 签名会显示 `rejected`——属正常，**不影响** `open` 启动。
+3. 用 `open /Applications/MDeX.app` 启动（或双击）。首次打开可能仍提示一次——到「系统设置 → 隐私与安全性 → 仍要打开」确认，或右键 `.app` →「打开」。
 
 ---
 
 ## 🛠️ 从源码构建
 
-### 环境准备（一次性，macOS）
-```bash
-xcode-select --install                       # Xcode 命令行工具
-rustup target add aarch64-apple-darwin x86_64-apple-darwin   # 通用二进制需要两个
-npm install                                  # Tauri CLI
-npm run fetch                                # 下载前端依赖到 vendor/（仅此一步联网）
-```
-
-### 本地开发
-```bash
-npm run tauri dev        # 先 build dist/index.html，再启动应用窗口
-```
-
-### 构建
-```bash
-# 仅 Apple Silicon（更快）
-npm run tauri build
-
-# 通用二进制（Apple Silicon + Intel，交付用）
-npm run tauri build -- --target universal-apple-darwin
-```
-
-产物：
-```
-src-tauri/target/universal-apple-darwin/release/bundle/
-├── macos/MDeX.app
-└── dmg/MDeX_1.1.0_universal.dmg
-```
-
-### Windows / Linux / 跨平台
-- **Windows 原生编译**（产出 NSIS `.exe` 安装器）：见 [BUILD-WINDOWS.md](./BUILD-WINDOWS.md)。
-- **Linux / macOS Intel / 其它跨平台**：见 [BUILD-CROSS.md](./BUILD-CROSS.md)。
-
-前端 `dist/index.html` 跨平台无需改动；只需在目标平台调整打包配置（`tauri.conf.json` 的 `bundle.targets` 增 `nsis` / `deb` / `appimage`，并安装 WebView2 / webkit2gtk 等系统依赖）。
+源代码: <https://github.com/fwzheng/mdex>. 请按照仓库中的说明进行编译（初始环境、依赖与构建命令均在仓库文档中）。
 
 ---
 
@@ -199,11 +178,11 @@ markdown/
 
 ## 📄 许可证
 
-本项目自身代码依据 **Apache License 2.0** 开源。
+本项目自身代码遵循 **Apache License 2.0 协议**开源。
 
-- 完整许可证文本见 [LICENSE](./LICENSE)。
-- 第三方组件版权与许可证声明见 [NOTICE](./NOTICE)（marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown / mermaid / @retorquere/bibtex-parser 及 Tauri 等，各自遵循 MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0）。
-- 依据 Apache-2.0，再分发须保留 LICENSE 与 NOTICE，并在修改过的文件中标注改动。
+第三方组件：项目使用了部分第三方组件（包括但不限于 marked、KaTeX、highlight.js、DOMPurify、jsPDF、html2canvas-pro、turndown、mermaid、@retorquere/bibtex-parser 及 Tauri 等），其版权与许可证声明详见各源码文件。上述组件分别遵循 MIT、BSD-3-Clause、Apache-2.0 及 MPL-2.0 等开源协议。
+
+分发要求：依据 Apache-2.0 协议规定，对本项目进行再分发时，须保留 LICENSE 与 NOTICE 文件；若修改过源文件，须在相应文件中作出明确标注。
 
 ---
 

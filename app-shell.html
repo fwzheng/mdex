@@ -93,6 +93,7 @@
     border-radius: 6px; cursor: default; display: inline-flex; align-items: center;
     justify-content: center; gap: 5px; line-height: 1; white-space: nowrap; transition: background .12s;
   }
+  .btn:disabled, .btn[disabled] { opacity: .38; cursor: default; pointer-events: none; }
   .btn:hover { background: var(--border); }
   .btn:active { background: var(--accent); color: var(--accent-fg); }
   .btn.icon { padding: 5px 8px; font-weight: 600; min-width: 30px; }
@@ -132,8 +133,25 @@
     flex: 1; width: 100%; border: 0; outline: 0; resize: none; padding: 20px 24px;
     font-family: var(--mono); font-size: 14px; line-height: 1.7;
     background: var(--bg); color: var(--fg); tab-size: 2;
+    position: relative; z-index: 1;
   }
   #editor.colsel-active { caret-color: transparent; }
+  /* 编辑器搜索高亮覆盖层：与 textarea 同字体/内边距/行高，叠在上方；文字透明，仅 <mark> 显底色 */
+  .editor-area { position: relative; flex: 1; min-height: 0; display: flex; }
+  #editor-hl {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden;
+    box-sizing: border-box; padding: 20px 24px; margin: 0; border: 0;
+    font-family: var(--mono); font-size: 14px; line-height: 1.7; tab-size: 2;
+    white-space: pre-wrap; word-break: break-word; color: transparent;
+  }
+  #editor-hl mark.search-mark { background: rgba(255, 213, 79, .45); color: transparent; border-radius: 2px; }
+  #editor-hl mark.search-mark.current { background: rgba(255, 152, 0, .9); animation: search-flash .9s ease-out; }
+  #preview mark.search-mark { background: rgba(255, 213, 79, .5); border-radius: 2px; }
+  #preview mark.search-mark.current { background: rgba(255, 152, 0, .85); animation: search-flash .9s ease-out; }
+  @keyframes search-flash {
+    0% { background: rgba(255, 82, 28, 1); } 35% { background: rgba(255, 152, 0, .85); }
+    65% { background: rgba(255, 82, 28, 1); } 100% { background: rgba(255, 152, 0, .85); }
+  }
 
   /* ---------- 搜索替换栏 ---------- */
   #search-bar { background: var(--bg-alt); border-bottom: 1px solid var(--border); padding: 6px 10px; flex: none; }
@@ -173,7 +191,7 @@
     overflow-x: auto; margin: 0 0 1em; border: 1px solid var(--border); }
   #preview pre code { background: none; padding: 0; font-size: .85em; line-height: 1.5; }
   /* RTL（<html dir="rtl">，如阿拉伯语）：代码块 / 行内代码 / LaTeX 公式始终保持 LTR，
-     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.1.0)等由 Unicode 双向算法
+     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.2.0)等由 Unicode 双向算法
      天然在 RTL 段落内保持 LTR，无需额外处理。
      选择器含 #preview/.katex，buildStandaloneHtml 导出时会随样式一并收集，故导出文档同样生效。 */
   html[dir="rtl"] #preview pre,
@@ -296,6 +314,8 @@
   .help-body .pron-line { font-size: 1.1em; background: var(--code-bg); padding: .5em .8em;
     border-radius: 6px; margin: 0 0 1em; }
   .help-body .pron-line code { font-size: 1em; background: none; padding: 0; }
+  .help-body .help-links { margin-top: -.3em; font-size: .92em; color: var(--fg-muted); }
+  .help-body .help-links a { color: var(--accent); }
   .help-body ul, .help-body ol { margin: 0 0 .8em; padding-inline-start: 1.6em; }
   .help-body li + li { margin-top: .2em; }
   .help-body code { font-family: var(--mono); font-size: .88em; background: var(--code-bg);
@@ -385,6 +405,21 @@
     font: inherit; font-size: 13px; cursor: pointer;
   }
   .bib-pop-item:hover { background: var(--border); }
+  /* 文字颜色选择器（工具栏下拉色板） */
+  .color-wrap { position: relative; display: inline-flex; }
+  .color-pop {
+    position: absolute; top: calc(100% + 4px); inset-inline-start: 0; z-index: 50;
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+    padding: 7px; border-radius: 8px;
+    background: var(--bg-alt); border: 1px solid var(--border);
+    box-shadow: 0 6px 20px rgba(0,0,0,.15);
+  }
+  .color-pop[hidden] { display: none; } /* display:grid 会盖过 UA 的 [hidden]，须显式让 hidden 生效，否则点按钮无反应 */
+  .color-sw {
+    width: 22px; height: 22px; padding: 0; border: 1px solid var(--border);
+    border-radius: 5px; cursor: pointer; transition: transform .08s;
+  }
+  .color-sw:hover { transform: scale(1.18); }
 </style>
 </head>
 <body>
@@ -397,6 +432,8 @@
     <button class="btn" data-act="close-file" data-i18n="closeFile" data-i18n-title="closeFile">关闭</button>
     <button class="btn" data-act="save" data-i18n="save" data-i18n-title="save">保存</button>
     <button class="btn" data-act="save-as" data-i18n="saveAs" data-i18n-title="saveAs">另存为</button>
+    <button class="btn icon" id="undo-btn" title="撤销"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h8a6 6 0 0 1 6 6"/></svg></button>
+    <button class="btn icon" id="redo-btn" title="重做"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M20 9h-8a6 6 0 0 0-6 6"/></svg></button>
   </div>
   <div class="sep"></div>
   <div class="group group-fmt">
@@ -416,6 +453,12 @@
     <button class="btn icon" data-md="table" data-i18n-title="table">▦</button>
     <button class="btn icon" data-md="formula" data-i18n-title="formula">∑</button>
     <button class="btn icon" data-md="hr" data-i18n-title="hr">―</button>
+  </div>
+  <div class="group">
+    <span class="color-wrap">
+      <button class="btn icon" id="color-btn" title="文字颜色"><svg width="18" height="18" viewBox="0 0 24 24"><defs><linearGradient id="cg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#e03131"/><stop offset="100%" stop-color="#1971c2"/></linearGradient></defs><text x="12" y="18" text-anchor="middle" font-size="16" font-weight="700" font-family="sans-serif" fill="url(#cg)">A</text></svg></button>
+      <div class="color-pop" id="color-pop" hidden></div>
+    </span>
   </div>
   <div class="spacer"></div>
   <div class="group">
@@ -450,7 +493,10 @@
         <button class="btn" id="replace-all-btn" data-i18n="replaceAll">全部替换</button>
       </div>
     </div>
-    <textarea id="editor" spellcheck="false" data-i18n-ph="ph" placeholder=""></textarea>
+    <div class="editor-area">
+      <div id="editor-hl" aria-hidden="true"></div>
+      <textarea id="editor" spellcheck="false" data-i18n-ph="ph" placeholder=""></textarea>
+    </div>
   </div>
   <div class="gutter" id="gutter"></div>
   <div class="pane" id="pane-preview">
@@ -540,7 +586,7 @@
   </div>
 </div>
 
-<!-- 示例文档模板（11 语言 × 3 文档）。getSampleDoc(kind) 按 curLang 取 id=`{kind}-example-tpl-{lang}`，回退 zh -->
+<!-- 示例文档模板（17 语言 × 3 文档）。getSampleDoc(kind) 按 curLang 取 id=`{kind}-example-tpl-{lang}`，回退 zh -->
 <script type="text/plain" id="cite-example-tpl-zh"># 文献引用示例
 
 本示例演示 BibTeX 文献引用。文献库已**内嵌**在文末的 `bibtex` 代码块里，无需单独加载 .bib 即可渲染；也可删掉它改用工具栏「文献」按钮加载外部 .bib。
@@ -1228,6 +1274,396 @@ O bloco `bibtex` abaixo é extraído para construir a base de referências, não
 ## قاعدة المراجع المضمّنة (مكتفية ذاتيًا، غير مرئية في المعاينة)
 
 سيتم استخراج كتلة `bibtex` التالية لبناء قاعدة المراجع، ولن تظهر في منطقة المعاينة:
+
+```bibtex
+@article{gootenberg2017,
+  author  = {Gootenberg, Jonathan S. and Abudayyeh, Omar O. and Lee, Winston and others},
+  title   = {Highly multiplexed {RNA} detection with {SHERLOCK}},
+  journal = {Science},
+  year    = {2017},
+  volume  = {360},
+  number  = {6389},
+  pages   = {439--444}
+}
+@article{jinek2012,
+  author  = {Jinek, Martin and Chylinski, Krzysztof and Fonfara, Ines and Hauer, Michael and Doudna, Jennifer A.},
+  title   = {A programmable dual-{RNA}-guided {DNA} endonuclease in adaptive bacterial immunity},
+  journal = {Science},
+  year    = {2012},
+  volume  = {337},
+  pages   = {816--821}
+}
+@inproceedings{lowe1999,
+  author    = {Lowe, David G.},
+  title     = {Object recognition from local scale-invariant features},
+  booktitle = {Proceedings of the IEEE International Conference on Computer Vision},
+  year      = {1999},
+  pages     = {1150--1157}
+}
+```
+</script>
+<script type="text/plain" id="cite-example-tpl-hi"># उद्धरण उदाहरण
+
+यह उदाहरण BibTeX उद्धरण प्रदर्शित करता है। ग्रंथ-सूची दस्तावेज़ के अंत में `bibtex` कोड ब्लॉक में **अंतर्निहित** है, अतः रेंडर हेतु अलग .bib आवश्यक नहीं; आप इसे हटाकर टूलबार "संदर्भ" बटन से बाहरी .bib भी लोड कर सकते हैं।
+
+## 1. मूल उद्धरण
+
+CRISPR-Cas9 जीन-संपादन उपकरण पहले रिपोर्ट किया गया [@jinek2012], तत्पश्चात SHERLOCK पहचान प्लेटफ़ॉर्म विकसित हुआ [@gootenberg2017]।
+
+## 2. एकाधिक संदर्भ (अर्ध-विराम से विभाजित)
+
+दो सफलताएँ—जीन संपादन तथा न्यूक्लिक-अम्ल पहचान [@jinek2012; @gootenberg2017]—ने आण्विक जीवविज्ञान को आगे बढ़ाया।
+
+## 3. निर्देशक (locator) सहित
+
+विशिष्ट तंत्र के लिए [@jinek2012, p. 816] देखें।
+
+## 4. एक ही संदर्भ के बार-बार उद्धरण
+
+SHERLOCK प्लेटफ़ॉर्म [@gootenberg2017] का क्षेत्र-निदान में कई बार उपयोग हुआ [@gootenberg2017, p. 440]।
+
+## 5. LaTeX-संगत सिंटैक्स
+
+पारंपरिक LaTeX कमांड भी प्रयोग कर सकते हैं: \cite{lowe1999} ने SIFT विशेषताएँ प्रस्तुत कीं।
+
+## 6. अज्ञात संदर्भ
+
+पुस्तकालय में अनुपस्थित कुंजी प्रश्न-चिह्न की भाँति रेंडर होती है [@nonexistent2024], LaTeX के [?] व्यवहार के समान।
+
+## 7. निर्देशक सहित एकाधिक कुंजी
+
+निर्देशक सहित एकाधिक कुंजी (निर्देशक संपूर्ण समूह पर लागू): [@jinek2012; @gootenberg2017, p. 440] → [1, 2, p. 440]।
+
+---
+
+## अंतर्निहित ग्रंथ-सूची (स्व-निहित, पूर्वावलोकन में छिपी)
+
+नीचे `bibtex` ब्लॉक ग्रंथ-सूची बनाने निकाला जाता है, अतः पूर्वावलोकन क्षेत्र में दिखाई नहीं देता:
+
+```bibtex
+@article{gootenberg2017,
+  author  = {Gootenberg, Jonathan S. and Abudayyeh, Omar O. and Lee, Winston and others},
+  title   = {Highly multiplexed {RNA} detection with {SHERLOCK}},
+  journal = {Science},
+  year    = {2017},
+  volume  = {360},
+  number  = {6389},
+  pages   = {439--444}
+}
+@article{jinek2012,
+  author  = {Jinek, Martin and Chylinski, Krzysztof and Fonfara, Ines and Hauer, Michael and Doudna, Jennifer A.},
+  title   = {A programmable dual-{RNA}-guided {DNA} endonuclease in adaptive bacterial immunity},
+  journal = {Science},
+  year    = {2012},
+  volume  = {337},
+  pages   = {816--821}
+}
+@inproceedings{lowe1999,
+  author    = {Lowe, David G.},
+  title     = {Object recognition from local scale-invariant features},
+  booktitle = {Proceedings of the IEEE International Conference on Computer Vision},
+  year      = {1999},
+  pages     = {1150--1157}
+}
+```
+</script>
+<script type="text/plain" id="cite-example-tpl-pa"># ਹਵਾਲਾ ਉਦਾਹਰਣ
+
+ਇਹ ਉਦਾਹਰਣ BibTeX ਹਵਾਲਿਆਂ ਨੂੰ ਦਰਸਾਉਂਦੀ ਹੈ। ਗ੍ਰੰਥ-ਸੂਚੀ ਦਸਤਾਵੇਜ਼ ਦੇ ਅੰਤ ਵਿੱਚ `bibtex` ਕੋਡ ਬਲਾਕ ਵਿੱਚ **ਅੰਤਰੀਕ੍ਰਿਤ** ਹੈ, ਇਸ ਲਈ ਰੈਂਡਰ ਲਈ ਵੱਖਰੀ .bib ਨਹੀਂ ਚਾਹੀਦੀ; ਤੁਸੀਂ ਇਸਨੂੰ ਹਟਾ ਕੇ ਟੂਲਬਾਰ “ਹਵਾਲੇ” ਬਟਨ ਤੋਂ ਬਾਹਰੀ .bib ਵੀ ਲੋਡ ਕਰ ਸਕਦੇ ਹੋ।
+
+## 1. ਮੂਲ ਹਵਾਲਾ
+
+CRISPR-Cas9 ਜੀਨ-ਸੰਪਾਦਨ ਸੰਦ ਪਹਿਲਾਂ ਰਿਪੋਰਟ ਕੀਤਾ ਗਿਆ [@jinek2012], ਜਿਸ ਤੋਂ ਬਾਅਦ SHERLOCK ਖੋਜ ਪਲੇਟਫਾਰਮ ਵਿਕਸਿਤ ਹੋਇਆ [@gootenberg2017]।
+
+## 2. ਕਈ ਹਵਾਲੇ (ਸੈਮੀ-ਕਾਲਨ ਨਾਲ ਵੱਖ)
+
+ਦੋ ਸਫਲਤਾਵਾਂ—ਜੀਨ ਸੰਪਾਦਨ ਤੇ ਨਿਊਕਲੀਕ ਤੇਜ਼ਾਬ ਖੋਜ [@jinek2012; @gootenberg2017]—ਨੇ ਅਣੂ ਜੀਵ ਵਿਗਿਆਨ ਨੂੰ ਅੱਗੇ ਤੋਰਿਆ।
+
+## 3. ਨਿਰਦੇਸ਼ਕ (locator) ਨਾਲ
+
+ਖਾਸ ਤੰਤਰ ਲਈ [@jinek2012, p. 816] ਵੇਖੋ।
+
+## 4. ਇੱਕੋ ਹਵਾਲੇ ਦੀ ਵਾਰ-ਵਾਰ ਵਰਤੋਂ
+
+SHERLOCK ਪਲੇਟਫਾਰਮ [@gootenberg2017] ਖੇਤਰ ਜਾਂਚ ਵਿੱਚ ਕਈ ਵਾਰ ਵਰਤਿਆ ਗਿਆ [@gootenberg2017, p. 440]।
+
+## 5. LaTeX-ਅਨੁਕੂਲ ਸਿੰਟੈਕਸ
+
+ਪਾਰੰਪਰਿਕ LaTeX ਕਮਾਂਡ ਵੀ ਵਰਤ ਸਕਦੇ ਹੋ: \cite{lowe1999} ਨੇ SIFT ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਪੇਸ਼ ਕੀਤੀਆਂ।
+
+## 6. ਅਗਿਆਤ ਹਵਾਲਾ
+
+ਲਾਇਬ੍ਰੇਰੀ ਵਿੱਚ ਗੈਰ-ਮੌਜੂਦ ਕੁੰਜੀ ਪ੍ਰਸ਼ਨ-ਚਿੰਨ੍ਹ ਵਾਂਗ ਰੈਂਡਰ ਹੁੰਦੀ ਹੈ [@nonexistent2024], LaTeX ਦੇ [?] ਵਰਤਾਰੇ ਵਾਂਗ।
+
+## 7. ਨਿਰਦੇਸ਼ਕ ਨਾਲ ਕਈ ਕੁੰਜੀਆਂ
+
+ਨਿਰਦੇਸ਼ਕ ਨਾਲ ਕਈ ਕੁੰਜੀਆਂ (ਨਿਰਦੇਸ਼ਕ ਪੂਰੇ ਸਮੂਹ ’ਤੇ ਲਾਗੂ): [@jinek2012; @gootenberg2017, p. 440] → [1, 2, p. 440]।
+
+---
+
+## ਅੰਤਰੀਕ੍ਰਿਤ ਗ੍ਰੰਥ-ਸੂਚੀ (ਸਵੈ-ਨਿਹਿਤ, ਝਲਕ ਵਿੱਚ ਲੁਕੀ)
+
+ਹੇਠਾਂ `bibtex` ਬਲਾਕ ਗ੍ਰੰਥ-ਸੂਚੀ ਬਣਾਉਣ ਲਈ ਕੱਢਿਆ ਜਾਂਦਾ ਹੈ, ਇਸ ਲਈ ਝਲਕ ਖੇਤਰ ਵਿੱਚ ਦਿਸਦਾ ਨਹੀਂ:
+
+```bibtex
+@article{gootenberg2017,
+  author  = {Gootenberg, Jonathan S. and Abudayyeh, Omar O. and Lee, Winston and others},
+  title   = {Highly multiplexed {RNA} detection with {SHERLOCK}},
+  journal = {Science},
+  year    = {2017},
+  volume  = {360},
+  number  = {6389},
+  pages   = {439--444}
+}
+@article{jinek2012,
+  author  = {Jinek, Martin and Chylinski, Krzysztof and Fonfara, Ines and Hauer, Michael and Doudna, Jennifer A.},
+  title   = {A programmable dual-{RNA}-guided {DNA} endonuclease in adaptive bacterial immunity},
+  journal = {Science},
+  year    = {2012},
+  volume  = {337},
+  pages   = {816--821}
+}
+@inproceedings{lowe1999,
+  author    = {Lowe, David G.},
+  title     = {Object recognition from local scale-invariant features},
+  booktitle = {Proceedings of the IEEE International Conference on Computer Vision},
+  year      = {1999},
+  pages     = {1150--1157}
+}
+```
+</script>
+<script type="text/plain" id="cite-example-tpl-vi"># Ví dụ trích dẫn
+
+Ví dụ này minh họa trích dẫn BibTeX. Danh mục tài liệu tham khảo được **nhúng** trong khối mã `bibtex` ở cuối tài liệu, nên không cần tệp .bib riêng để kết xuất; bạn cũng có thể xoá nó và dùng nút "Tài liệu tham khảo" trên thanh công cụ để nạp một .bib ngoài.
+
+## 1. Trích dẫn cơ bản
+
+Công cụ chỉnh sửa gen CRISPR-Cas9 được báo cáo lần đầu [@jinek2012], sau đó là nền tảng phát hiện SHERLOCK [@gootenberg2017].
+
+## 2. Nhiều tài liệu (cách bằng dấu chấm phẩy)
+
+Hai đột phá — chỉnh sửa gen và phát hiện axit nucleic [@jinek2012; @gootenberg2017] — đã thúc đẩy sinh học phân tử.
+
+## 3. Có định vị
+
+Xem [@jinek2012, p. 816] về cơ chế cụ thể.
+
+## 4. Trích dẫn lặp lại
+
+Nền tảng SHERLOCK [@gootenberg2017] đã được dùng nhiều lần trong chẩn đoán thực địa [@gootenberg2017, p. 440].
+
+## 5. Cú pháp tương thích LaTeX
+
+Bạn cũng có thể dùng lệnh LaTeX truyền thống: \cite{lowe1999} giới thiệu đặc trưng SIFT.
+
+## 6. Trích dẫn không rõ
+
+Một khoá không có trong thư viện kết xuất thành dấu hỏi [@nonexistent2024], giống hành vi [?] của LaTeX.
+
+## 7. Nhiều khoá có định vị
+
+Nhiều khoá có định vị (định vị áp dụng cho cả nhóm): [@jinek2012; @gootenberg2017, p. 440] → [1, 2, p. 440].
+
+---
+
+## Danh mục nhúng (tự chứa, ẩn ở xem trước)
+
+Khối `bibtex` dưới đây được trích ra để xây danh mục, nên không hiện ở vùng xem trước:
+
+```bibtex
+@article{gootenberg2017,
+  author  = {Gootenberg, Jonathan S. and Abudayyeh, Omar O. and Lee, Winston and others},
+  title   = {Highly multiplexed {RNA} detection with {SHERLOCK}},
+  journal = {Science},
+  year    = {2017},
+  volume  = {360},
+  number  = {6389},
+  pages   = {439--444}
+}
+@article{jinek2012,
+  author  = {Jinek, Martin and Chylinski, Krzysztof and Fonfara, Ines and Hauer, Michael and Doudna, Jennifer A.},
+  title   = {A programmable dual-{RNA}-guided {DNA} endonuclease in adaptive bacterial immunity},
+  journal = {Science},
+  year    = {2012},
+  volume  = {337},
+  pages   = {816--821}
+}
+@inproceedings{lowe1999,
+  author    = {Lowe, David G.},
+  title     = {Object recognition from local scale-invariant features},
+  booktitle = {Proceedings of the IEEE International Conference on Computer Vision},
+  year      = {1999},
+  pages     = {1150--1157}
+}
+```
+</script>
+<script type="text/plain" id="cite-example-tpl-id"># Contoh Kutipan
+
+Contoh ini memperagakan kutipan BibTeX. Daftar pustaka **tersemat** dalam blok kode `bibtex` di akhir dokumen, sehingga tak perlu .bib terpisah untuk merender; Anda juga dapat menghapusnya dan memakai tombol "Referensi" pada bilah alat untuk memuat .bib eksternal.
+
+## 1. Kutipan Dasar
+
+Alat sunting-geni CRISPR-Cas9 pertama dilaporkan [@jinek2012], diikuti pengembangan platform deteksi SHERLOCK [@gootenberg2017].
+
+## 2. Beberapa Referensi (Dipisah Titik Koma)
+
+Dua terobosan — sunting gen dan deteksi asam nukleat [@jinek2012; @gootenberg2017] — telah memajukan biologi molekuler.
+
+## 3. Dengan Penunjuk
+
+Lihat [@jinek2012, p. 816] untuk mekanisme spesifik.
+
+## 4. Kutipan Berulang
+
+Platform SHERLOCK [@gootenberg2017] telah dipakai beberapa kali dalam diagnosis lapangan [@gootenberg2017, p. 440].
+
+## 5. Sintaks Kompatibel LaTeX
+
+Anda juga dapat memakai perintah LaTeX tradisional: \cite{lowe1999} memperkenalkan fitur SIFT.
+
+## 6. Referensi Tak Dikenal
+
+Kunci yang tak ada di pustaka dirender sebagai tanda tanya [@nonexistent2024], mirip perilaku [?] LaTeX.
+
+## 7. Beberapa Kunci dengan Penunjuk
+
+Beberapa kunci dengan penunjuk (penunjuk berlaku untuk seluruh grup): [@jinek2012; @gootenberg2017, p. 440] → [1, 2, p. 440].
+
+---
+
+## Daftar Pustaka Tersemat (Mandiri, Tersembunyi di Pratinjau)
+
+Blok `bibtex` di bawah diekstrak untuk membangun daftar pustaka, sehingga tak tampak di area pratinjau:
+
+```bibtex
+@article{gootenberg2017,
+  author  = {Gootenberg, Jonathan S. and Abudayyeh, Omar O. and Lee, Winston and others},
+  title   = {Highly multiplexed {RNA} detection with {SHERLOCK}},
+  journal = {Science},
+  year    = {2017},
+  volume  = {360},
+  number  = {6389},
+  pages   = {439--444}
+}
+@article{jinek2012,
+  author  = {Jinek, Martin and Chylinski, Krzysztof and Fonfara, Ines and Hauer, Michael and Doudna, Jennifer A.},
+  title   = {A programmable dual-{RNA}-guided {DNA} endonuclease in adaptive bacterial immunity},
+  journal = {Science},
+  year    = {2012},
+  volume  = {337},
+  pages   = {816--821}
+}
+@inproceedings{lowe1999,
+  author    = {Lowe, David G.},
+  title     = {Object recognition from local scale-invariant features},
+  booktitle = {Proceedings of the IEEE International Conference on Computer Vision},
+  year      = {1999},
+  pages     = {1150--1157}
+}
+```
+</script>
+<script type="text/plain" id="cite-example-tpl-ur"># اقتباس کی مثال
+
+یہ مثال BibTeX اقتباسات دکھاتی ہے۔ کتابیات دستاویز کے آخر میں `bibtex` کوڈ بلاک میں **شامل** ہے، اس لیے رینڈر کے لیے علیحدہ .bib درکار نہیں؛ آپ اسے ہٹا کر ٹول بار “حوالے” بٹن سے بیرونی .bib بھی لود کر سکتے ہیں۔
+
+## 1. بنیادی اقتباس
+
+CRISPR-Cas9 جین-ترمیم آلہ پہلے رپورٹ ہوا [@jinek2012]، اس کے بعد SHERLOCK پہچان پلیٹ فارم تشکیل پایا [@gootenberg2017]۔
+
+## 2. متعدد حوالے (سیمیکولن سے جدا)
+
+دو کامیابیاں — جین ترمیم اور نیوکلیک ایسڈ پہچان [@jinek2012; @gootenberg2017] — نے مالیکیولر بیالوجی کو آگے بڑھایا۔
+
+## 3. مقام کے ساتھ
+
+مخصوص میکانزم کے لیے [@jinek2012, p. 816] دیکھیں۔
+
+## 4. ایک ہی حوالے کا بار بار اقتباس
+
+SHERLOCK پلیٹ فارم [@gootenberg2017] میدانی تشخیص میں کئی بار استعمال ہوا [@gootenberg2017, p. 440]۔
+
+## 5. LaTeX-ہم آہنگ نحو
+
+روایتی LaTeX کمانڈ بھی استعمال کر سکتے ہیں: \cite{lowe1999} نے SIFT خصوصیات متعارف کرائیں۔
+
+## 6. نامعلوم حوالہ
+
+لائبریری میں غیر موجود کلید سوال نشان کی طرح رینڈر ہوتی ہے [@nonexistent2024]، LaTeX کے [?] رویے کی طرح۔
+
+## 7. مقام کے ساتھ متعدد کلیڈ
+
+مقام کے ساتھ متعدد کلیڈ (مقام پورے گروہ پر لاگو): [@jinek2012; @gootenberg2017, p. 440] → [1, 2, p. 440]۔
+
+---
+
+## شامل کتابیات (خود کفیل، پیش نظارہ میں چھپی)
+
+نیچے `bibtex` بلاک کتابیات بنانے کے لیے نکالا جاتا ہے، اس لیے پیش نظارہ علاقے میں نظر نہیں آتا:
+
+```bibtex
+@article{gootenberg2017,
+  author  = {Gootenberg, Jonathan S. and Abudayyeh, Omar O. and Lee, Winston and others},
+  title   = {Highly multiplexed {RNA} detection with {SHERLOCK}},
+  journal = {Science},
+  year    = {2017},
+  volume  = {360},
+  number  = {6389},
+  pages   = {439--444}
+}
+@article{jinek2012,
+  author  = {Jinek, Martin and Chylinski, Krzysztof and Fonfara, Ines and Hauer, Michael and Doudna, Jennifer A.},
+  title   = {A programmable dual-{RNA}-guided {DNA} endonuclease in adaptive bacterial immunity},
+  journal = {Science},
+  year    = {2012},
+  volume  = {337},
+  pages   = {816--821}
+}
+@inproceedings{lowe1999,
+  author    = {Lowe, David G.},
+  title     = {Object recognition from local scale-invariant features},
+  booktitle = {Proceedings of the IEEE International Conference on Computer Vision},
+  year      = {1999},
+  pages     = {1150--1157}
+}
+```
+</script>
+<script type="text/plain" id="cite-example-tpl-mn"># Эшлэлийн жишээ
+
+Энэ жишээ нь BibTeX эшлэлийг харуулна. Номын сан баримтын төгсгөл дэх `bibtex` код блокт **шингээгдсэн** тул хөрвүүлэхэд тусдаа .bib шаардлагагүй; үүнийг устгаад багажны самбарын «Эх сурвалж» товчоор гадаад .bib ачаалж болно.
+
+## 1. Үндсэн эшлэл
+
+CRISPR-Cas9 генийн засварын багаж анх удаа нийтэд гарсан [@jinek2012], дараа нь SHERLOCK илрүүлэх платформ бүтээгдсэн [@gootenberg2017].
+
+## 2. Олон эх сурвалж (цэг таслалаар тусгаарласан)
+
+Хоёр амжилт — генийн засвар болон нуклейн хүчил илрүүлэх [@jinek2012; @gootenberg2017] — молекул биологийг урагшлуулсан.
+
+## 3. Байршлын хамт
+
+Тодорхой механизмыг [@jinek2012, p. 816]-аас үзнэ үү.
+
+## 4. Нэг эх сурвалжийг давтан ишлэх
+
+SHERLOCK платформ [@gootenberg2017] хээрийн оношилгоонд олон удаа ашиглагдсан [@gootenberg2017, p. 440].
+
+## 5. LaTeX-тай нийцтэй бичиглэл
+
+Уламжлалт LaTeX команд ч мөн ашиглаж болно: \cite{lowe1999} нь SIFT шинж чанарыг танилцуулсан.
+
+## 6. Үл мэдэгдэх эх сурвалж
+
+Санд байхгүй түлхүүр нь асуултын тэмдгээр хөрвүүлэгдэнэ [@nonexistent2024], LaTeX-ийн [?] зан үйл шиг.
+
+## 7. Байршлын хамт олон түлхүүр
+
+Байршлын хамт олон түлхүүр (байрлал бүхэл бүлэгт хамаарна): [@jinek2012; @gootenberg2017, p. 440] → [1, 2, p. 440].
+
+---
+
+## Шингээсэн номын сан (биеэ даасан, урьдчилан харах дахь нуугдсан)
+
+Доорх `bibtex` блок номын сан байгуулахын тулд гаргагдсан тул урьдчилан харах талбарт харагдахгүй:
 
 ```bibtex
 @article{gootenberg2017,
@@ -2499,6 +2935,684 @@ erDiagram
 
 > هذا البرنامج يعمل دون اتصال بالكامل، ويحتوي على محرّك عرض Mermaid مدمج، فلا حاجة للاتصال بالإنترنت لعرض جميع المخططات أعلاه. لمزيد من الصياغة، يمكن الرجوع إلى وثائق Mermaid الرسمية (عند توفّر الاتصال، زُر mermaid.js.org).
 </script>
+<script type="text/plain" id="mermaid-example-tpl-hi"># Mermaid आरेख उदाहरण
+
+यह उदाहरण विविध Mermaid आरेख प्रदर्शित करता है। Markdown में केवल <code>```mermaid</code> कोड ब्लॉक प्रयोग करें; पूर्वावलोकन इसे स्वतः SVG रेंडर करता है। कोड संपादित करने से आरेख अद्यतन होता है, तथा PDF / HTML निर्यात में भी आरेख शामिल रहते हैं।
+
+## 1. फ़्लोचार्ट
+
+```mermaid
+flowchart TD
+    A[शुरुआत] --> B{लॉगिन है?}
+    B -- हाँ --> C[मुखपृष्ठ खोलें]
+    B -- नहीं --> D[लॉगिन पर जाएँ]
+    D --> E[प्रमाण-पत्र दर्ज करें]
+    E --> C
+    C --> F[समाप्त]
+```
+
+## 2. अनुक्रम आरेख
+
+```mermaid
+sequenceDiagram
+    participant U as उपयोगकर्ता
+    participant F as फ़्रंटएंड
+    participant B as बैकएंड
+    U->>F: लॉगिन पर क्लिक
+    F->>B: POST /login
+    B-->>F: 200 OK + Token
+    F-->>U: मुखपृष्ठ पर पुनर्निर्देशित
+```
+
+## 3. वर्ग आरेख
+
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound() void
+    }
+    class Dog {
+        +fetch() void
+    }
+    class Cat {
+        +purr() void
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+
+## 4. अवस्था आरेख
+
+```mermaid
+stateDiagram-v2
+    [*] --> लंबित_भुगतान
+    लंबित_भुगतान --> भुगतान_हुआ: उपयोगकर्ता भुगतान करता है
+    भुगतान_हुआ --> भेजा_गया: विक्रेता भेजता है
+    भेजा_गया --> प्राप्त_हुआ: उपयोगकर्ता प्राप्त करता है
+    प्राप्त_हुआ --> [*]
+    लंबित_भुगतान --> रद्द: समय समाप्त
+    रद्द --> [*]
+```
+
+## 5. गैंट चार्ट
+
+```mermaid
+gantt
+    title परियोजना प्रगति
+    dateFormat  YYYY-MM-DD
+    section डिज़ाइन
+    आवश्यकता विश्लेषण :a1, 2025-01-01, 7d
+    प्रोटोटाइप डिज़ाइन :after a1, 5d
+    section विकास
+    फ़्रंटएंड विकास :2025-01-13, 10d
+    बैकएंड विकास :2025-01-13, 12d
+    section परीक्षण
+    एकीकरण परीक्षण :2025-01-25, 5d
+```
+
+## 6. पाई चार्ट
+
+```mermaid
+pie title ब्राउज़र हिस्सेदारी
+    "Chrome" : 65
+    "Safari" : 18
+    "Edge" : 8
+    "Firefox" : 5
+    "अन्य" : 4
+```
+
+## 7. इकाई-संबंध आरेख
+
+> नोट: यदि erDiagram संबंध लेबल में गैर-ASCII अक्षर (जैसे हिंदी) हों, तो उन्हें दोहरे उद्धरण चिह्नों में बाँधना होगा (जैसे `: "ऑर्डर करता है"`); अन्यथा Mermaid लेक्सर उन्हें पार्स नहीं कर पाएगा।
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : "ऑर्डर करता है"
+    ORDER ||--|{ LINE_ITEM : "रखता है"
+    CUSTOMER {
+        int id PK
+        string name
+    }
+    ORDER {
+        int id PK
+        date created
+    }
+    LINE_ITEM {
+        int id PK
+        string product
+        int qty
+    }
+```
+
+> यह अनुप्रयोग पूर्णतः ऑफ़लाइन है तथा इसमें अंतर्निहित Mermaid रेंडर इंजन है, अतः उपर्युक्त सभी आरेख बिना नेटवर्क के रेंडर होते हैं। अधिक सिंटैक्स हेतु आधिकारिक Mermaid दस्तावेज़ देखें (ऑनलाइन होने पर mermaid.js.org पर जाएँ)।
+</script>
+<script type="text/plain" id="mermaid-example-tpl-pa"># Mermaid ਚਾਰਟ ਉਦਾਹਰਣ
+
+ਇਹ ਉਦਾਹਰਣ ਕਈ Mermaid ਚਾਰਟ ਦਰਸਾਉਂਦੀ ਹੈ। Markdown ਵਿੱਚ ਸਿਰਫ਼ <code>```mermaid</code> ਕੋਡ ਬਲਾਕ ਵਰਤੋ; ਝਲਕ ਇਸਨੂੰ ਆਪਣੇ-ਆਪ SVG ਰੈਂਡਰ ਕਰਦੀ ਹੈ। ਕੋਡ ਸੋਧਣ ਨਾਲ ਚਾਰਟ ਬਦਲਦਾ ਹੈ, ਅਤੇ PDF / HTML ਨਿਰਯਾਤ ਵਿੱਚ ਵੀ ਚਾਰਟ ਸ਼ਾਮਲ ਹੁੰਦੇ ਹਨ।
+
+## 1. ਫ਼ਲੋਚਾਰਟ
+
+```mermaid
+flowchart TD
+    A[ਸ਼ੁਰੂ] --> B{ਲਾਗ-ਇਨ ਹੈ?}
+    B -- ਹਾਂ --> C[ਮੁੱਖ ਸਫ਼ਾ ਖੋਲ੍ਹੋ]
+    B -- ਨਹੀਂ --> D[ਲਾਗ-ਇਨ ਉੱਤੇ ਜਾਓ]
+    D --> E[ਪ੍ਰਮਾਣ-ਪੱਤਰ ਦਰਜ ਕਰੋ]
+    E --> C
+    C --> F[ਸਮਾਪਤ]
+```
+
+## 2. ਸੀਕੁਐਂਸ ਚਾਰਟ
+
+```mermaid
+sequenceDiagram
+    participant U as ਵਰਤੋਂਕਾਰ
+    participant F as ਫ਼ਰੰਟਐਂਡ
+    participant B as ਬੈਕਐਂਡ
+    U->>F: ਲਾਗ-ਇਨ ਉੱਤੇ ਕਲਿੱਕ
+    F->>B: POST /login
+    B-->>F: 200 OK + Token
+    F-->>U: ਮੁੱਖ ਸਫ਼ੇ ਉੱਤੇ ਮੁੜ-ਨਿਰਦੇਸ਼ਿਤ
+```
+
+## 3. ਕਲਾਸ ਚਾਰਟ
+
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound() void
+    }
+    class Dog {
+        +fetch() void
+    }
+    class Cat {
+        +purr() void
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+
+## 4. ਅਵਸਥਾ ਚਾਰਟ
+
+```mermaid
+stateDiagram-v2
+    [*] --> ਬਕਾਇਆ_ਭੁਗਤਾਨ
+    ਬਕਾਇਆ_ਭੁਗਤਾਨ --> ਭੁਗਤਾਨ_ਹੋਇਆ: ਵਰਤੋਂਕਾਰ ਭੁਗਤਾਨ ਕਰਦਾ ਹੈ
+    ਭੁਗਤਾਨ_ਹੋਇਆ --> ਭੇਜਿਆ_ਗਿਆ: ਵਿਕਰੇਤਾ ਭੇਜਦਾ ਹੈ
+    ਭੇਜਿਆ_ਗਿਆ --> ਪ੍ਰਾਪਤ_ਹੋਇਆ: ਵਰਤੋਂਕਾਰ ਪ੍ਰਾਪਤ ਕਰਦਾ ਹੈ
+    ਪ੍ਰਾਪਤ_ਹੋਇਆ --> [*]
+    ਬਕਾਇਆ_ਭੁਗਤਾਨ --> ਰੱਦ: ਸਮਾਂ ਸਮਾਪਤ
+    ਰੱਦ --> [*]
+```
+
+## 5. ਗੈਂਟ ਚਾਰਟ
+
+```mermaid
+gantt
+    title ਪ੍ਰੋਜੈਕਟ ਤਰੱਕੀ
+    dateFormat  YYYY-MM-DD
+    section ਡਿਜ਼ਾਈਨ
+    ਲੋੜ ਵਿਸ਼ਲੇਸ਼ਣ :a1, 2025-01-01, 7d
+    ਪ੍ਰੋਟੋਟਾਈਪ ਡਿਜ਼ਾਈਨ :after a1, 5d
+    section ਵਿਕਾਸ
+    ਫ਼ਰੰਟਐਂਡ ਵਿਕਾਸ :2025-01-13, 10d
+    ਬੈਕਐਂਡ ਵਿਕਾਸ :2025-01-13, 12d
+    section ਟੈਸਟਿੰਗ
+    ਏਕੀਕਰਣ ਟੈਸਟਿੰਗ :2025-01-25, 5d
+```
+
+## 6. ਪਾਈ ਚਾਰਟ
+
+```mermaid
+pie title ਬਰਾਊਜ਼ਰ ਹਿੱਸਾ
+    "Chrome" : 65
+    "Safari" : 18
+    "Edge" : 8
+    "Firefox" : 5
+    "ਹੋਰ" : 4
+```
+
+## 7. ਇਕਾਈ-ਸੰਬੰਧ ਚਾਰਟ
+
+> ਨੋਟ: ਜੇ erDiagram ਸੰਬੰਧ ਲੇਬਲ ਵਿੱਚ ਗ਼ੈਰ-ASCII ਅੱਖਰ (ਜਿਵੇਂ ਪੰਜਾਬੀ) ਹੋਣ, ਤਾਂ ਇਹਨਾਂ ਨੂੰ ਦੋਹਰੇ ਹਵਾਲੇ ਨਿਸ਼ਾਨ ਵਿੱਚ ਬੰਨ੍ਹਣਾ ਹੋਵੇ (ਜਿਵੇਂ `: "ਆਰਡਰ ਦਿੰਦਾ ਹੈ"`); ਨਹੀਂ ਤਾਂ Mermaid lexer ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕੇਗਾ।
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : "ਆਰਡਰ ਦਿੰਦਾ ਹੈ"
+    ORDER ||--|{ LINE_ITEM : "ਰੱਖਦਾ ਹੈ"
+    CUSTOMER {
+        int id PK
+        string name
+    }
+    ORDER {
+        int id PK
+        date created
+    }
+    LINE_ITEM {
+        int id PK
+        string product
+        int qty
+    }
+```
+
+> ਇਹ ਐਪ੍ਲੀਕੇਸ਼ਨ ਪੂਰੀ ਤਰ੍ਹਾਂ ਆਫ਼ਲਾਈਨ ਹੈ ਅਤੇ ਇਸ ਵਿੱਚ ਬਿਲਟ-ਇਨ Mermaid ਰੈਂਡਰ ਇੰਜਣ ਹੈ, ਇਸ ਲਈ ਉੱਪਰ ਦਿੱਤੇ ਸਾਰੇ ਚਾਰਟ ਬਿਨਾਂ ਨੈੱਟਵਰਕ ਰੈਂਡਰ ਹੁੰਦੇ ਹਨ। ਹੋਰ ਸਿੰਟੈਕਸ ਲਈ ਅਧਿਕਾਰਤ Mermaid ਦਸਤਾਵੇਜ਼ ਵੇਖੋ (ਆਨਲਾਈਨ ਹੋਣ ’ਤੇ mermaid.js.org ਜਾਓ)।
+</script>
+<script type="text/plain" id="mermaid-example-tpl-vi"># Ví dụ sơ đồ Mermaid
+
+Ví dụ này minh họa nhiều loại sơ đồ Mermaid. Trong Markdown, chỉ cần dùng khối mã <code>```mermaid</code>; phần xem trước tự động kết xuất thành SVG. Sửa mã là sửa sơ đồ, và sơ đồ cũng được đưa vào khi xuất PDF / HTML.
+
+## 1. Lưu đồ
+
+```mermaid
+flowchart TD
+    A[Bắt đầu] --> B{Đã đăng nhập?}
+    B -- Có --> C[Vào trang chính]
+    B -- Không --> D[Đi tới đăng nhập]
+    D --> E[Nhập thông tin]
+    E --> C
+    C --> F[Kết thúc]
+```
+
+## 2. Sơ đồ tuần tự
+
+```mermaid
+sequenceDiagram
+    participant U as Người dùng
+    participant F as Giao diện
+    participant B as Backend
+    U->>F: Bấm đăng nhập
+    F->>B: POST /login
+    B-->>F: 200 OK + Token
+    F-->>U: Chuyển về trang chính
+```
+
+## 3. Sơ đồ lớp
+
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound() void
+    }
+    class Dog {
+        +fetch() void
+    }
+    class Cat {
+        +purr() void
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+
+## 4. Sơ đồ trạng thái
+
+```mermaid
+stateDiagram-v2
+    [*] --> Chờ_Thanh_Toán
+    Chờ_Thanh_Toán --> Đã_Thanh_Toán: Người dùng thanh toán
+    Đã_Thanh_Toán --> Đã_Gửi: Người bán gửi hàng
+    Đã_Gửi --> Đã_Nhận: Người dùng nhận hàng
+    Đã_Nhận --> [*]
+    Chờ_Thanh_Toán --> Đã_Hủy: Hết thời gian
+    Đã_Hủy --> [*]
+```
+
+## 5. Biểu đồ Gantt
+
+```mermaid
+gantt
+    title Tiến độ dự án
+    dateFormat  YYYY-MM-DD
+    section Thiết kế
+    Phân tích yêu cầu :a1, 2025-01-01, 7d
+    Thiết kế nguyên mẫu :after a1, 5d
+    section Phát triển
+    Phát triển giao diện :2025-01-13, 10d
+    Phát triển backend :2025-01-13, 12d
+    section Kiểm thử
+    Kiểm thử tích hợp :2025-01-25, 5d
+```
+
+## 6. Biểu đồ tròn
+
+```mermaid
+pie title Thị phần trình duyệt
+    "Chrome" : 65
+    "Safari" : 18
+    "Edge" : 8
+    "Firefox" : 5
+    "Khác" : 4
+```
+
+## 7. Sơ đồ thực thể-kết hợp
+
+> Lưu ý: Nếu nhãn quan hệ trong erDiagram chứa ký tự non-ASCII (như tiếng Việt), phải bọc trong dấu ngoặc kép (vd. `: "đặt hàng"`); nếu không bộ phân tích từ vựng Mermaid sẽ không thể đọc.
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : "đặt hàng"
+    ORDER ||--|{ LINE_ITEM : "chứa"
+    CUSTOMER {
+        int id PK
+        string name
+    }
+    ORDER {
+        int id PK
+        date created
+    }
+    LINE_ITEM {
+        int id PK
+        string product
+        int qty
+    }
+```
+
+> Ứng dụng này hoàn toàn ngoại tuyến với engine kết xuất Mermaid tích hợp sẵn, nên mọi sơ đồ trên đều kết xuất không cần mạng. Thêm cú pháp, xem tài liệu Mermaid chính thức (khi trực tuyến, ghé mermaid.js.org).
+</script>
+<script type="text/plain" id="mermaid-example-tpl-id"># Contoh Diagram Mermaid
+
+Contoh ini memperagakan aneka diagram Mermaid. Dalam Markdown, cukup pakai blok kode <code>```mermaid</code>; pratinjau merendernya menjadi SVG. Mengubah kode berarti mengubah diagram, dan ekspor PDF / HTML juga menyertakannya.
+
+## 1. Diagram Alir
+
+```mermaid
+flowchart TD
+    A[Mulai] --> B{Sudah login?}
+    B -- Ya --> C[Masuk beranda]
+    B -- Tidak --> D[Ke login]
+    D --> E[Masukkan kredensial]
+    E --> C
+    C --> F[Selesai]
+```
+
+## 2. Diagram Urutan
+
+```mermaid
+sequenceDiagram
+    participant U as Pengguna
+    participant F as Frontend
+    participant B as Backend
+    U->>F: Klik login
+    F->>B: POST /login
+    B-->>F: 200 OK + Token
+    F-->>U: Arahkan ke beranda
+```
+
+## 3. Diagram Kelas
+
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound() void
+    }
+    class Dog {
+        +fetch() void
+    }
+    class Cat {
+        +purr() void
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+
+## 4. Diagram Status
+
+```mermaid
+stateDiagram-v2
+    [*] --> Menunggu_Pembayaran
+    Menunggu_Pembayaran --> Dibayar: Pengguna membayar
+    Dibayar --> Dikirim: Penjual mengirim
+    Dikirim --> Diterima: Pengguna menerima
+    Diterima --> [*]
+    Menunggu_Pembayaran --> Dibatalkan: Waktu habis
+    Dibatalkan --> [*]
+```
+
+## 5. Diagram Gantt
+
+```mermaid
+gantt
+    title Kemajuan Proyek
+    dateFormat  YYYY-MM-DD
+    section Desain
+    Analisis kebutuhan :a1, 2025-01-01, 7d
+    Desain prototipe :after a1, 5d
+    section Pengembangan
+    Pengembangan frontend :2025-01-13, 10d
+    Pengembangan backend :2025-01-13, 12d
+    section Pengujian
+    Pengujian integrasi :2025-01-25, 5d
+```
+
+## 6. Diagram Pai
+
+```mermaid
+pie title Pangsa Peramban
+    "Chrome" : 65
+    "Safari" : 18
+    "Edge" : 8
+    "Firefox" : 5
+    "Lainnya" : 4
+```
+
+## 7. Diagram Entitas-Hubungan
+
+> Catatan: Bila label relasi erDiagram memuat karakter non-ASCII (mis. Indonesia), harus dibungkus tanda kutip ganda (mis. `: "membuat pesanan"`); jika tidak, lexer Mermaid tak bisa mengurainya.
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : "membuat pesanan"
+    ORDER ||--|{ LINE_ITEM : "memuat"
+    CUSTOMER {
+        int id PK
+        string name
+    }
+    ORDER {
+        int id PK
+        date created
+    }
+    LINE_ITEM {
+        int id PK
+        string product
+        int qty
+    }
+```
+
+> Aplikasi ini sepenuhnya luring dengan mesin render Mermaid bawaan, sehingga semua diagram di atas terender tanpa jaringan. Untuk sintaks lebih lanjut, lihat dokumentasi Mermaid resmi (saat daring, kunjungi mermaid.js.org).
+</script>
+<script type="text/plain" id="mermaid-example-tpl-ur"># Mermaid خاکے کی مثال
+
+یہ مثال مختلف Mermaid خاکے دکھاتی ہے۔ Markdown میں صرف <code>```mermaid</code> کوڈ بلاک استعمال کریں؛ پیش نظارہ اسے خود SVG رینڈر کرتا ہے۔ کوڈ بدلنے سے خاکہ بدلتا ہے، اور PDF / HTML برآمد میں بھی خاکے شامل رہتے ہیں۔
+
+## 1. فلو چارٹ
+
+```mermaid
+flowchart TD
+    A[آغاز] --> B{لاگ اِن ہے؟}
+    B -- ہاں --> C[صفحہِ اول داخل]
+    B -- نہیں --> D[لاگ اِن پر جائیں]
+    D --> E[اسناد درج کریں]
+    E --> C
+    C --> F[اختتام]
+```
+
+## 2. تسلسل خاکہ
+
+```mermaid
+sequenceDiagram
+    participant U as صارف
+    participant F as فرنٹ اینڈ
+    participant B as بیک اینڈ
+    U->>F: لاگ اِن کلک
+    F->>B: POST /login
+    B-->>F: 200 OK + Token
+    F-->>U: صفحہِ اول پر ریڈائریکٹ
+```
+
+## 3. کلاس خاکہ
+
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound() void
+    }
+    class Dog {
+        +fetch() void
+    }
+    class Cat {
+        +purr() void
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+
+## 4. حالت خاکہ
+
+```mermaid
+stateDiagram-v2
+    [*] --> بقی_ادائیگی
+    بقی_ادائیگی --> ادا_ہوا: صارف ادا کرتا ہے
+    ادا_ہوا --> بھیجا_گیا: فروشک بھیجتا ہے
+    بھیجا_گیا --> موصول_ہوا: صارف وصول کرتا ہے
+    موصول_ہوا --> [*]
+    بقی_ادائیگی --> منسوخ: وقت ختم
+    منسوخ --> [*]
+```
+
+## 5. گینٹ چارٹ
+
+```mermaid
+gantt
+    title پروجیکٹ پیش رفت
+    dateFormat  YYYY-MM-DD
+    section ڈیزائن
+    تقاضوں کا تجزیہ :a1, 2025-01-01, 7d
+    پروٹو ٹائپ ڈیزائن :after a1, 5d
+    section ترقی
+    فرنٹ اینڈ ترقی :2025-01-13, 10d
+    بیک اینڈ ترقی :2025-01-13, 12d
+    section جانچ
+    انضمام جانچ :2025-01-25, 5d
+```
+
+## 6. پائی چارٹ
+
+```mermaid
+pie title براؤزر حصہ داری
+    "Chrome" : 65
+    "Safari" : 18
+    "Edge" : 8
+    "Firefox" : 5
+    "دیگر" : 4
+```
+
+## 7. وجود-تعلق خاکہ
+
+> نوٹ: اگر erDiagram تعلق لیبل میں غیر ASCII حروف (جیسے اردو) ہوں، تو انہیں двойہ کوٹیشن میں لپنا ہوگا (جیسے `: "آرڈر دیتا ہے"`)؛ ورنہ Mermaid lexer انہیں پارس نہیں کر سکے گا۔
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : "آرڈر دیتا ہے"
+    ORDER ||--|{ LINE_ITEM : "رکھتا ہے"
+    CUSTOMER {
+        int id PK
+        string name
+    }
+    ORDER {
+        int id PK
+        date created
+    }
+    LINE_ITEM {
+        int id PK
+        string product
+        int qty
+    }
+```
+
+> یہ ایپلی کیشن مکمل آف لائن ہے اور اس میں بلٹ اِن Mermaid رینڈر انجن ہے، اس لیے اوپر کے تمام خاکے بغیر نیٹ ورک کے رینڈر ہوتے ہیں۔ مزید نحو کے لیے Mermaid باقاعدہ دستاویزات دیکھیں (آن لائن ہونے پر mermaid.js.org جائیں)۔
+</script>
+<script type="text/plain" id="mermaid-example-tpl-mn"># Mermaid диаграммын жишээ
+
+Энэ жишээ нь төрөл бүрийн Mermaid диаграммыг харуулна. Markdown-д <code>```mermaid</code> код блок ашиглаад л болно; урьдчилан харах автоматаар SVG болгон хөрвүүлнэ. Кодыг засварлах нь диаграммыг шинэчилнэ, PDF / HTML экспорт ч мөн диаграммыг агуулна.
+
+## 1. Урсгалын диаграмм
+
+```mermaid
+flowchart TD
+    A[Эхлэл] --> B{Нэвтэрсэн үү?}
+    B -- Тийм --> C[Нүүр хуудас руу орох]
+    B -- Үгүй --> D[Нэвтрэх рүү очих]
+    D --> E[Итгэмжлэх оруулах]
+    E --> C
+    C --> F[Төгсгөл]
+```
+
+## 2. Дарааллын диаграмм
+
+```mermaid
+sequenceDiagram
+    participant U as Хэрэглэгч
+    participant F as Фронтенд
+    participant B as Бэкенд
+    U->>F: Нэвтрэх дарах
+    F->>B: POST /login
+    B-->>F: 200 OK + Token
+    F-->>U: Нүүр хуудас руу шилжүүлэх
+```
+
+## 3. Ангийн диаграмм
+
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound() void
+    }
+    class Dog {
+        +fetch() void
+    }
+    class Cat {
+        +purr() void
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+
+## 4. Төлөвийн диаграмм
+
+```mermaid
+stateDiagram-v2
+    [*] --> Хүлээв_төлбөр
+    Хүлээв_төлбөр --> Төлөгдсөн: Хэрэглэгч төлнө
+    Төлөгдсөн --> Илгээгдсэн: Борлуулагч илгээнэ
+    Илгээгдсөн --> Хүлээн_авсан: Хэрэглэгч хүлээн авна
+    Хүлээн_авсан --> [*]
+    Хүлээв_төлбөр --> Цуцлагдсан: Хугацаа дуусна
+    Цуцлагдсан --> [*]
+```
+
+## 5. Ганттын график
+
+```mermaid
+gantt
+    title Төслийн явц
+    dateFormat  YYYY-MM-DD
+    section Зохиомж
+    Шаардлагын шинжилгээ :a1, 2025-01-01, 7d
+    Прототип зохиомж :after a1, 5d
+    section Хөгжүүлэлт
+    Фронтенд хөгжүүлэлт :2025-01-13, 10d
+    Бэкенд хөгжүүлэлт :2025-01-13, 12d
+    section Туршилт
+    Нэгтгэх туршилт :2025-01-25, 5d
+```
+
+## 6. Бөөрөнхий график
+
+```mermaid
+pie title Хөтөчийн захиалга
+    "Chrome" : 65
+    "Safari" : 18
+    "Edge" : 8
+    "Firefox" : 5
+    "Бусад" : 4
+```
+
+## 7. Субъект-харилцааны диаграмм
+
+> Тэмдэглэл: erDiagram-ын харилцааны шошго ASCII бус тэмдэгт (жишээ нь кирил) агуулбал хос хосоор хашилтанд авна (жишээ нь `: "захиалга өгнө"`); үгүй бол Mermaid лексер задалж чадахгүй.
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : "захиалга өгнө"
+    ORDER ||--|{ LINE_ITEM : "агуулна"
+    CUSTOMER {
+        int id PK
+        string name
+    }
+    ORDER {
+        int id PK
+        date created
+    }
+    LINE_ITEM {
+        int id PK
+        string product
+        int qty
+    }
+```
+
+> Энэ апп нь бүрэн офлайн бөгөөд дотроо Mermaid хөрвүүлэх хөдөлгүүртэй тул дээрх бүх диаграмм сүлжээгүй хөрвүүлэгдэнэ. Илүү олон бичиглэлийг Mermaid-ийн албан ёсны баримтаас үзнэ үү (онлайн үед mermaid.js.org-руу зочилно).
+</script>
 <script type="text/plain" id="mdex-example-tpl-zh"># 欢迎使用 Markdown 编辑器
 
 一个**纯前端、完全离线**的 Markdown 编辑器，基于 Tauri v2，支持实时预览、LaTeX 公式、图片与代码高亮。
@@ -2547,6 +3661,10 @@ def fib(n):
 - [ ] 开始你的写作
 
 > **提示**：菜单「文件」可打开 / 保存；拖拽 `.md` 文件到窗口可直接打开。
+
+## 颜色
+
+<span style="color:#e03131;">红</span> <span style="color:#f08c00;">橙</span> <span style="color:#2f9e44;">绿</span> <span style="color:#1971c2;">蓝</span> <span style="color:#9c36b5;">紫</span>
 
 ---
 
@@ -2601,6 +3719,10 @@ def fib(n):
 
 > **Tip**: The "File" menu can open / save; drag a `.md` file to the window to open it directly.
 
+## Color
+
+<span style="color:#e03131;">Red</span> <span style="color:#f08c00;">Orange</span> <span style="color:#2f9e44;">Green</span> <span style="color:#1971c2;">Blue</span> <span style="color:#9c36b5;">Purple</span>
+
 ---
 
 Start editing!
@@ -2653,6 +3775,10 @@ def fib(n):
 - [ ] Commencez votre rédaction
 
 > **Astuce** : le menu « Fichier » permet d'ouvrir / enregistrer ; glissez un fichier \`.md\` dans la fenêtre pour l'ouvrir directement.
+
+## Couleur
+
+<span style="color:#e03131;">Rouge</span> <span style="color:#f08c00;">Orange</span> <span style="color:#2f9e44;">Vert</span> <span style="color:#1971c2;">Bleu</span> <span style="color:#9c36b5;">Violet</span>
 
 ---
 
@@ -2707,6 +3833,10 @@ def fib(n):
 
 > **Tipp**: Über das Menü „Datei" öffnen / speichern; eine `.md`-Datei per Drag-and-Drop ins Fenster ziehen, um sie direkt zu öffnen.
 
+## Farbe
+
+<span style="color:#e03131;">Rot</span> <span style="color:#f08c00;">Orange</span> <span style="color:#2f9e44;">Grün</span> <span style="color:#1971c2;">Blau</span> <span style="color:#9c36b5;">Lila</span>
+
 ---
 
 Legen Sie los mit dem Editieren!
@@ -2759,6 +3889,10 @@ def fib(n):
 - [ ] Начните писать
 
 > **Подсказка**: через меню «Файл» можно открыть / сохранить; перетащите файл `.md` в окно, чтобы открыть его напрямую.
+
+## Цвет
+
+<span style="color:#e03131;">Красный</span> <span style="color:#f08c00;">Оранжевый</span> <span style="color:#2f9e44;">Зелёный</span> <span style="color:#1971c2;">Синий</span> <span style="color:#9c36b5;">Фиолетовый</span>
 
 ---
 
@@ -2813,6 +3947,10 @@ def fib(n):
 
 > **Suggerimento**: il menu «File» permette di aprire / salvare; trascinando un file `.md` nella finestra si apre direttamente.
 
+## Colore
+
+<span style="color:#e03131;">Rosso</span> <span style="color:#f08c00;">Arancione</span> <span style="color:#2f9e44;">Verde</span> <span style="color:#1971c2;">Blu</span> <span style="color:#9c36b5;">Viola</span>
+
 ---
 
 Inizia a scrivere!
@@ -2865,6 +4003,10 @@ def fib(n):
 - [ ] 執筆を始めましょう
 
 > **ヒント**：メニュー「ファイル」から開く / 保存できます；`.md` ファイルをウィンドウにドラッグすると直接開けます。
+
+## 色
+
+<span style="color:#e03131;">赤</span> <span style="color:#f08c00;">橙</span> <span style="color:#2f9e44;">緑</span> <span style="color:#1971c2;">青</span> <span style="color:#9c36b5;">紫</span>
 
 ---
 
@@ -2919,6 +4061,10 @@ def fib(n):
 
 > **팁**: 메뉴 「파일」에서 열기 / 저장할 수 있습니다. `.md` 파일을 창에 드래그하면 바로 열립니다.
 
+## 색상
+
+<span style="color:#e03131;">빨강</span> <span style="color:#f08c00;">주황</span> <span style="color:#2f9e44;">초록</span> <span style="color:#1971c2;">파랑</span> <span style="color:#9c36b5;">보라</span>
+
 ---
 
 이제 편집을 시작해 보세요!
@@ -2971,6 +4117,10 @@ def fib(n):
 - [ ] Empieza a escribir
 
 > **Sugerencia**: el menú «Archivo» permite abrir / guardar; arrastrar un archivo `.md` a la ventana lo abre directamente.
+
+## Color
+
+<span style="color:#e03131;">Rojo</span> <span style="color:#f08c00;">Naranja</span> <span style="color:#2f9e44;">Verde</span> <span style="color:#1971c2;">Azul</span> <span style="color:#9c36b5;">Morado</span>
 
 ---
 
@@ -3025,6 +4175,10 @@ def fib(n):
 
 > **Dica**: o menu «Ficheiro» permite abrir / guardar; arrastar um ficheiro `.md` para a janela abre-o diretamente.
 
+## Cor
+
+<span style="color:#e03131;">Vermelho</span> <span style="color:#f08c00;">Laranja</span> <span style="color:#2f9e44;">Verde</span> <span style="color:#1971c2;">Azul</span> <span style="color:#9c36b5;">Roxo</span>
+
 ---
 
 Comece a editar!
@@ -3078,9 +4232,355 @@ def fib(n):
 
 > **تلميح**: يمكن فتح / حفظ الملفات عبر قائمة «ملف»؛ كما يمكن سحب وإفلات ملف `.md` على النافذة لفتحه مباشرة.
 
+## اللون
+
+<span style="color:#e03131;">أحمر</span> <span style="color:#f08c00;">برتقالي</span> <span style="color:#2f9e44;">أخضر</span> <span style="color:#1971c2;">أزرق</span> <span style="color:#9c36b5;">بنفسجي</span>
+
 ---
 
 ابدأ التحرير!
+</script>
+<script type="text/plain" id="mdex-example-tpl-hi"># Markdown संपादक में आपका स्वागत है
+
+Tauri v2 पर निर्मित एक **शुद्ध-फ़्रंटएंड, पूर्णतः ऑफ़लाइन** Markdown संपादक, जो लाइव पूर्वावलोकन, LaTeX सूत्र, चित्र तथा कोड हाइलाइटिंग का समर्थन करता है।
+
+## विशेषताएँ
+
+- ✅ विभाजित-फलक लाइव पूर्वावलोकन (खींचने योग्य अनुपात)
+- ✅ गणित सूत्र: इनलाइन $E = mc^2$, $e^{i\\pi}+1=0$
+- ✅ चित्र: पेस्ट / खींचें / चुनें, स्वतः base64 अंतर्निहित
+- ✅ कोड हाइलाइटिंग (स्वतः भाषा पहचान)
+- ✅ तालिकाएँ, कार्य सूचियाँ, उद्धरण ब्लॉक, काटा हुआ
+- ✅ डार्क / लाइट थीम, Markdown / PDF / LaTeX सहेजें, स्वतः ड्राफ़्ट सहेजना
+
+## सूत्र
+
+यूलर की सर्वसमिका $e^{i\\pi} + 1 = 0$।
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
+$$
+
+## कोड
+
+```python
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+```
+
+## तालिका
+
+| शॉर्टकट | कार्य | उदाहरण |
+| --- | --- | --- |
+| ⌘B | बोल्ड | **बोल्ड** |
+| ⌘I | तिरछा | *तिरछा* |
+| ⌘S | सहेजें | .md फ़ाइल |
+| ⌘⇧S | नाम से सहेजें | .md / .pdf / .tex |
+
+## कार्य
+
+- [x] Markdown रेंडर
+- [x] LaTeX सूत्र
+- [x] चित्र प्रबंधन
+- [ ] अपना लेखन शुरू करें
+
+> **सुझाव**: "फ़ाइल" मेन्यू से खोलें / सहेजें; कोई `.md` फ़ाइल सीधे खोलने विंडो पर खींचें।
+
+## रंग
+
+<span style="color:#e03131;">लाल</span> <span style="color:#f08c00;">नारंगी</span> <span style="color:#2f9e44;">हरा</span> <span style="color:#1971c2;">नीला</span> <span style="color:#9c36b5;">बैंगनी</span>
+
+---
+
+लिखना शुरू करें!
+</script>
+<script type="text/plain" id="mdex-example-tpl-pa"># Markdown ਐਡੀਟਰ ਵਿੱਚ ਜੀ ਆਇਆਂ ਨੂੰ
+
+Tauri v2 ਉੱਤੇ ਬਣਿਆ ਇੱਕ **ਸ਼ੁੱਧ-ਫ਼ਰੰਟਐਂਡ, ਪੂਰੀ ਤਰ੍ਹਾਂ ਆਫ਼ਲਾਈਨ** Markdown ਐਡੀਟਰ, ਜੋ ਲਾਈਵ ਝਲਕ, LaTeX ਫਾਰਮੂਲੇ, ਚਿੱਤਰ ਤੇ ਕੋਡ ਹਾਈਲਾਈਟ ਦਾ ਸਮਰਥਨ ਕਰਦਾ ਹੈ।
+
+## ਖਾਸੀਅਤਾਂ
+
+- ✅ ਵੰਡੀ-ਫਲਕ ਲਾਈਵ ਝਲਕ (ਘਸੀਟਣ-ਯੋਗ ਅਨੁਪਾਤ)
+- ✅ ਗਣਿਤ ਫਾਰਮੂਲੇ: ਇਨਲਾਈਨ $E = mc^2$, $e^{i\\pi}+1=0$
+- ✅ ਚਿੱਤਰ: ਪੇਸਟ / ਘਸੀਟੋ / ਚੁਣੋ, ਆਪਣੇ-ਆਪ base64
+- ✅ ਕੋਡ ਹਾਈਲਾਈਟ (ਭਾਸ਼ਾ ਆਪਣੇ-ਆਪ ਪਛਾਣ)
+- ✅ ਸਾਰਣੀਆਂ, ਕੰਮ ਸੂਚੀਆਂ, ਹਵਾਲਾ ਬਲਾਕ, ਵਿੰਨ੍ਹੋ
+- ✅ ਡਾਰਕ / ਲਾਈਟ ਥੀਮ, Markdown / PDF / LaTeX ਸੰਭਾਲੋ, ਆਟੋ ਡਰਾਫ਼ਟ
+
+## ਫਾਰਮੂਲੇ
+
+ਯੂਲਰ ਦੀ ਸਰਵਸਮਤਾ $e^{i\\pi} + 1 = 0$।
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
+$$
+
+## ਕੋਡ
+
+```python
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+```
+
+## ਸਾਰਣੀ
+
+| ਸ਼ਾਰਟਕੱਟ | ਕਾਰਵਾਈ | ਉਦਾਹਰਣ |
+| --- | --- | --- |
+| ⌘B | ਬੋਲਡ | **ਬੋਲਡ** |
+| ⌘I | ਤਿਰਛਾ | *ਤਿਰਛਾ* |
+| ⌘S | ਸੰਭਾਲੋ | .md ਫ਼ਾਈਲ |
+| ⌘⇧S | ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ | .md / .pdf / .tex |
+
+## ਕੰਮ
+
+- [x] Markdown ਰੈਂਡਰ
+- [x] LaTeX ਫਾਰਮੂਲੇ
+- [x] ਚਿੱਤਰ ਪ੍ਰਬੰਧਨ
+- [ ] ਆਪਣੀ ਲਿਖਤ ਸ਼ੁਰੂ ਕਰੋ
+
+> **ਸੁਝਾਅ**: "ਫ਼ਾਈਲ" ਮੀਨੂ ਤੋਂ ਖੋਲ੍ਹੋ / ਸੰਭਾਲੋ; ਕੋਈ `.md` ਫ਼ਾਈਲ ਸਿੱਧੀ ਖੋਲ੍ਹਣ ਵਿੰਡੋ ਉੱਤੇ ਘਸੀਟੋ।
+
+## ਰੰਗ
+
+<span style="color:#e03131;">ਲਾਲ</span> <span style="color:#f08c00;">ਸੰਤਰੀ</span> <span style="color:#2f9e44;">ਹਰਾ</span> <span style="color:#1971c2;">ਨੀਲਾ</span> <span style="color:#9c36b5;">ਜਾਮਨੀ</span>
+
+---
+
+ਲਿਖਣਾ ਸ਼ੁਰੂ ਕਰੋ!
+</script>
+<script type="text/plain" id="mdex-example-tpl-vi"># Chào mừng đến với Trình soạn thảo Markdown
+
+Một trình soạn thảo Markdown **thuần frontend, hoàn toàn ngoại tuyến** xây trên Tauri v2, hỗ trợ xem trước trực tiếp, công thức LaTeX, ảnh và tô sáng mã.
+
+## Tính năng
+
+- ✅ Xem trước chia đôi trực tiếp (tỉ lệ kéo đổi được)
+- ✅ Công thức toán: nội dòng $E = mc^2$, $e^{i\\pi}+1=0$
+- ✅ Ảnh: dán / kéo / chọn, tự nhúng base64
+- ✅ Tô sáng mã (tự nhận diện ngôn ngữ)
+- ✅ Bảng, danh sách việc, khối trích dẫn, gạch ngang
+- ✅ Giao diện tối / sáng, lưu Markdown / PDF / LaTeX, tự lưu nháp
+
+## Công thức
+
+Đồng nhất Euler $e^{i\\pi} + 1 = 0$.
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
+$$
+
+## Mã
+
+```python
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+```
+
+## Bảng
+
+| Phím tắt | Chức năng | Ví dụ |
+| --- | --- | --- |
+| ⌘B | Đậm | **đậm** |
+| ⌘I | Nghiêng | *nghiêng* |
+| ⌘S | Lưu | tệp .md |
+| ⌘⇧S | Lưu thành | .md / .pdf / .tex |
+
+## Việc
+
+- [x] Kết xuất Markdown
+- [x] Công thức LaTeX
+- [x] Xử lý ảnh
+- [ ] Bắt đầu viết của bạn
+
+> **Mẹo**: Menu "Tệp" để mở / lưu; kéo một tệp `.md` vào cửa sổ để mở trực tiếp.
+
+## Màu
+
+<span style="color:#e03131;">Đỏ</span> <span style="color:#f08c00;">Cam</span> <span style="color:#2f9e44;">Xanh lá</span> <span style="color:#1971c2;">Xanh dương</span> <span style="color:#9c36b5;">Tím</span>
+
+---
+
+Bắt đầu soạn thảo!
+</script>
+<script type="text/plain" id="mdex-example-tpl-id"># Selamat Datang di Editor Markdown
+
+Editor Markdown **frontend-murni, sepenuhnya luring** yang dibangun di Tauri v2, mendukung pratinjau langsung, rumus LaTeX, gambar, dan penyorotan kode.
+
+## Fitur
+
+- ✅ Pratinjau langsung panel-bagi (rasio dapat diseret)
+- ✅ Rumus matematika: sebaris $E = mc^2$, $e^{i\\pi}+1=0$
+- ✅ Gambar: tempel / seret / pilih, otomatis base64
+- ✅ Penyorotan kode (deteksi bahasa otomatis)
+- ✅ Tabel, daftar tugas, kutipan, coret
+- ✅ Tema gelap / terang, simpan Markdown / PDF / LaTeX, draf otomatis
+
+## Rumus
+
+Identitas Euler $e^{i\\pi} + 1 = 0$.
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
+$$
+
+## Kode
+
+```python
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+```
+
+## Tabel
+
+| Pintasan | Fungsi | Contoh |
+| --- | --- | --- |
+| ⌘B | Tebal | **tebal** |
+| ⌘I | Miring | *miring* |
+| ⌘S | Simpan | berkas .md |
+| ⌘⇧S | Simpan Sebagai | .md / .pdf / .tex |
+
+## Tugas
+
+- [x] Merender Markdown
+- [x] Rumus LaTeX
+- [x] Penanganan gambar
+- [ ] Mulai menulis Anda
+
+> **Tips**: Menu "Berkas" untuk membuka / menyimpan; seret berkas `.md` ke jendela untuk membukanya langsung.
+
+## Warna
+
+<span style="color:#e03131;">Merah</span> <span style="color:#f08c00;">Oranye</span> <span style="color:#2f9e44;">Hijau</span> <span style="color:#1971c2;">Biru</span> <span style="color:#9c36b5;">Ungu</span>
+
+---
+
+Mulai menyunting!
+</script>
+<script type="text/plain" id="mdex-example-tpl-ur"># Markdown ایڈیٹر میں خوش آمدید
+
+Tauri v2 پر مبنی ایک **خالص فرنٹ اینڈ، مکمل آف لائن** Markdown ایڈیٹر، جو لائیو پیش نظارہ، LaTeX صیغے، تصاویر اور کوڈ ہائی لائٹ کی معاونت کرتا ہے۔
+
+## خصوصیات
+
+- ✅ تقسیم پینل لائیو پیش نظارہ (کھینچنے کے قابل تناسب)
+- ✅ ریاضی صیغے: ان لائن $E = mc^2$, $e^{i\\pi}+1=0$
+- ✅ تصاویر: پیسٹ / گھسیٹیں / چنیں، خود base64
+- ✅ کوڈ ہائی لائٹ (زبان خود پہچاننا)
+- ✅ جداول، کام فہرستیں، اقتباس بلاک، مٹا ہوا
+- ✅ گہرا / ہلکا تھیم، Markdown / PDF / LaTeX محفوظ، خود مسودہ محفوظ
+
+## صیغے
+
+اوائلر کی مساوات $e^{i\\pi} + 1 = 0$۔
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
+$$
+
+## کوڈ
+
+```python
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+```
+
+## جدول
+
+| شارٹ کٹ | فنکشن | مثال |
+| --- | --- | --- |
+| ⌘B | موٹا | **موٹا** |
+| ⌘I | ترچھا | *ترچھا* |
+| ⌘S | محفوظ | .md فائل |
+| ⌘⇧S | اس نام سے محفوظ | .md / .pdf / .tex |
+
+## کام
+
+- [x] Markdown رینڈر
+- [x] LaTeX صیغے
+- [x] تصویر انتظام
+- [ ] اپنی تحریر شروع کریں
+
+> **اشارہ**: "فائل" مینیو سے کھولیں / محفوظ کریں؛ کوئی `.md` فائل براہ راست کھولنے ونڈو پر گھسیٹیں۔
+
+## رنگ
+
+<span style="color:#e03131;">سرخ</span> <span style="color:#f08c00;">نارنجی</span> <span style="color:#2f9e44;">سبز</span> <span style="color:#1971c2;">نیلا</span> <span style="color:#9c36b5;">جامنی</span>
+
+---
+
+تحریر شروع کریں!
+</script>
+<script type="text/plain" id="mdex-example-tpl-mn"># Markdown засварлагчид тавтай морил
+
+Tauri v2 дээр бүтээгдсэн **цэвэр фронтенд, бүрэн офлайн** Markdown засварлагч, шууд урьдчилан харах, LaTeX томьёо, зураг болон кодод өнгө оруулахыг дэмждэг.
+
+## Боломжууд
+
+- ✅ Хуваасан самбарт шууд урьдчилан харах (чирж хэмжээ өөрчлөх)
+- ✅ Математикийн томьёо: шугаман $E = mc^2$, $e^{i\\pi}+1=0$
+- ✅ Зураг: буулгах / чирэх / сонгох, автоматаар base64 шингээх
+- ✅ Кодоор өнгөлөх (хэл автоматаар таних)
+- ✅ Хүснэгт, даалгаврын жагсаалт, ишлэлийн блок, дундуур зураас
+- ✅ Бараан / цайвар загвар, Markdown / PDF / LaTeX болгох, автомат ноорог
+
+## Томьёо
+
+Эйлерийн тэгшитгэл $e^{i\\pi} + 1 = 0$.
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}
+$$
+
+## Код
+
+```python
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+```
+
+## Хүснэгт
+
+| Богино товчлол | Үйлдэл | Жишээ |
+| --- | --- | --- |
+| ⌘B | Тод | **тод** |
+| ⌘I | Налуу | *налуу* |
+| ⌘S | Хадгалах | .md файл |
+| ⌘⇧S | Өөр нэрээр хадгалах | .md / .pdf / .tex |
+
+## Даалгавар
+
+- [x] Markdown хөрвүүлэх
+- [x] LaTeX томьёо
+- [x] Зураг зохицуулах
+- [ ] Бичвэрээ эхлүүлэх
+
+> **Зөвлөгөө**: «Файл» цэсээр нээж / хадгалж болно; `.md` файлыг шууд нээхийн тулд цонх руу чирнэ үү.
+
+## Өнгө
+
+<span style="color:#e03131;">Улаан</span> <span style="color:#f08c00;">Улбар</span> <span style="color:#2f9e44;">Ногоон</span> <span style="color:#1971c2;">Цэнхэр</span> <span style="color:#9c36b5;">Ягаан</span>
+
+---
+
+Бичиж эхэлцгээе!
 </script>
 
 <script>
@@ -3299,11 +4799,113 @@ def fib(n):
       confirmNew: "هل تريد تجاهل المحتوى الحالي وإنشاء ملف جديد؟", confirmClose: "إغلاق التبويب؟ ستُفقد التغييرات غير المحفوظة.",
       untitled: "بدون عنوان.md", ph: "اكتب Markdown هنا…", dropHint: "أفلت لفتح ملف / إدراج صورة", emptyHint: "افتح أو أنشئ ملف Markdown",
     },
+    hi: {
+      new: "नया", open: "खोलें", closeFile: "बंद करें", save: "सहेजें", saveAs: "नाम से सहेजें", exportPdf: "PDF निर्यात",
+      editor: "संपादक", preview: "पूर्वावलोकन",
+      rendered: "रेंडर हुआ", rendering: "रेंडर हो रहा है…", ready: "तैयार",
+      wUnit: "शब्द", lines: "पंक्तियाँ", words: "शब्द", chars: "वर्ण", meta: "UTF-8 · Markdown", lnCol: "पं {l}, स्तंभ {c}",
+      bold: "बोल्ड", italic: "तिरछा", strike: "काटा हुआ", code: "इनलाइन कोड",
+      h1: "शीर्षक 1", h2: "शीर्षक 2", h3: "शीर्षक 3", quote: "उद्धरण", ul: "बुलेट सूची", ol: "क्रमांकित सूची", task: "कार्य सूची",
+      link: "लिंक", image: "चित्र डालें", table: "तालिका", formula: "सूत्र खंड", hr: "विभाजक",
+      split: "विभाजित", editorOnly: "केवल संपादक", previewOnly: "केवल पूर्वावलोकन",
+      sync: "सिंक", on: "चालू", off: "बंद", themeDark: "🌙 गहरा", themeLight: "☀️ हल्का",
+      opened: "खोला ", saved: "सहेजा", downloaded: "डाउनलोड किया ", closedFile: "टैब बंद किया",
+      cancel: "रद्द करें", dontSave: "न सहेजें", exported: "निर्यात किया ",
+      pickFormat: "निर्यात प्रारूप चुनें", help: "सहायता", helpIntro: "MDeX परिचय", exportingPdf: "PDF निर्यात हो रहा है…", pdfVector: "PDF (वेक्टर)", pdfRaster: "PDF (रास्टर)", resTitle: "रिज़ॉल्यूशन चुनें", resLow: "निम्न (96 DPI, तेज़)", resMid: "मध्यम (192 DPI)", resHigh: "उच्च (288 DPI, धीमा)", convertedMd: "Markdown में बदला", convertedHtml: "HTML में बदला", searchPh: "खोजें…", replacePh: "बदलें…", replace: "बदलें", replaceAll: "सभी बदलें", references: "संदर्भ", loadBib: "पुस्तकालय", bibBtn: "संदर्भ", bibLoaded: "{n} संदर्भ लोड हुए", bibLoadFail: "लोड विफल: ", bibEmpty: "इस टैब के लिए कोई ग्रंथसूची लोड नहीं है", bibUnloaded: "ग्रंथसूची अनलोड की गई", bibReplace: "ग्रंथसूची बदलें…", bibUnloadBtn: "ग्रंथसूची अनलोड करें", citeJumpTip: "उद्धरण पर वापस जाएँ", citeJumpTitle: "{n} स्थानों में उद्धृत — चुनें:", citeJumpNone: "इस संदर्भ के लिए कोई उद्धरण नहीं मिला",
+      insImgPre: "डाली गई ", insImgSuf: " चित्र", openFail: "खोलना विफल: ", saveFail: "सहेजना विफल: ",
+      confirmNew: "वर्तमान सामग्री त्यागकर नया बनाएँ?", confirmClose: "मौजूदा टैब बंद करें? असहेजे परिवर्तन खो जाएँगे।",
+      untitled: "बिना_शीर्षक.md", ph: "यहाँ Markdown लिखें…\nशीर्षक/सूची/तालिका/कोड हाइलाइट/$$ LaTeX सूत्र $$/चित्र समर्थित।\n.md फ़ाइल या चित्र को विंडो पर खींचें।", dropHint: "फ़ाइल खोलने / चित्र डालने के लिए छोड़ें", emptyHint: "कोई Markdown फ़ाइल खोलें या बनाएँ",
+    },
+    pa: {
+      new: "ਨਵਾਂ", open: "ਖੋਲ੍ਹੋ", closeFile: "ਬੰਦ ਕਰੋ", save: "ਸੰਭਾਲੋ", saveAs: "ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ", exportPdf: "PDF ਨਿਰਯਾਤ",
+      editor: "ਸੰਪਾਦਕ", preview: "ਝਲਕ",
+      rendered: "ਰੈਂਡਰ ਹੋਇਆ", rendering: "ਰੈਂਡਰ ਹੋ ਰਿਹਾ ਹੈ…", ready: "ਤਿਆਰ",
+      wUnit: "ਸ਼ਬਦ", lines: "ਸਤਰਾਂ", words: "ਸ਼ਬਦ", chars: "ਅੱਖਰ", meta: "UTF-8 · Markdown", lnCol: "ਸਤਰ {l}, ਕਾਲਮ {c}",
+      bold: "ਬੋਲਡ", italic: "ਤਿਰਛਾ", strike: "ਵਿੰਨ੍ਹੋ", code: "ਇਨਲਾਈਨ ਕੋਡ",
+      h1: "ਸਿਰਲੇਖ 1", h2: "ਸਿਰਲੇਖ 2", h3: "ਸਿਰਲੇਖ 3", quote: "ਹਵਾਲਾ", ul: "ਬੁਲੈਟ ਸੂਚੀ", ol: "ਅੰਕਿਤ ਸੂਚੀ", task: "ਕੰਮ ਸੂਚੀ",
+      link: "ਲਿੰਕ", image: "ਚਿੱਤਰ ਪਾਓ", table: "ਸਾਰਣੀ", formula: "ਫਾਰਮੂਲਾ ਬਲਾਕ", hr: "ਵੱਖਰੇਵਾਂ",
+      split: "ਵੰਡੋ", editorOnly: "ਸਿਰਫ਼ ਸੰਪਾਦਕ", previewOnly: "ਸਿਰਫ਼ ਝਲਕ",
+      sync: "ਸਿੰਕ", on: "ਚਾਲੂ", off: "ਬੰਦ", themeDark: "🌙 ਗੂੜ੍ਹਾ", themeLight: "☀️ ਹਲਕਾ",
+      opened: "ਖੋਲ੍ਹਿਆ ", saved: "ਸੰਭਾਲਿਆ", downloaded: "ਡਾਊਨਲੋਡ ਕੀਤਾ ", closedFile: "ਟੈਬ ਬੰਦ ਕੀਤੀ",
+      cancel: "ਰੱਦ ਕਰੋ", dontSave: "ਨਾ ਸੰਭਾਲੋ", exported: "ਨਿਰਯਾਤ ਕੀਤਾ ",
+      pickFormat: "ਨਿਰਯਾਤ ਫਾਰਮੈਟ ਚੁਣੋ", help: "ਮਦਦ", helpIntro: "MDeX ਜਾਣ-ਪਛਾਣ", exportingPdf: "PDF ਨਿਰਯਾਤ ਹੋ ਰਿਹਾ ਹੈ…", pdfVector: "PDF (ਵੈਕਟਰ)", pdfRaster: "PDF (ਰਾਸਟਰ)", resTitle: "ਰੈਜ਼ੋਲਿਊਸ਼ਨ ਚੁਣੋ", resLow: "ਘੱਟ (96 DPI, ਤੇਜ਼)", resMid: "ਮੱਧਮ (192 DPI)", resHigh: "ਉੱਚ (288 DPI, ਹੌਲੀ)", convertedMd: "Markdown ਵਿੱਚ ਬਦਲਿਆ", convertedHtml: "HTML ਵਿੱਚ ਬਦਲਿਆ", searchPh: "ਖੋਜੋ…", replacePh: "ਬਦਲੋ…", replace: "ਬਦਲੋ", replaceAll: "ਸਭ ਬਦਲੋ", references: "ਹਵਾਲੇ", loadBib: "ਲਾਇਬ੍ਰੇਰੀ", bibBtn: "ਹਵਾਲੇ", bibLoaded: "{n} ਹਵਾਲੇ ਲੋਡ ਹੋਏ", bibLoadFail: "ਲੋਡ ਅਸਫ਼ਲ: ", bibEmpty: "ਇਸ ਟੈਬ ਲਈ ਕੋਈ ਗ੍ਰੰਥ-ਸੂਚੀ ਲੋਡ ਨਹੀਂ ਹੈ", bibUnloaded: "ਗ੍ਰੰਥ-ਸੂਚੀ ਅਨਲੋਡ ਕੀਤੀ", bibReplace: "ਗ੍ਰੰਥ-ਸੂਚੀ ਬਦਲੋ…", bibUnloadBtn: "ਗ੍ਰੰਥ-ਸੂਚੀ ਅਨਲੋਡ ਕਰੋ", citeJumpTip: "ਹਵਾਲੇ ਉੱਤੇ ਵਾਪਸ ਜਾਓ", citeJumpTitle: "{n} ਥਾਵਾਂ ਉੱਤੇ ਹਵਾਲਾ ਦਿੱਤਾ — ਚੁਣੋ:", citeJumpNone: "ਇਸ ਹਵਾਲੇ ਲਈ ਕੋਈ ਹਵਾਲਾ ਨਹੀਂ ਲੱਭਿਆ",
+      insImgPre: "ਪਾਈਆਂ ", insImgSuf: " ਚਿੱਤਰ", openFail: "ਖੋਲ੍ਹਣਾ ਅਸਫ਼ਲ: ", saveFail: "ਸੰਭਾਲਣਾ ਅਸਫ਼ਲ: ",
+      confirmNew: "ਮੌਜੂਦਾ ਸਮੱਗਰੀ ਛੱਡ ਕੇ ਨਵਾਂ ਬਣਾਉਣਾ?", confirmClose: "ਮੌਜੂਦਾ ਟੈਬ ਬੰਦ ਕਰਨੀ? ਨਾ-ਸੰਭਾਲੀਆਂ ਤਬਦੀਲੀਆਂ ਖਤਮ ਹੋ ਜਾਣਗੀਆਂ।",
+      untitled: "ਬਿਨਾਂ_ਸਿਰਲੇਖ.md", ph: "ਇੱਥੇ Markdown ਲਿਖੋ…\nਸਿਰਲੇਖ/ਸੂਚੀ/ਸਾਰਣੀ/ਕੋਡ ਹਾਈਲਾਈਟ/$$ LaTeX ਫਾਰਮੂਲੇ $$/ਚਿੱਤਰ ਸਮਰਥਿਤ।\n.md ਫਾਈਲ ਜਾਂ ਚਿੱਤਰ ਵਿੰਡੋ ਉੱਤੇ ਸੁੱਟੋ।", dropHint: "ਫਾਈਲ ਖੋਲ੍ਹਣ / ਚਿੱਤਰ ਪਾਉਣ ਲਈ ਛੱਡੋ", emptyHint: "ਕੋਈ Markdown ਫਾਈਲ ਖੋਲ੍ਹੋ ਜਾਂ ਬਣਾਓ",
+    },
+    vi: {
+      new: "Mới", open: "Mở", closeFile: "Đóng", save: "Lưu", saveAs: "Lưu thành", exportPdf: "Xuất PDF",
+      editor: "Trình soạn thảo", preview: "Xem trước",
+      rendered: "Đã kết xuất", rendering: "Đang kết xuất…", ready: "Sẵn sàng",
+      wUnit: "từ", lines: "Dòng", words: "Từ", chars: "Ký tự", meta: "UTF-8 · Markdown", lnCol: "Dòng {l}, Cột {c}",
+      bold: "Đậm", italic: "Nghiêng", strike: "Gạch ngang", code: "Mã nội dòng",
+      h1: "Tiêu đề 1", h2: "Tiêu đề 2", h3: "Tiêu đề 3", quote: "Trích dẫn", ul: "Danh sách đầu mục", ol: "Danh sách số", task: "Danh sách việc",
+      link: "Liên kết", image: "Chèn ảnh", table: "Bảng", formula: "Khối công thức", hr: "Dòng phân cách",
+      split: "Chia đôi", editorOnly: "Chỉ soạn thảo", previewOnly: "Chỉ xem trước",
+      sync: "Đồng bộ", on: "Bật", off: "Tắt", themeDark: "🌙 Tối", themeLight: "☀️ Sáng",
+      opened: "Đã mở ", saved: "Đã lưu", downloaded: "Đã tải xuống ", closedFile: "Đã đóng thẻ",
+      cancel: "Hủy", dontSave: "Không lưu", exported: "Đã xuất ",
+      pickFormat: "Chọn định dạng xuất", help: "Trợ giúp", helpIntro: "Giới thiệu MDeX", exportingPdf: "Đang xuất PDF…", pdfVector: "PDF (Vector)", pdfRaster: "PDF (Raster)", resTitle: "Chọn độ phân giải", resLow: "Thấp (96 DPI, nhanh)", resMid: "Trung bình (192 DPI)", resHigh: "Cao (288 DPI, chậm)", convertedMd: "Đã chuyển sang Markdown", convertedHtml: "Đã chuyển sang HTML", searchPh: "Tìm…", replacePh: "Thay thế…", replace: "Thay thế", replaceAll: "Thay tất cả", references: "Tài liệu tham khảo", loadBib: "Thư viện", bibBtn: "Tham chiếu", bibLoaded: "Đã nạp {n} tham chiếu", bibLoadFail: "Nạp thất bại: ", bibEmpty: "Chưa nạp tài liệu tham khảo cho thẻ này", bibUnloaded: "Đã bỏ nạp tài liệu tham khảo", bibReplace: "Thay tài liệu tham khảo…", bibUnloadBtn: "Bỏ nạp tài liệu tham khảo", citeJumpTip: "Quay lại chỗ trích dẫn", citeJumpTitle: "Được trích dẫn ở {n} chỗ — chọn:", citeJumpNone: "Không tìm thấy chỗ trích dẫn cho tham chiếu này",
+      insImgPre: "Đã chèn ", insImgSuf: " ảnh", openFail: "Mở thất bại: ", saveFail: "Lưu thất bại: ",
+      confirmNew: "Bỏ nội dung hiện tại và tạo mới?", confirmClose: "Đóng thẻ này? Các thay đổi chưa lưu sẽ mất.",
+      untitled: "Không_tên.md", ph: "Nhập Markdown tại đây…\nHỗ trợ tiêu đề/danh sách/bảng/tô sáng mã/$$ công thức LaTeX $$/ảnh.\nKéo thả tệp .md hoặc ảnh vào cửa sổ.", dropHint: "Thả để mở tệp / chèn ảnh", emptyHint: "Mở hoặc tạo một tệp Markdown",
+    },
+    id: {
+      new: "Baru", open: "Buka", closeFile: "Tutup", save: "Simpan", saveAs: "Simpan Sebagai", exportPdf: "Ekspor PDF",
+      editor: "Editor", preview: "Pratinjau",
+      rendered: "Dirender", rendering: "Merender…", ready: "Siap",
+      wUnit: "kata", lines: "Baris", words: "Kata", chars: "Karakter", meta: "UTF-8 · Markdown", lnCol: "Brs {l}, Klm {c}",
+      bold: "Tebal", italic: "Miring", strike: "Coret", code: "Kode sebaris",
+      h1: "Judul 1", h2: "Judul 2", h3: "Judul 3", quote: "Kutipan", ul: "Daftar poin", ol: "Daftar bernomor", task: "Daftar tugas",
+      link: "Tautan", image: "Sisip gambar", table: "Tabel", formula: "Blok rumus", hr: "Pemisah",
+      split: "Bagi", editorOnly: "Editor", previewOnly: "Pratinjau",
+      sync: "Sinkron", on: "Nyala", off: "Mati", themeDark: "🌙 Gelap", themeLight: "☀️ Terang",
+      opened: "Dibuka ", saved: "Tersimpan", downloaded: "Terunduh ", closedFile: "Tab ditutup",
+      cancel: "Batal", dontSave: "Jangan Simpan", exported: "Diekspor ",
+      pickFormat: "Pilih format ekspor", help: "Bantuan", helpIntro: "Pengenalan MDeX", exportingPdf: "Mengekspor PDF…", pdfVector: "PDF (Vektor)", pdfRaster: "PDF (Raster)", resTitle: "Pilih resolusi", resLow: "Rendah (96 DPI, cepat)", resMid: "Sedang (192 DPI)", resHigh: "Tinggi (288 DPI, lambat)", convertedMd: "Dikonversi ke Markdown", convertedHtml: "Dikonversi ke HTML", searchPh: "Cari…", replacePh: "Ganti…", replace: "Ganti", replaceAll: "Ganti Semua", references: "Referensi", loadBib: "Pustaka", bibBtn: "Ref", bibLoaded: "Memuat {n} referensi", bibLoadFail: "Gagal memuat: ", bibEmpty: "Tidak ada pustaka untuk tab ini", bibUnloaded: "Pustaka dilepas", bibReplace: "Ganti Pustaka…", bibUnloadBtn: "Lepas Pustaka", citeJumpTip: "Lompat ke kutipan", citeJumpTitle: "Dikutip di {n} tempat — pilih:", citeJumpNone: "Tidak ada kutipan untuk referensi ini",
+      insImgPre: "Disisipkan ", insImgSuf: " gambar", openFail: "Gagal membuka: ", saveFail: "Gagal menyimpan: ",
+      confirmNew: "Buang isi saat ini dan buat baru?", confirmClose: "Tutup tab ini? Perubahan yang belum disimpan akan hilang.",
+      untitled: "Tanpa_Judul.md", ph: "Ketik Markdown di sini…\nMendukung judul/daftar/tabel/penyorotan kode/$$ rumus LaTeX $$/gambar.\nSeret berkas .md atau gambar ke jendela.", dropHint: "Jatuhkan untuk membuka berkas / menyisipkan gambar", emptyHint: "Buka atau buat sebuah berkas Markdown",
+    },
+    ur: {
+      new: "نیا", open: "کھولیں", closeFile: "بند کریں", save: "محفوظ کریں", saveAs: "اس نام سے محفوظ کریں", exportPdf: "PDF برآمد",
+      editor: "ایڈیٹر", preview: "پیش نظارہ",
+      rendered: "رینڈر ہوا", rendering: "رینڈر ہو رہا ہے…", ready: "تیار",
+      wUnit: "الفاظ", lines: "سطریں", words: "الفاظ", chars: "حروف", meta: "UTF-8 · Markdown", lnCol: "سطر {l}، کالم {c}",
+      bold: "موٹا", italic: "ترچھا", strike: "مٹا ہوا", code: "ان لائن کوڈ",
+      h1: "سرخی 1", h2: "سرخی 2", h3: "سرخی 3", quote: "اقتباس", ul: "نقطہ فہرست", ol: "ترقیم فہرست", task: "فہرستِ کام",
+      link: "ربط", image: "تصویر داخل کریں", table: "جدول", formula: "صیغہ بلاک", hr: "تقسیم کار",
+      split: "تقسیم", editorOnly: "صرف ایڈیٹر", previewOnly: "صرف پیش نظارہ",
+      sync: "مطابقت", on: "آن", off: "آف", themeDark: "🌙 گہرا", themeLight: "☀️ ہلکا",
+      opened: "کھولا ", saved: "محفوظ ہوا", downloaded: "ڈاؤن لوڈ ہوا ", closedFile: "ٹیب بند ہوا",
+      cancel: "منسوخ", dontSave: "محفوظ نہ کریں", exported: "برآمد ہوا ",
+      pickFormat: "برآمد صورتحال منتخب کریں", help: "مدد", helpIntro: "MDeX تعارف", exportingPdf: "PDF برآمد ہو رہا ہے…", pdfVector: "PDF (ویکٹر)", pdfRaster: "PDF (راسٹر)", resTitle: "ریزولوشن منتخب کریں", resLow: "کم (96 DPI، تیز)", resMid: "درمیانی (192 DPI)", resHigh: "زیادہ (288 DPI، سست)", convertedMd: "Markdown میں تبدیل ہوا", convertedHtml: "HTML میں تبدیل ہوا", searchPh: "تلاش…", replacePh: "تبدیل…", replace: "تبدیل", replaceAll: "سب تبدیل کریں", references: "حوالہ جات", loadBib: "لائبریری", bibBtn: "حوالے", bibLoaded: "{n} حوالے لوڈ ہوئے", bibLoadFail: "لوڈ ناکام: ", bibEmpty: "اس ٹیب کے لیے کوئی کتابیات لوڈ نہیں", bibUnloaded: "کتابیات ان لوڈ کی گئی", bibReplace: "کتابیات تبدیل کریں…", bibUnloadBtn: "کتابيات ان لوڈ کریں", citeJumpTip: "حوالے پر واپس جائیں", citeJumpTitle: "{n} مقامات پر حوالہ دیا گیا — منتخب کریں:", citeJumpNone: "اس حوالے کے لیے کوئی اقتباس نہیں ملا",
+      insImgPre: "داخل کی گئیں ", insImgSuf: " تصاویر", openFail: "کھولنا ناکام: ", saveFail: "محفوظ کرنا ناکام: ",
+      confirmNew: "موجودہ مواد چھوڑ کر نیا بنائیں؟", confirmClose: "موجودہ ٹیب بند کریں؟ غیر محفوظ تبدیلیاں ضائع ہوں گی۔",
+      untitled: "بے_نام.md", ph: "یہاں Markdown لکھیں…\nسرخیاں/فہرستیں/جداول/کوڈ ہائی لائٹ/$$ LaTeX صیغے $$/تصاویر معاون ہیں۔\n.md فائل یا تصویر کو ونڈو پر گھسیٹیں۔", dropHint: "فائل کھولنے / تصویر داخل کرنے کے لیے چھوڑیں", emptyHint: "کوئی Markdown فائل کھولیں یا بنائیں",
+    },
+    mn: {
+      new: "Шинэ", open: "Нээх", closeFile: "Хаах", save: "Хадгалах", saveAs: "Өөр нэрээр хадгалах", exportPdf: "PDF экспортлох",
+      editor: "Засварлагч", preview: "Урьдчилан харах",
+      rendered: "Хөрвүүлсэн", rendering: "Хөрвүүлж байна…", ready: "Бэлэн",
+      wUnit: "үг", lines: "Мөр", words: "Үг", chars: "Тэмдэгт", meta: "UTF-8 · Markdown", lnCol: "Мөр {l}, Баган {c}",
+      bold: "Тод", italic: "Налуу", strike: "Дундуур зураас", code: "Шугаман код",
+      h1: "Гарчиг 1", h2: "Гарчиг 2", h3: "Гарчиг 3", quote: "Ишлэл", ul: "Цэгт жагсаалт", ol: "Дугаарласан жагсаалт", task: "Даалгаврын жагсаалт",
+      link: "Холбоос", image: "Зураг оруулах", table: "Хүснэгт", formula: "Томьёоны блок", hr: "Хуваагч",
+      split: "Хуваасан", editorOnly: "Зөвхөн засварлагч", previewOnly: "Зөвхөн урьдчилан харах",
+      sync: "Синх", on: "Асаалт", off: "Унтраалт", themeDark: "🌙 Бараан", themeLight: "☀️ Цайвар",
+      opened: "Нээгдсэн ", saved: "Хадгалсан", downloaded: "Татаж авсан ", closedFile: "Таб хаагдсан",
+      cancel: "Цуцлах", dontSave: "Битгий хадгал", exported: "Экспортлосон ",
+      pickFormat: "Экспортын форматыг сонго", help: "Тусламж", helpIntro: "MDeX-ийн танилцуулга", exportingPdf: "PDF экспортолж байна…", pdfVector: "PDF (Вектор)", pdfRaster: "PDF (Растр)", resTitle: "Нягтарлыг сонго", resLow: "Бага (96 DPI, хурдан)", resMid: "Дунд (192 DPI)", resHigh: "Өндөр (288 DPI, удаан)", convertedMd: "Markdown болгон хөрвүүлсэн", convertedHtml: "HTML болгон хөрвүүлсэн", searchPh: "Хайх…", replacePh: "Солих…", replace: "Солих", replaceAll: "Бүгдийг солих", references: "Эх сурвалж", loadBib: "Сан", bibBtn: "Эх сурвалж", bibLoaded: "{n} эх сурвалж ачааллаа", bibLoadFail: "Ачаалах амжилтгүй: ", bibEmpty: "Энэ табанд номын сан ачаалаагүй байна", bibUnloaded: "Номын сан ачаалаагүй болгосон", bibReplace: "Номын сан солих…", bibUnloadBtn: "Номын сан ачаалахгүй болгох", citeJumpTip: "Ишлэл рүү буцах", citeJumpTitle: "{n} газарт иш татсан — сонго:", citeJumpNone: "Энэ эх сурвалжид ишлэл олдсонгүй",
+      insImgPre: "Оруулсан ", insImgSuf: " зураг", openFail: "Нээж чадсангүй: ", saveFail: "Хадгалж чадсангүй: ",
+      confirmNew: "Одоогийн агуулгыг устгаад шинээр үүсгэх үү?", confirmClose: "Одоогийн табыг хаах уу? Хадгалаагүй өөрчлөлтүүд алдагдана.",
+      untitled: "Гарчиггүй.md", ph: "Энд Markdown оруулна уу…\nГарчиг/Жагсаалт/Хүснэгт/Кодоор өнгөлөх/$$ LaTeX томьёо $$/Зураг дэмжигдсэн.\n.md файл эсвэл зургийг цонх руу чирнэ үү.", dropHint: "Файл нээх / зураг оруулахын тулд буулга", emptyHint: "Markdown файл нээ эсвэл үүсгэ",
+    },
   };
   let curLang = "zh";
   // 从右向左（RTL）语言集合：切换到这些语言时设 <html dir="rtl">，正文/标题/列表自动右起排版。
-  // 当前仅阿拉伯语(ar)；将来新增希伯来语(he)/乌尔都语(ur)/波斯语(fa) 等加进此集合即可。
-  const RTL_LANGS = new Set(["ar"]);
+  // 当前阿拉伯语(ar)、乌尔都语(ur)；将来新增希伯来语(he)/波斯语(fa) 等加进此集合即可。
+  const RTL_LANGS = new Set(["ar", "ur"]);
   function t(k) { return (I18N[curLang] && I18N[curLang][k]) || I18N.zh[k] || k; }
   function setLang(lang) {
     if (!I18N[lang]) lang = "zh";
@@ -3315,7 +4917,7 @@ def fib(n):
   }
   function applyLang() {
     document.documentElement.lang = curLang;
-    // RTL：阿拉伯语等从右向左语言设 <html dir="rtl">，正文/标题/列表自动右起排版、项目符号落最右；
+    // RTL：阿拉伯语、乌尔都语等从右向左语言设 <html dir="rtl">，正文/标题/列表自动右起排版、项目符号落最右；
     // 代码块/行内代码/LaTeX 公式等内嵌 LTR 内容由样式表局部强制 direction:ltr（双向孤岛），不被整体镜像。
     // 中文/英文/日韩等其余语言保持 dir="ltr"。逻辑边距一律用 inline-start/inline-end（见样式表）。
     document.documentElement.dir = RTL_LANGS.has(curLang) ? "rtl" : "ltr";
@@ -3329,6 +4931,10 @@ def fib(n):
   function refreshDynamicLabels() {
     $("sync-btn").textContent = t("sync") + ":" + (syncScroll ? t("on") : t("off"));
     $("theme-btn").textContent = document.documentElement.classList.contains("dark") ? t("themeLight") : t("themeDark");
+    const cb = $("color-btn"); if (cb) cb.title = colorI18n().color;
+    const ni = navI18n();
+    const nb = $("nav-back"), nf = $("nav-fwd");
+    if (nb) nb.title = ni.back; if (nf) nf.title = ni.fwd;
     refreshViewLabel();
   }
 
@@ -3696,6 +5302,7 @@ def fib(n):
     }
     // Markdown 模式：先把代码块 / 行内代码用占位符保护起来，避免公式正则误伤代码里的 $ 与反斜杠。
     let text = editor.value;
+    computeEditorMap(); // 源码行起始偏移 + 折行视觉行映射（编辑↔预览滚动同步/定位用）
     // 抽取内嵌 ```bibtex 块（等长空白替换，保持偏移对齐）→ 合并 tab.bibText 建文献库
     const { text: textNoBib, embedded } = extractEmbeddedBib(text);
     text = textNoBib;
@@ -3775,6 +5382,33 @@ def fib(n):
   }
   // 把已构建好的完整 HTML 挂进预览：大文档虚拟化、小文档全量；含代码高亮/公式折行/图片解析。
   // Markdown 与 HTML 两种模式最终都走这里。
+  // 细粒度点击定位：返回"列表项 / 表格行"在源码区间 [s,e) 内的起始偏移数组（含 s）。空=该块无细粒度（退回块级）。
+  // 确定性扫描源码（不依赖 marked 内部），与 srcBlockOffsets 同思路；bibtex 等长空白替换不影响列表/表格扫描。
+  function fineUnitOffsets(s, e) {
+    const block = editor.value.slice(s, e);
+    const lines = []; let rel = 0;
+    for (const ln of block.split("\n")) { lines.push([rel, ln]); rel += ln.length + 1; }
+    const isItem = (t) => /^[ \t]*([-*+]|\d+\.)[ \t]/.test(t);
+    const isSep = (t) => /^[ \t|:-]+$/.test(t) && /-/.test(t);
+    if (lines.some(([, t]) => isItem(t)))
+      return lines.filter(([, t]) => isItem(t)).map(([r]) => s + r);            // 列表项（含嵌套，深度优先≈源码序）
+    if (lines.some(([, t]) => isSep(t)))
+      return lines.filter(([, t]) => /\|/.test(t) && !isSep(t)).map(([r]) => s + r); // 表格行（跳过分隔行）
+    return [];
+  }
+  // 给列表/表格块的 <li>/<tr> 打 data-src-offset/end；点击时 closest("[data-src-offset]") 自动落到更细的项/行。
+  function tagFineInBlock(el, s, e) {
+    if (!el || e <= s) return;
+    const tag = el.tagName;
+    if (tag !== "UL" && tag !== "OL" && tag !== "TABLE") return;
+    const offs = fineUnitOffsets(s, e); if (!offs.length) return;
+    const units = el.querySelectorAll(tag === "TABLE" ? "tr" : "li");
+    for (let i = 0; i < units.length && i < offs.length; i++) {
+      const st = offs[i], en = (i + 1 < offs.length ? offs[i + 1] : e);
+      units[i].setAttribute("data-src-offset", st);
+      units[i].setAttribute("data-src-end", en);
+    }
+  }
   function renderIntoPreview(html) {
     // 表格统一包一层 .table-wrap：窄表居中、宽表横向滚动（CSS 见 #preview .table-wrap）。
     // marked 不输出嵌套 <table>，非贪婪匹配即安全；bibliography 用 <ol>，不会误伤。
@@ -3788,7 +5422,11 @@ def fib(n):
     // 给每个顶层块打上 data-src-offset（源码偏移量），供点击定位用
     const children = Array.from(tpl.content.children);
     for (let i = 0; i < children.length && i < srcBlockOffsets.length; i++) {
-      children[i].setAttribute("data-src-offset", srcBlockOffsets[i]);
+      const so = srcBlockOffsets[i];
+      const eo = i + 1 < srcBlockOffsets.length ? srcBlockOffsets[i + 1] : editor.value.length;
+      children[i].setAttribute("data-src-offset", so);
+      children[i].setAttribute("data-src-end", eo);
+      tagFineInBlock(children[i], so, eo); // 列表/表格：给 li/tr 打细粒度偏移
     }
     const blockCount = children.length;
     if (blockCount > VIRT_THRESHOLD) {
@@ -3803,7 +5441,11 @@ def fib(n):
       // 非虚拟化：直接在 DOM 上标记 data-src-offset（template 上的标记不会随 innerHTML 带过来）
       const pvChildren = preview.children;
       for (let i = 0; i < pvChildren.length && i < srcBlockOffsets.length; i++) {
-        pvChildren[i].setAttribute("data-src-offset", srcBlockOffsets[i]);
+        const so = srcBlockOffsets[i];
+        const eo = i + 1 < srcBlockOffsets.length ? srcBlockOffsets[i + 1] : editor.value.length;
+        pvChildren[i].setAttribute("data-src-offset", so);
+        pvChildren[i].setAttribute("data-src-end", eo);
+        tagFineInBlock(pvChildren[i], so, eo);
       }
       // 代码高亮：懒加载——只高亮进入视口的代码块（IntersectionObserver）。
       highlightCodeLazy();
@@ -3815,13 +5457,15 @@ def fib(n):
     }
     updateStats();
     $("rs").textContent = t("rendered");
+    buildPreviewBlockY(); // 测预览块顶 Y（非虚拟化每次渲染测一次缓存；虚拟化用 vprefix，此处空操作）
+    if (searchBar && !searchBar.hidden) highlightPreview();
   }
 
   /* ---------- 预览虚拟化（大文档）---------- */
   // 仅把可见区域（含缓冲）的块挂进 DOM，上下用 spacer 撑出总高度，滚动时按需切换可见块。
   // 这样预览 DOM 节点数与文档大小无关，只随可见区域变化——大文档也能丝滑滚动与即时编辑。
   // 小文档（块数 ≤ 阈值）走原 innerHTML 全量渲染，避免滚动条估算误差。
-  const VIRT_THRESHOLD = 200;
+  const VIRT_THRESHOLD = 300;
   let lastFullHtml = "";       // 最近一次完整渲染的 HTML（供 PDF 导出使用，不依赖预览 DOM）
   let vblocks = [];            // 块 DOM 节点数组（来自 template 解析，未挂载到预览）
   let vheights = [];           // 每块高度：实测缓存，否则估算
@@ -3916,6 +5560,8 @@ def fib(n):
     if (at && at.type === "html") renderMathAuto(vContent);
     if (isTauri && at) resolveImages(vContent, at.dir || "");
     $("rs").textContent = t("rendered");
+    buildPreviewBlockY(); // 测预览块顶 Y（非虚拟化每次渲染测一次缓存；虚拟化用 vprefix，此处空操作）
+    if (searchBar && !searchBar.hidden) highlightPreview();
   }
   function scheduleRenderVisible() {
     if (vScrollRaf) return;
@@ -4019,6 +5665,119 @@ def fib(n):
   };
   document.querySelectorAll("[data-md]").forEach((b) =>
     b.addEventListener("click", () => MD[b.dataset.md] && MD[b.dataset.md]()));
+
+  /* ---------- 前进/返回：统一导航历史（文档/标签跳转 + 文件内光标位置）----------
+     navStack 记录"导航点" {tabId, offset, scrollTop}：标签切换/链接打开/点击定位时即时记；
+     文件内光标远距(>200 字)移动后防抖记一条（覆盖"编辑历史"）。返回/前进在栈内回溯，
+     程序化跳转(navGo)期间 navSuppress 抑制再记录，避免自激；关闭标签后 navPrune 清理。 */
+  let navStack = [];
+  let navIdx = -1;
+  let navSuppress = false;
+  let navEditTimer = null;
+  function updateNavBtns() {
+    const b = $("nav-back"), f = $("nav-fwd");
+    if (b) b.disabled = navIdx <= 0;
+    if (f) f.disabled = navIdx >= navStack.length - 1;
+  }
+  function navPush() {
+    if (navSuppress) return;
+    const at = activeTab(); if (!at) return;
+    const pos = { tabId: at.id, offset: editor.selectionStart, scrollTop: editor.scrollTop };
+    const cur = navStack[navIdx];
+    // 去重：同标签且偏移/滚动几乎不变则不记
+    if (cur && cur.tabId === pos.tabId && Math.abs(cur.offset - pos.offset) <= 2 && Math.abs(cur.scrollTop - pos.scrollTop) <= 4) return;
+    navStack.length = navIdx + 1;                 // 截断前进历史
+    navStack.push(pos);
+    navIdx = navStack.length - 1;
+    updateNavBtns();
+  }
+  function navPrune() {
+    const n = navStack.filter((p) => tabs.some((x) => x.id === p.tabId));
+    if (n.length === navStack.length) return;
+    navStack = n;
+    if (!navStack.length) navIdx = -1;
+    else if (navIdx >= navStack.length) navIdx = navStack.length - 1;
+    updateNavBtns();
+  }
+  async function navGo(idx) {
+    if (idx < 0 || idx >= navStack.length) return;
+    const pos = navStack[idx];
+    if (!tabs.some((x) => x.id === pos.tabId)) { navPrune(); return; }
+    navSuppress = true;
+    try {
+      if (pos.tabId !== activeId) switchTab(pos.tabId);
+      editor.setSelectionRange(pos.offset, pos.offset);
+      editor.scrollTop = pos.scrollTop;
+      editor.focus();
+    } finally { navIdx = idx; navSuppress = false; updateNavBtns(); }
+  }
+  function navBack() { if (navIdx > 0) navGo(navIdx - 1); }
+  function navFwd() { if (navIdx < navStack.length - 1) navGo(navIdx + 1); }
+  function navOnEdit() {
+    if (navSuppress) return;
+    clearTimeout(navEditTimer);
+    navEditTimer = setTimeout(() => {
+      const at = activeTab(); if (!at) return;
+      const cur = navStack[navIdx];
+      const off = editor.selectionStart;
+      const v = editor.value;
+      const newLine = v.slice(0, off).split("\n").length;
+      // 记录每步编辑操作的位置：不同标签，或换了行（同行连续输入合并为一条，避免逐字符淹没）
+      const sameLine = cur && cur.tabId === at.id && v.slice(0, cur.offset).split("\n").length === newLine;
+      if (!sameLine) navPush();
+    }, 350);
+  }
+  // 自定义撤销/重做栈（textarea execCommand 在 WKWebView 不可靠——一次全退回，改自建快照栈）
+  let undoStack = [], redoStack = [];
+  let undoLast = { v: "", s: 0, e: 0 };
+  let undoTimer = 0;
+  function undoSnapshot() {
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => {
+      if (editor.value !== undoLast.v) {
+        undoStack.push(undoLast);
+        if (undoStack.length > 500) undoStack.shift();
+        redoStack = [];
+      }
+      undoLast = { v: editor.value, s: editor.selectionStart, e: editor.selectionEnd };
+    }, 200); // 200ms 合并：连续快速输入=一步，停顿>200ms=新的一步（细粒度）
+  }
+  function doUndo() {
+    if (!undoStack.length) return;
+    redoStack.push({ v: editor.value, s: editor.selectionStart, e: editor.selectionEnd });
+    const p = undoStack.pop();
+    editor.value = p.v; editor.setSelectionRange(p.s, p.e || p.s); undoLast = p;
+    editor.focus(); scheduleRender();
+  }
+  function doRedo() {
+    if (!redoStack.length) return;
+    undoStack.push({ v: editor.value, s: editor.selectionStart, e: editor.selectionEnd });
+    const n = redoStack.pop();
+    editor.value = n.v; editor.setSelectionRange(n.s, n.e || n.s); undoLast = n;
+    editor.focus(); scheduleRender();
+  }
+  function resetUndo() { undoStack = []; redoStack = []; undoLast = { v: editor.value, s: editor.selectionStart, e: editor.selectionEnd }; }
+  (function initNav() {
+    const u = $("undo-btn"), r = $("redo-btn");
+    if (u) u.addEventListener("click", (e) => { e.preventDefault(); doUndo(); });
+    if (r) r.addEventListener("click", (e) => { e.preventDefault(); doRedo(); });
+    editor.addEventListener("input", undoSnapshot); // 编辑→快照入撤销栈
+    editor.addEventListener("keyup", navOnEdit);
+    editor.addEventListener("click", navOnEdit);
+    // Ctrl+Z / Ctrl+Y 拦截→自定义撤销/重做（拦截 textarea 原生 undo，避免两套冲突）
+    editor.addEventListener("keydown", (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if (mod && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) { e.preventDefault(); doRedo(); }
+    });
+    // 导航历史（编辑位置跳转）仍由 Alt+← / Alt+→ 触发
+    document.addEventListener("keydown", (e) => {
+      if (e.altKey && !e.shiftKey && !(e.metaKey || e.ctrlKey)) {
+        if (e.key === "ArrowLeft") { e.preventDefault(); navBack(); }
+        else if (e.key === "ArrowRight") { e.preventDefault(); navFwd(); }
+      }
+    });
+  })();
 
   /* ---------- 文件名 / 视图 ---------- */
   function setFileName(name) {
@@ -4157,11 +5916,13 @@ def fib(n):
     loadTab(activeTab());
     renderTabs();
     saveDraft();
+    navPush(); // 记录导航点（程序化切换由 navSuppress 抑制）
   }
 
   function loadTab(tab) {
     clearColSel();
     if (!tab) { editor.value = ""; updateStats(); updateCursor(); return; }
+    resetUndo(); // 切标签→重置撤销/重做栈（每个标签独立 undo 上下文）
     editor.value = tab.content;
     editor.setSelectionRange(tab.selStart || 0, tab.selEnd || 0);
     document.title = tab.name + " — MDeX";
@@ -4249,6 +6010,7 @@ def fib(n):
     }
     renderTabs(); // → updateEmptyState() 显示空状态或恢复编辑区
     saveDraft();
+    navPrune(); // 清理已关闭标签的导航点
   }
 
   // 工具栏/菜单「关闭」= 关闭当前标签
@@ -4743,6 +6505,17 @@ def fib(n):
       if (isTauri) invoke("register_file", { path }).catch(() => {});
     } catch (e) { toast(t("openFail") + e); }
   }
+  // 渲染区点链接 → 解析为本地文件路径并在【新标签页】打开（不替换当前文档）。
+  // 目录(./)、失效链接、外链(http 由 opener 处理)、mailto/锚点 不在此处理。
+  async function openLinkInNewTab(href) {
+    if (!isTauri) return;                 // 浏览器降级：无文件访问能力
+    const at = activeTab();
+    const baseDir = at ? (at.dir || "") : "";
+    let path = null;
+    try { path = await invoke("resolve_doc_link", { baseDir, href }); } catch (_) { path = null; }
+    if (!path) return;                    // 解析不到已存在文件 → 忽略（不导航、不报错）
+    await openPath(path);                 // openPath 内置去重(同 path 切到已有标签) + 新标签 + 导航记录
+  }
   function insertImageRef(path) {
     const tab = activeTab();
     const alt = baseName(path).replace(/\.[^.]+$/, "");
@@ -5126,19 +6899,145 @@ def fib(n):
 
   /* ---------- 同步滚动 ---------- */
   let scrollSrc = null, scrollReset;
-  function sync(src, dst) {
-    if (!syncScroll) return;
-    const r = src.scrollTop / (src.scrollHeight - src.clientHeight || 1);
-    dst.scrollTop = r * (dst.scrollHeight - dst.clientHeight);
+  /* ---- 编辑↔预览 双向定位（点击 + 滚动同步）----
+     预览侧用"块顶 Y"：非虚拟化时每次渲染测一次缓存（buildPreviewBlockY）；虚拟化时直接用 vprefix
+     （虚拟化自维护、滚动时自动校正）。滚动只查缓存、零 DOM 测量 → 丝滑。代码块按行插值。 */
+  let previewBlockY = [];
+  let editorLineStarts = [0];   // 每个源码行的起始偏移
+  let visLineStart = [0];       // 累计【视觉行】：visLineStart[i]=源码第 i 行之前的视觉行数（含折行）
+  let editorCharW = 8.4;        // 等宽字体单字符宽（px）
+  let editorLH = 23.8;          // 编辑器实际行高（px）
+  let editorCharsPerRow = 80;   // 编辑器内容区每行可容纳字符数
+  let editorFontMeasured = false;
+  // 量等宽字体的单字符宽与行高（隐藏 span，仅字体/主题变化才需重测）
+  function measureEditorFont() {
+    let m = $("editor-measure");
+    if (!m) {
+      m = document.createElement("span"); m.id = "editor-measure";
+      m.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;font-family:var(--mono);font-size:14px;line-height:1.7;";
+      document.body.appendChild(m);
+    }
+    m.textContent = "MMMMMMMMMM"; editorCharW = m.getBoundingClientRect().width / 10 || 8.4;
+    m.textContent = Array(11).join("M\n"); editorLH = m.getBoundingClientRect().height / 10 || 23.8;
   }
-  editor.addEventListener("scroll", () => { if (scrollSrc !== "preview") { scrollSrc = "editor"; sync(editor, preview); } });
+  // 源码行起始偏移 + 每行折行数（等宽字体确定性：视觉行数=ceil(字数/每行字符数)）
+  function computeEditorMap() {
+    if (!editorFontMeasured) { measureEditorFont(); editorFontMeasured = true; }
+    const v = editor.value;
+    const ls = [0]; let i = 0;
+    while ((i = v.indexOf("\n", i)) !== -1) ls.push(++i);
+    editorLineStarts = ls;
+    const cs = getComputedStyle(editor);
+    const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+    const contentW = editor.clientWidth - padL - padR;
+    editorCharsPerRow = Math.max(1, Math.floor(contentW / editorCharW));
+    const vis = [0];
+    for (let k = 0; k < ls.length; k++) {
+      const start = ls[k];
+      const end = k + 1 < ls.length ? ls[k + 1] - 1 : v.length; // 行内容（不含换行符）
+      vis.push(vis[k] + Math.max(1, Math.ceil((end - start) / editorCharsPerRow)));
+    }
+    visLineStart = vis;
+  }
+  // 预览块顶 Y：虚拟化用 vprefix（虚拟化自维护），非虚拟化每次渲染测一次（滚动不重测 → 丝滑）
+  function pby(i) { const a = vblocks.length ? vprefix : previewBlockY; return a ? (a[i] || 0) : 0; }
+  function pbyLen() { const a = vblocks.length ? vprefix : previewBlockY; return a ? a.length : 0; }
+  function buildPreviewBlockY() {
+    if (vblocks.length) return;              // 虚拟化：由 vprefix 提供，无需测
+    if (!srcBlockOffsets.length) { previewBlockY = []; return; }
+    const pvTop = preview.getBoundingClientRect().top, sts = preview.scrollTop;
+    const arr = [], kids = preview.children;
+    for (let i = 0; i < kids.length && i < srcBlockOffsets.length; i++) {
+      const r = kids[i].getBoundingClientRect();
+      arr.push(r.top - pvTop + sts);
+    }
+    previewBlockY = arr;
+  }
+  function blockIsCode(bs) { return editor.value.slice(bs, bs + 3) === "```"; }
+  function previewYToOff(y) { // 预览内容 Y → 源偏移（块顶 Y 分段线性）
+    const n = pbyLen(); if (!n || !srcBlockOffsets.length) return -1;
+    if (y <= pby(0)) return srcBlockOffsets[0] || 0;
+    if (y >= pby(n - 1)) return srcBlockOffsets[srcBlockOffsets.length - 1] || editor.value.length;
+    let lo = 0, hi = n - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (pby(mid) <= y) lo = mid; else hi = mid - 1; }
+    const bi = lo, top = pby(bi), bot = bi + 1 < n ? pby(bi + 1) : top;
+    const frac = bot > top ? (y - top) / (bot - top) : 0;
+    const bs = srcBlockOffsets[bi], be = bi + 1 < srcBlockOffsets.length ? srcBlockOffsets[bi + 1] : editor.value.length;
+    return Math.round(bs + frac * (be - bs));
+  }
+  function offToPreviewY(off) { // 源偏移 → 预览内容 Y（代码块按行插值，其余按字符比）
+    const n = pbyLen(); if (!n || !srcBlockOffsets.length) return null;
+    let lo = 0, hi = srcBlockOffsets.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (srcBlockOffsets[mid] <= off) lo = mid + 1; else hi = mid; }
+    const bi = Math.max(0, lo - 1);
+    if (bi >= n) return pby(n - 1);
+    const top = pby(bi), bot = bi + 1 < n ? pby(bi + 1) : top;
+    const bs = srcBlockOffsets[bi], be = bi + 1 < srcBlockOffsets.length ? srcBlockOffsets[bi + 1] : editor.value.length;
+    let frac;
+    if (blockIsCode(bs)) {                     // 代码块行高均匀：按源码行号比例（精确到行）
+      const tl = editor.value.slice(bs, be).split("\n").length;
+      const cl = editor.value.slice(bs, off).split("\n").length;
+      frac = tl > 1 ? (cl - 1) / (tl - 1) : 0;
+    } else frac = be > bs ? (off - bs) / (be - bs) : 0;
+    return top + frac * (bot - top);
+  }
+  function editorYToOff(y) { // 编辑器像素 Y → 源偏移（按视觉行累计，含折行；修旧线性模型导致滑动不准）
+    const ls = editorLineStarts, vis = visLineStart; if (!ls.length || !vis.length) return 0;
+    let vline = Math.round(y / editorLH);
+    const total = vis[vis.length - 1];
+    if (vline >= total) return ls[ls.length - 1];
+    if (vline <= 0) return 0;
+    let lo = 0, hi = vis.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (vis[mid] <= vline) lo = mid; else hi = mid - 1; }
+    const lineIdx = lo, localVis = vline - vis[lineIdx];
+    const start = ls[lineIdx];
+    const end = lineIdx + 1 < ls.length ? ls[lineIdx + 1] - 1 : editor.value.length;
+    return Math.min(end, start + localVis * editorCharsPerRow);
+  }
+  function offToEditorY(off) { // 源偏移 → 编辑器像素 Y（含折行）
+    const ls = editorLineStarts, vis = visLineStart; if (!ls.length || !vis.length) return 0;
+    if (off <= 0) return 0;
+    if (off >= ls[ls.length - 1]) return vis[vis.length - 1] * editorLH;
+    let lo = 0, hi = ls.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ls[mid] <= off) lo = mid; else hi = mid - 1; }
+    const lineIdx = lo, col = off - ls[lineIdx];
+    return (vis[lineIdx] + Math.floor(col / editorCharsPerRow)) * editorLH;
+  }
+  // 锚点式滚动同步（替换原全局比例）：以各自中线偏移互映射；无锚点时回退比例
+  function syncAnchors(src, dst) {
+    if (!syncScroll) return;
+    if (!pbyLen()) {
+      const r = src.scrollTop / (src.scrollHeight - src.clientHeight || 1);
+      dst.scrollTop = r * (dst.scrollHeight - dst.clientHeight); return;
+    }
+    const center = src.scrollTop + src.clientHeight / 2;
+    let y = null;
+    if (src === editor) { const off = editorYToOff(center); y = offToPreviewY(off); }
+    else { const off = previewYToOff(center); y = offToEditorY(off); }
+    if (y == null || !isFinite(y)) return;
+    const max = dst.scrollHeight - dst.clientHeight;
+    dst.scrollTop = Math.max(0, Math.min(max || 0, y - dst.clientHeight / 2));
+  }
+  // 滚动同步用 requestAnimationFrame 合并（每帧最多一次），避免滚动卡顿
+  let syncRaf = 0, syncDir = null;
+  function scheduleSync(src, dst) {
+    syncDir = { src, dst };
+    if (syncRaf) return;
+    syncRaf = requestAnimationFrame(() => { syncRaf = 0; if (syncDir) { const d = syncDir; syncDir = null; syncAnchors(d.src, d.dst); } });
+  }
+  editor.addEventListener("scroll", () => { if (scrollSrc !== "preview") { scrollSrc = "editor"; scheduleSync(editor, preview); } });
   preview.addEventListener("scroll", () => {
-    if (scrollSrc !== "editor") { scrollSrc = "preview"; sync(preview, editor); }
+    if (scrollSrc !== "editor") { scrollSrc = "preview"; scheduleSync(preview, editor); }
     if (vblocks.length) scheduleRenderVisible(); // 虚拟化：滚动时按需切换可见块
   });
   [editor, preview].forEach((el) => el.addEventListener("scrollend", () => {
     clearTimeout(scrollReset); scrollReset = setTimeout(() => (scrollSrc = null), 120);
   }));
+  // 编辑器尺寸变化（窗口缩放 / 分栏拖拽 / 视图切换）→ 每行字符数变 → 重算折行映射，否则滑动同步会偏
+  if (window.ResizeObserver) {
+    let mapRaf = 0;
+    new ResizeObserver(() => { clearTimeout(mapRaf); mapRaf = setTimeout(computeEditorMap, 80); }).observe(editor);
+  }
   window.addEventListener("resize", () => { if (vblocks.length) scheduleRenderVisible(); });
 
   /* ---------- 搜索替换 ---------- */
@@ -5147,6 +7046,58 @@ def fib(n):
   const searchBar = $("search-bar");
   const searchInput = $("search-input");
   const replaceInput = $("replace-input");
+  const editorHl = $("editor-hl");
+  // 编辑器覆盖层：把全文 + 匹配 <mark> 渲到 #editor-hl（文字透明、仅 mark 显底色），与 textarea 同字体/内边距/行高对齐。
+  function renderEditorHighlight() {
+    if (!editorHl) return;
+    if (searchBar.hidden || !searchInput.value || !searchMatches.length) { editorHl.innerHTML = ""; return; }
+    const v = editor.value, q = searchInput.value;
+    let html = "", last = 0;
+    for (let i = 0; i < searchMatches.length; i++) {
+      const pos = searchMatches[i];
+      html += escapeHtml(v.slice(last, pos));
+      html += '<mark class="search-mark' + (i === searchIdx ? " current" : "") + '">' + escapeHtml(v.slice(pos, pos + q.length)) + '</mark>';
+      last = pos + q.length;
+    }
+    html += escapeHtml(v.slice(last));
+    editorHl.innerHTML = html;
+    editorHl.scrollTop = editor.scrollTop;
+    editorHl.scrollLeft = editor.scrollLeft;
+  }
+  // 预览：把可见文本节点里的查询串包进 <mark>，第 searchIdx 个加 current（闪一闪）。每次渲染后重跑。
+  function highlightPreview() {
+    preview.querySelectorAll("mark.search-mark").forEach((m) => {
+      const p = m.parentNode; if (!p) return;
+      p.replaceChild(document.createTextNode(m.textContent), m); p.normalize();
+    });
+    if (searchBar.hidden || !searchInput.value) return;
+    const q = searchInput.value; if (!q) return;
+    const tw = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT, {
+      acceptNode(n) {
+        const pn = n.parentNode; if (!pn) return NodeFilter.FILTER_REJECT;
+        const tag = pn.nodeName;
+        if (tag === "SCRIPT" || tag === "STYLE" || tag === "MARK") return NodeFilter.FILTER_REJECT;
+        return n.nodeValue.indexOf(q) !== -1 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    const nodes = []; while (tw.nextNode()) nodes.push(tw.currentNode);
+    let idx = 0;
+    for (const node of nodes) {
+      const parts = node.nodeValue.split(q);
+      if (parts.length <= 1) continue;
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i]) frag.appendChild(document.createTextNode(parts[i]));
+        if (i < parts.length - 1) {
+          const mk = document.createElement("mark");
+          mk.className = "search-mark" + (idx === searchIdx ? " current" : "");
+          mk.textContent = q;
+          frag.appendChild(mk); idx++;
+        }
+      }
+      node.parentNode.replaceChild(frag, node);
+    }
+  }
   function openSearch(showReplace) {
     searchBar.hidden = false;
     $("replace-row").hidden = !showReplace;
@@ -5156,6 +7107,8 @@ def fib(n):
   }
   function closeSearch() {
     searchBar.hidden = true;
+    renderEditorHighlight(); // 清空编辑器高亮覆盖层
+    highlightPreview();      // 清空预览高亮
     editor.focus();
   }
   function updateSearchMatches() {
@@ -5175,10 +7128,12 @@ def fib(n):
   function doSearch(dir) {
     updateSearchMatches();
     if (!searchMatches.length) { $("search-count").textContent = "0/0"; return; }
-    // 找离当前光标最近的匹配
+    // 找离当前选区最近的匹配：向后(下)从选区【末尾】找，向前(上)从选区【开头】找。
+    // 用 selectionEnd 才能跳过当前已选中的那条匹配（旧代码用 >= selectionStart 会反复命中同一条，下箭头无反应）。
     const cur = editor.selectionStart;
+    const curEnd = editor.selectionEnd;
     if (dir > 0) {
-      searchIdx = searchMatches.findIndex((p) => p >= cur);
+      searchIdx = searchMatches.findIndex((p) => p >= curEnd);
       if (searchIdx < 0) searchIdx = 0;
     } else {
       searchIdx = -1;
@@ -5193,13 +7148,16 @@ def fib(n):
     if (searchIdx < 0 || !searchMatches.length) return;
     const pos = searchMatches[searchIdx];
     const len = searchInput.value.length;
-    editor.focus();
+    // 不抢焦点：setSelectionRange 在 textarea 未聚焦时仍能设置选区并滚动到可见，
+    // 保留焦点在搜索框，否则每输入一个字符就把后续按键灌进正文（旧 bug）。
     editor.setSelectionRange(pos, pos + len);
     // 滚动到可见
     const line = editor.value.slice(0, pos).split("\n").length;
     const lineHeight = 14 * 1.7;
     editor.scrollTop = (line - 1) * lineHeight - editor.clientHeight / 2;
     $("search-count").textContent = (searchIdx + 1) + "/" + searchMatches.length;
+    renderEditorHighlight(); // 刷新高亮：当前条 current 闪一闪
+    highlightPreview();
   }
   function doReplace() {
     if (searchIdx < 0 || !searchMatches.length) return;
@@ -5234,6 +7192,13 @@ def fib(n):
   $("search-next").onclick = () => doSearch(1);
   $("search-prev").onclick = () => doSearch(-1);
   $("search-close").onclick = closeSearch;
+  // 编辑器滚动：同步高亮覆盖层滚动；编辑器正文被改：重算匹配并刷新覆盖层（预览由 render 钩子刷新）。
+  editor.addEventListener("scroll", () => {
+    if (editorHl) { editorHl.scrollTop = editor.scrollTop; editorHl.scrollLeft = editor.scrollLeft; }
+  });
+  editor.addEventListener("input", () => {
+    if (!searchBar.hidden) { updateSearchMatches(); renderEditorHighlight(); }
+  });
   $("replace-btn").onclick = doReplace;
   $("replace-all-btn").onclick = doReplaceAll;
 
@@ -5251,14 +7216,26 @@ def fib(n):
       let lo = 0, hi = srcBlockOffsets.length;
       while (lo < hi) { const mid = (lo + hi) >> 1; if (srcBlockOffsets[mid] <= pos) lo = mid + 1; else hi = mid; }
       const blockIdx = Math.max(0, lo - 1);
-      // 滚动预览到该块
-      if (vblocks.length && blockIdx < vprefix.length) {
-        preview.scrollTop = Math.max(0, vprefix[blockIdx] - 20);
-      } else {
-        const els = preview.querySelectorAll("[data-src-offset]");
-        if (els[blockIdx]) {
-          const pvRect = preview.getBoundingClientRect();
-          preview.scrollTop = els[blockIdx].getBoundingClientRect().top - pvRect.top + preview.scrollTop - 20;
+      const half = preview.clientHeight / 2;
+      // 优先：测量式锚点分段线性（精确到 li/tr 与块内位置）
+      const py = offToPreviewY(pos);
+      if (py != null) { preview.scrollTop = Math.max(0, py - half); }
+      else {
+        // 回退：块内字符比例（锚点表为空时）
+        const bs = srcBlockOffsets[blockIdx];
+        const be = blockIdx + 1 < srcBlockOffsets.length ? srcBlockOffsets[blockIdx + 1] : editor.value.length;
+        const ratio = be > bs ? (pos - bs) / (be - bs) : 0;
+        if (vblocks.length && blockIdx < vprefix.length) {
+          const top = vprefix[blockIdx];
+          const h = (blockIdx + 1 < vprefix.length ? vprefix[blockIdx + 1] : vprefix[vblocks.length]) - top;
+          preview.scrollTop = Math.max(0, top + ratio * h - half);
+        } else {
+          const el = preview.children[blockIdx];
+          if (el) {
+            const pvRect = preview.getBoundingClientRect();
+            const top = el.getBoundingClientRect().top - pvRect.top + preview.scrollTop;
+            preview.scrollTop = Math.max(0, top + ratio * el.offsetHeight - half);
+          }
         }
       }
     }, 0);
@@ -5328,10 +7305,10 @@ def fib(n):
     if (vblocks.length && blockIdx < vprefix.length) {
       preview.scrollTop = Math.max(0, vprefix[blockIdx] - 20);
     } else {
-      const els = preview.querySelectorAll("[data-src-offset]");
-      if (els[blockIdx]) {
+      const el = preview.children[blockIdx]; // 顶层块（li/tr 也带 data-src-offset，故只取顶层 children）
+      if (el) {
         const pvRect = preview.getBoundingClientRect();
-        preview.scrollTop = els[blockIdx].getBoundingClientRect().top - pvRect.top + preview.scrollTop - 20;
+        preview.scrollTop = el.getBoundingClientRect().top - pvRect.top + preview.scrollTop - 20;
       }
     }
   }
@@ -5397,14 +7374,43 @@ def fib(n):
       scrollToCite(n);
       return;
     }
+    // 普通链接：http(s) 交由 document 级 opener（开系统浏览器）；mailto 由 webview 原生；
+    // 文档内 #锚点 → 滚动定位；本地文件链接(.md/.html 等) → 新标签页打开，绝不替换当前文档。
+    const linkA = e.target.closest("a[href]");
+    if (linkA) {
+      const href = linkA.getAttribute("href") || "";
+      if (/^https?:\/\//i.test(href) || href.startsWith("mailto:")) return;
+      e.preventDefault();
+      if (href.startsWith("#")) {
+        const id = href.slice(1);
+        if (id) {
+          const sel = window.CSS && CSS.escape ? "#" + CSS.escape(id) : "#" + id;
+          const el = document.getElementById(id) || preview.querySelector(sel);
+          if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" });
+        }
+        return;
+      }
+      openLinkInNewTab(href);
+      return;
+    }
     if (e.target.closest("a, button, .tab-close")) return;
-    const block = e.target.closest("[data-src-offset]");
-    if (block) {
-      const offset = parseInt(block.getAttribute("data-src-offset"), 10);
+    const unit = e.target.closest("[data-src-offset]"); // 列表项/表格行优先（细粒度），否则块
+    if (unit) {
+      // 点击用"命中的具体单元"插值（li/tr/块），最准；不走向量级 previewYToOff
+      const us = parseInt(unit.getAttribute("data-src-offset"), 10);
+      const ue = parseInt(unit.getAttribute("data-src-end"), 10);
+      let offset = us;
+      if (ue > us) {
+        const ur = unit.getBoundingClientRect();
+        let ratio = ur.height > 0 ? (e.clientY - ur.top) / ur.height : 0;
+        if (ratio < 0) ratio = 0; if (ratio > 1) ratio = 1;
+        offset = Math.round(us + ratio * (ue - us));
+      }
       if (offset >= 0) {
         scrollSrc = "preview";
         editor.focus();
         editor.setSelectionRange(offset, offset);
+        navPush(); // 点击定位：记一条导航点（程序化 setSelectionRange 不触发 navOnEdit）
         return;
       }
     }
@@ -5712,7 +7718,36 @@ def fib(n):
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     closeBibPop();
+    closeColorPop();
     closeCiteJump();
+  });
+  /* ---------- 文字颜色：下拉色板，用 <span style="color:..."> 包裹选区 ---------- */
+  const COLORS = ["#e03131","#f08c00","#e8a317","#2f9e44","#0c8599","#1971c2","#9c36b5","#d6336c","#a0522d","#868e96","#1098ad","#1a1a1a"];
+  (function initColorPop() {
+    const pop = $("color-pop"); if (!pop) return;
+    pop.innerHTML = COLORS.map((c) =>
+      '<button type="button" class="color-sw" data-color="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="' + c + '"></button>'
+    ).join("");
+  })();
+  function closeColorPop() { const p = $("color-pop"); if (p) p.hidden = true; }
+  function applyColor(c) {
+    // c 仅来自硬编码色板（hex），非用户输入；仍做格式校验防注入
+    if (!/^#[0-9a-fA-F]{3,8}$/.test(c)) return;
+    wrapSelection('<span style="color: ' + c + ';">', "</span>", colorI18n().coloredText);
+  }
+  $("color-btn").onclick = (e) => {
+    e.stopPropagation();
+    const p = $("color-pop");
+    if (p) { p.hidden = !p.hidden; closeBibPop(); }
+  };
+  $("color-pop").addEventListener("click", (e) => {
+    const sw = e.target.closest(".color-sw"); if (!sw) return;
+    applyColor(sw.dataset.color);
+    closeColorPop();
+  });
+  document.addEventListener("click", (e) => {
+    const p = $("color-pop"); if (!p || p.hidden) return;
+    if (!p.contains(e.target) && e.target.id !== "color-btn") closeColorPop();
   });
   // 引用回跳选择器：点遮罩 / 取消 关闭
   $("cite-jump-mask").addEventListener("click", (e) => { if (e.target === $("cite-jump-mask")) closeCiteJump(); });
@@ -5726,17 +7761,80 @@ def fib(n):
   }
 
   /* ---------- 帮助文档 ---------- */
-  // 帮助正文随界面语言切换；11 种界面语言各有对应文案。联系人在中文界面用「郑法伟」，
+  // 帮助正文随界面语言切换；17 种界面语言各有对应文案。联系人在中文界面用「郑法伟」，
   // 其余语言用「Fawei Zheng (郑法伟)」。代码片段（快捷键、Markdown 语法）跨语言共用。
   const SK = ["⌘/Ctrl + N","⌘/Ctrl + O","⌘/Ctrl + S","⌘/Ctrl + Shift + S","⌘/Ctrl + W","⌘/Ctrl + Shift + W","⌘/Ctrl + F","⌘/Ctrl + H","⌘/Ctrl + B","⌘/Ctrl + I","⌘/Ctrl + E","⌘/Ctrl + K","Tab","Alt/Option + Drag","Alt/Option + Shift + ←↑↓→","Esc"];
   const sc = (acts) => SK.map((k, i) => ({ k, a: acts[i] }));
+  // 帮助文档「联系我们」区两个外部链接（GitHub 源码 / 下载站点）的本地化标签。URL 本身各语言相同。
+  const LINK_LABELS = {
+    zh: { source: "源代码", download: "下载站点" },
+    en: { source: "Source code", download: "Download" },
+    fr: { source: "Code source", download: "Téléchargement" },
+    de: { source: "Quellcode", download: "Download" },
+    ru: { source: "Исходный код", download: "Скачать" },
+    it: { source: "Codice sorgente", download: "Download" },
+    ja: { source: "ソースコード", download: "ダウンロード" },
+    ko: { source: "소스 코드", download: "다운로드" },
+    es: { source: "Código fuente", download: "Descarga" },
+    pt: { source: "Código-fonte", download: "Download" },
+    ar: { source: "الكود المصدري", download: "تنزيل" },
+    hi: { source: "स्रोत कोड", download: "डाउनलोड" },
+    pa: { source: "ਸਰੋਤ ਕੋਡ", download: "ਡਾਊਨਲੋਡ" },
+    vi: { source: "Mã nguồn", download: "Tải xuống" },
+    id: { source: "Kode sumber", download: "Unduh" },
+    ur: { source: "سورس کوڈ", download: "ڈاؤن لوڈ" },
+    mn: { source: "Эх код", download: "Татаж авах" },
+  };
+  // 文字颜色按钮的本地化：title=鼠标悬停标题，coloredText=无选区时插入的占位文字。
+  const COLOR_I18N = {
+    zh: { color: "文字颜色", coloredText: "彩色文字" },
+    en: { color: "Text color", coloredText: "colored text" },
+    fr: { color: "Couleur du texte", coloredText: "texte coloré" },
+    de: { color: "Textfarbe", coloredText: "farbiger Text" },
+    ru: { color: "Цвет текста", coloredText: "цветной текст" },
+    it: { color: "Colore del testo", coloredText: "testo colorato" },
+    ja: { color: "文字の色", coloredText: "色付きテキスト" },
+    ko: { color: "글자 색", coloredText: "색상 글자" },
+    es: { color: "Color del texto", coloredText: "texto de color" },
+    pt: { color: "Cor do texto", coloredText: "texto colorido" },
+    ar: { color: "لون النص", coloredText: "نص ملوّن" },
+    hi: { color: "पाठ रंग", coloredText: "रंगीन पाठ" },
+    pa: { color: "ਟੈਕਸਟ ਰੰਗ", coloredText: "ਰੰਗੀਨ ਟੈਕਸਟ" },
+    vi: { color: "Màu chữ", coloredText: "văn bản màu" },
+    id: { color: "Warna teks", coloredText: "teks berwarna" },
+    ur: { color: "متن کا رنگ", coloredText: "رنگین متن" },
+    mn: { color: "Текстний өнгө", coloredText: "өнгөт бичвэр" },
+  };
+  function colorI18n() { return COLOR_I18N[curLang] || COLOR_I18N.en; }
+  // 返回/前进按钮的本地化标题。
+  const NAV_I18N = {
+    zh: { back: "返回", fwd: "前进" },
+    en: { back: "Back", fwd: "Forward" },
+    fr: { back: "Retour", fwd: "Suivant" },
+    de: { back: "Zurück", fwd: "Vor" },
+    ru: { back: "Назад", fwd: "Вперёд" },
+    it: { back: "Indietro", fwd: "Avanti" },
+    ja: { back: "戻る", fwd: "進む" },
+    ko: { back: "뒤로", fwd: "앞으로" },
+    es: { back: "Atrás", fwd: "Adelante" },
+    pt: { back: "Voltar", fwd: "Avançar" },
+    ar: { back: "رجوع", fwd: "للأمام" },
+    hi: { back: "पीछे", fwd: "आगे" },
+    pa: { back: "ਪਿੱਛੇ", fwd: "ਅੱਗੇ" },
+    vi: { back: "Lùi", fwd: "Tiến" },
+    id: { back: "Mundur", fwd: "Maju" },
+    ur: { back: "پیچھے", fwd: "آگے" },
+    mn: { back: "Буцах", fwd: "Урагш" },
+  };
+  function navI18n() { return NAV_I18N[curLang] || NAV_I18N.en; }
   function buildHelp(s) {
+    const ll = LINK_LABELS[curLang] || LINK_LABELS.en;
     const pairs = (arr) => "<ul>" + arr.map((f) => "<li><strong>" + f.b + "</strong>" + f.t + "</li>").join("") + "</ul>";
     const lis = (arr) => "<ul>" + arr.map((x) => "<li>" + x + "</li>").join("") + "</ul>";
     const rows = (arr) => arr.map((r) => "<tr><td><code>" + r.k + "</code></td><td>" + r.a + "</td></tr>").join("");
     return [
       "<p class=\"pron-line\"><strong>MDeX</strong> · " + s.pPron + "</p>",
-      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.1.0") + "</p>",
+      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.2.0") + "</p>",
       "<h2>" + s.hFeatures + "</h2>", pairs(s.features),
       "<h2>" + s.hShortcuts + "</h2>", "<p>" + s.pShortcut + "</p>",
       "<table><tr><th>" + s.thKey + "</th><th>" + s.thAction + "</th></tr>" + rows(s.shortcuts) + "</table>",
@@ -5801,7 +7899,7 @@ def fib(n):
   const HELP_STRINGS = {
     zh: {
       hIntro: "简介",
-      pIntro: "MDeX v{ver} — 一个完全离线的 Markdown 阅读编辑器，基于 Tauri v2 构建，面向涉密 / 内网 / 断网场景。所有文件都在本地处理，不联网、不上传。支持实时分屏预览、LaTeX 数学公式、代码高亮、图片、表格、BibTeX 文献引用、多标签页、搜索替换与多格式导出（Markdown / HTML / PDF / LaTeX）。",
+      pIntro: "MDeX v{ver} — 一款专为离线、内网及隐私保护场景设计的 Markdown 阅读与编辑器。所有文件均在本地处理，不联网、不上传、无云端同步。源代码：github.com/fwzheng/mdex；下载站点：spinss.cn。",
       pPron: "读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。",
       hFeatures: "核心功能",
       features: [
@@ -5816,7 +7914,7 @@ def fib(n):
         { b: "Mermaid 图", t: "：<code>```mermaid</code> 代码块渲染为流程图 / 时序图 / 类图 / 状态图 / 甘特图 / 饼图等；菜单「帮助 → Mermaid 图示例」载入完整示例。" },
         { b: "文献引用", t: "：BibTeX numeric 风格，文末自动生成「参考文献」表，正文 [n] 与条目双向跳转（详见下文）。" },
         { b: "HTML 支持", t: "：可直接打开 <code>.html</code> 渲染预览；支持 HTML ↔ Markdown 互转（菜单「文件」→「转为 Markdown / HTML」）。" },
-        { b: "主题 / 语言", t: "：深色 / 浅色主题，11 种界面语言；阿拉伯语自动右到左。" },
+        { b: "主题 / 语言", t: "：深色 / 浅色主题，17 种界面语言；阿拉伯语、乌尔都语自动右到左。" },
         { b: "自动草稿", t: "：内容定时暂存，意外关闭 / 崩溃后可恢复。" },
         { b: "字数统计", t: "：状态栏实时显示字数 / 行数 / 词数 / 字符数，及当前行列号。" },
         { b: "拖拽打开", t: "：拖拽 <code>.md</code> 文件到窗口直接打开；拖拽图片直接插入。" },
@@ -5866,7 +7964,7 @@ def fib(n):
     },
     en: {
       hIntro: "Overview",
-      pIntro: "MDeX v{ver} — a fully offline Markdown reader & editor built on Tauri v2, for air-gapped / intranet / disconnected use. All files are processed locally — no network, no uploads. It supports live split preview, LaTeX math, code highlighting, images, tables, BibTeX citations, multi-tab editing, search & replace and multi-format export (Markdown / HTML / PDF / LaTeX).",
+      pIntro: "MDeX v{ver} — a Markdown reader & editor designed for offline, intranet, and privacy-conscious use. All files are processed locally — no network, no uploads, no cloud sync. Source code: github.com/fwzheng/mdex; Download: spinss.cn.",
       pPron: "Pronounced “em-dex” (/ˌemˈdɛks/) — the letter M followed by “dex”, two syllables.",
       hFeatures: "Features",
       features: [
@@ -5881,11 +7979,14 @@ def fib(n):
         { b: "Mermaid diagrams", t: ": a <code>```mermaid</code> code block renders as flowchart / sequence / class / state / Gantt / pie, etc.; menu Help → Mermaid Examples loads a full sample." },
         { b: "Citations", t: ": BibTeX numeric style; a References list is generated at the end, with two-way jumps between in-text [n] and the entry (see below)." },
         { b: "HTML support", t: ": open <code>.html</code> files for rendering; convert between HTML and Markdown (menu File → Convert)." },
-        { b: "Theme / language", t: ": dark / light, 11 UI languages; Arabic auto right-to-left." },
+        { b: "Theme / language", t: ": dark / light, 17 UI languages; Arabic & Urdu auto right-to-left." },
         { b: "Auto-draft", t: ": content is saved periodically and restored after an unexpected close / crash." },
         { b: "Word count", t: ": the status bar shows characters / lines / words live, plus the current row & column." },
         { b: "Drag-and-drop", t: ": drop a <code>.md</code> file onto the window to open it; drop an image to insert it." },
         { b: "Export", t: ": save as Markdown / HTML / PDF (vector + raster) / LaTeX." },
+        { b: "Text color", t: ": toolbar palette colors the selected text (12 common colors)." },
+        { b: "Back / Forward", t: ": unified history across documents and cursor positions; ◀ ▶ buttons, Alt+←/→." },
+        { b: "Follow links", t: ": click a link in the preview to open the target in a <strong>new tab</strong> (http in the system browser); the current document is never replaced." },
       ],
       hShortcuts: "Shortcuts",
       pShortcut: "Use <code>⌘</code> on macOS, <code>Ctrl</code> on Windows / Linux. Drop a <code>.md</code> onto the window to open; middle-click a tab to close it.",
@@ -5931,7 +8032,7 @@ def fib(n):
     },
     fr: {
       hIntro: "Présentation",
-      pIntro: "MDeX v{ver} — un éditeur Markdown entièrement hors ligne, basé sur Tauri v2. Tous les fichiers sont traités localement — sans réseau, sans envoi. Il prend en charge l'aperçu en direct, les formules LaTeX, la coloration du code, les images, les tableaux, les listes de tâches, l'édition multi-onglets et l'export multi-format.",
+      pIntro: "MDeX v{ver} — un lecteur et éditeur Markdown conçu pour un usage hors ligne, intranet et orienté confidentialité. Tous les fichiers sont traités localement — sans réseau, sans upload, sans synchro cloud. Code source : github.com/fwzheng/mdex ; Téléchargement : spinss.cn.",
       pPron: "Se prononce « em-dex » (/ˌemˈdɛks/) — la lettre M suivie de « dex », deux syllabes.",
       hFeatures: "Fonctionnalités",
       features: [
@@ -5940,9 +8041,12 @@ def fib(n):
         { b: "Formules", t: " : en ligne <code>$...$</code> et en bloc <code>$$...$$</code>, rendues par KaTeX." },
         { b: "Coloration du code", t: " : langue détectée automatiquement." },
         { b: "Images", t: " : coller / glisser-déposer / choisir — intégrées en base64 ; les chemins locaux relatifs fonctionnent aussi." },
-        { b: "Thème / langue", t: " : sombre / clair, 11 langues d'interface." },
+        { b: "Thème / langue", t: " : sombre / clair, 17 langues d'interface." },
         { b: "Brouillon auto", t: " : le contenu est sauvegardé périodiquement et restauré après une fermeture inattendue." },
         { b: "Export", t: " : enregistrer en Markdown / PDF / LaTeX." },
+        { b: "Couleur du texte", t: ": la palette de la barre colore le texte sélectionné (12 couleurs)." },
+        { b: "Précédent / Suivant", t: ": historique unifié des documents et positions du curseur ; boutons ◀ ▶, Alt+←/→." },
+        { b: "Suivre les liens", t: ": un clic sur un lien de l'aperçu ouvre la cible dans un <strong>nouvel onglet</strong> (http dans le navigateur) ; le document courant n'est pas remplacé." },
       ],
       hShortcuts: "Raccourcis",
       pShortcut: "Utilisez <code>⌘</code> sur macOS, <code>Ctrl</code> sur Windows / Linux.",
@@ -5982,7 +8086,7 @@ def fib(n):
     },
     de: {
       hIntro: "Überblick",
-      pIntro: "MDeX v{ver} — ein vollständig Offline-fähiger Markdown-Editor auf Basis von Tauri v2. Alle Dateien werden lokal verarbeitet — kein Netzwerk, keine Uploads. Er unterstützt Live-Vorschau, LaTeX-Formeln, Code-Hervorhebung, Bilder, Tabellen, Aufgabenlisten, Mehrfach-Tabs und Mehrformat-Export.",
+      pIntro: "MDeX v{ver} — ein Markdown-Reader & Editor für Offline-, Intranet- und datenschutzbewussten Einsatz. Alle Dateien werden lokal verarbeitet — kein Netzwerk, keine Uploads, keine Cloud-Synchronisation. Quellcode: github.com/fwzheng/mdex; Download: spinss.cn.",
       pPron: "Wird „em-dex“ gesprochen (/ˌemˈdɛks/) — der Buchstabe M gefolgt von „dex“, zwei Silben.",
       hFeatures: "Funktionen",
       features: [
@@ -5991,9 +8095,12 @@ def fib(n):
         { b: "Formeln", t: ": inline <code>$...$</code> und Block <code>$$...$$</code>, gerendert durch KaTeX." },
         { b: "Code-Hervorhebung", t: ": Sprache wird automatisch erkannt." },
         { b: "Bilder", t: ": Einfügen / Ablegen / Auswählen — als base64 eingebettet; relative lokale Pfade funktionieren ebenfalls." },
-        { b: "Design / Sprache", t: ": Dunkel / Hell, 11 UI-Sprachen." },
+        { b: "Design / Sprache", t: ": Dunkel / Hell, 17 UI-Sprachen." },
         { b: "Auto-Entwurf", t: ": Inhalt wird regelmäßig gespeichert und nach unerwartetem Schließen wiederhergestellt." },
         { b: "Export", t: ": speichern als Markdown / PDF / LaTeX." },
+        { b: "Textfarbe", t: ": die Paletten-Schaltfläche färbt den ausgewählten Text (12 Farben)." },
+        { b: "Zurück / Vor", t: ": vereinigte History über Dokumente und Cursorpositionen; ◀ ▶-Buttons, Alt+←/→." },
+        { b: "Links folgen", t: ": ein Klick auf einen Link in der Vorschau öffnet das Ziel in einem <strong>neuen Tab</strong> (http im Systembrowser); das aktuelle Dokument bleibt erhalten." },
       ],
       hShortcuts: "Tastenkürzel",
       pShortcut: "<code>⌘</code> auf macOS, <code>Ctrl</code> auf Windows / Linux.",
@@ -6033,7 +8140,7 @@ def fib(n):
     },
     ru: {
       hIntro: "Обзор",
-      pIntro: "MDeX v{ver} — полностью офлайн-редактор Markdown на базе Tauri v2. Все файлы обрабатываются локально — без сети, без загрузок. Поддерживает живой предпросмотр, формулы LaTeX, подсветку кода, изображения, таблицы, списки задач, вкладки и экспорт в нескольких форматах.",
+      pIntro: "MDeX v{ver} — редактор и просмотрщик Markdown для автономной, интрасетевой и приватной работы. Все файлы обрабатываются локально — без сети, без загрузок, без облачной синхронизации. Исходный код: github.com/fwzheng/mdex; Скачать: spinss.cn.",
       pPron: "Произносится «em-dex» (/ˌemˈdɛks/) — буква M и «dex», два слога.",
       hFeatures: "Возможности",
       features: [
@@ -6042,9 +8149,12 @@ def fib(n):
         { b: "Формулы", t: ": строчные <code>$...$</code> и блочные <code>$$...$$</code>, рендер KaTeX." },
         { b: "Подсветка кода", t: ": язык определяется автоматически." },
         { b: "Изображения", t: ": вставка / перетаскивание / выбор — встраиваются как base64; относительные локальные пути тоже работают." },
-        { b: "Тема / язык", t: ": тёмная / светлая, 11 языков интерфейса." },
+        { b: "Тема / язык", t: ": тёмная / светлая, 17 языков интерфейса." },
         { b: "Автосохранение", t: ": содержимое периодически сохраняется и восстанавливается после неожиданного закрытия." },
         { b: "Экспорт", t: ": сохранить как Markdown / PDF / LaTeX." },
+        { b: "Цвет текста", t: ": палитра на панели окрашивает выделенный текст (12 цветов)." },
+        { b: "Назад / Вперёд", t: ": единая история по документам и позициям курсора; кнопки ◀ ▶, Alt+←/→." },
+        { b: "Переход по ссылкам", t: ": клик по ссылке в предпросмотре открывает цель в <strong>новой вкладке</strong> (http — в системном браузере); текущий документ не заменяется." },
       ],
       hShortcuts: "Горячие клавиши",
       pShortcut: "<code>⌘</code> на macOS, <code>Ctrl</code> на Windows / Linux.",
@@ -6084,7 +8194,7 @@ def fib(n):
     },
     it: {
       hIntro: "Panoramica",
-      pIntro: "MDeX v{ver} — un editor Markdown completamente offline basato su Tauri v2. Tutti i file sono elaborati localmente — senza rete, senza upload. Supporta anteprima live, formule LaTeX, evidenziazione del codice, immagini, tabelle, elenchi di attività, schede multiple ed esportazione multi-formato.",
+      pIntro: "MDeX v{ver} — un lettore ed editor Markdown pensato per uso offline, intranet e privacy. Tutti i file sono elaborati localmente — niente rete, niente upload, niente cloud. Codice sorgente: github.com/fwzheng/mdex; Download: spinss.cn.",
       pPron: "Si pronuncia «em-dex» (/ˌemˈdɛks/) — la lettera M seguita da «dex», due sillabe.",
       hFeatures: "Funzionalità",
       features: [
@@ -6093,9 +8203,12 @@ def fib(n):
         { b: "Formule", t: ": inline <code>$...$</code> e blocco <code>$$...$$</code>, renderizzate da KaTeX." },
         { b: "Evidenziazione codice", t: ": lingua rilevata automaticamente." },
         { b: "Immagini", t: ": incolla / trascina / scegli — incorporate in base64; funzionano anche i percorsi locali relativi." },
-        { b: "Tema / lingua", t: ": scuro / chiaro, 11 lingue dell'interfaccia." },
+        { b: "Tema / lingua", t: ": scuro / chiaro, 17 lingue dell'interfaccia." },
         { b: "Bozza automatica", t: ": il contenuto è salvato periodicamente e ripristinato dopo una chiusura imprevista." },
         { b: "Esportazione", t: ": salva come Markdown / PDF / LaTeX." },
+        { b: "Colore del testo", t: ": la paletta della barra colora il testo selezionato (12 colori)." },
+        { b: "Indietro / Avanti", t: ": cronologia unificata di documenti e posizioni del cursore; pulsanti ◀ ▶, Alt+←/→." },
+        { b: "Segui i link", t: ": un clic su un link nell'anteprima apre la destinazione in una <strong>nuova scheda</strong> (http nel browser di sistema); il documento corrente non viene sostituito." },
       ],
       hShortcuts: "Scorciatoie",
       pShortcut: "Usa <code>⌘</code> su macOS, <code>Ctrl</code> su Windows / Linux.",
@@ -6135,7 +8248,7 @@ def fib(n):
     },
     ja: {
       hIntro: "概要",
-      pIntro: "MDeX v{ver} — Tauri v2 ベースの完全オフラインの Markdown エディタです。すべてのファイルはローカルで処理され、通信もアップロードも行いません。ライブプレビュー、LaTeX 数式、コードハイライト、画像、表、タスクリスト、マルチタブ、複数フォーマットのエクスポートに対応します。",
+      pIntro: "MDeX v{ver} — オフライン・社内ネットワーク・プライバシー保護向けの Markdown リーダー＆エディタ。すべてのファイルはローカルで処理され、通信・アップロード・クラウド同期なし。ソースコード：github.com/fwzheng/mdex；ダウンロード：spinss.cn。",
       pPron: "「em-dex」と発音します（/ˌemˈdɛks/）—— 文字 M に続けて「dex」の2音節です。",
       hFeatures: "機能",
       features: [
@@ -6144,9 +8257,12 @@ def fib(n):
         { b: "数式", t: "：インライン <code>$...$</code> とブロック <code>$$...$$</code>、KaTeX が描画。" },
         { b: "コードハイライト", t: "：言語を自動検出。" },
         { b: "画像", t: "：貼り付け / ドラッグ / 選択で base64 自動埋め込み。相対ローカルパスも可。" },
-        { b: "テーマ / 言語", t: "：ダーク / ライト、11 言語の UI。" },
+        { b: "テーマ / 言語", t: "：ダーク / ライト、17 言語の UI。" },
         { b: "自動下書き", t: "：内容を定期的に保存し、異常終了後に復元。" },
         { b: "エクスポート", t: "：Markdown / PDF / LaTeX で保存。" },
+        { b: "文字色", t: ": ツールバーのパレットが選択テキストを着色します（12 色）。" },
+        { b: "戻る / 進む", t: ": ドキュメントとカーソル位置の統合履歴；◀ ▶ ボタン、Alt+←/→。" },
+        { b: "リンクをたどる", t: ": プレビュー内のリンクをクリックすると<strong>新しいタブ</strong>で開きます（http はシステムブラウザ）。現在のドキュメントは置き換わりません。" },
       ],
       hShortcuts: "ショートカット",
       pShortcut: "macOS は <code>⌘</code>、Windows / Linux は <code>Ctrl</code>。",
@@ -6186,7 +8302,7 @@ def fib(n):
     },
     ko: {
       hIntro: "개요",
-      pIntro: "MDeX v{ver} — Tauri v2 기반의 완전 오프라인 Markdown 편집기입니다. 모든 파일은 로컬에서 처리되며, 네트워크 사용이나 업로드가 없습니다. 실시간 미리보기, LaTeX 수식, 코드 하이라이트, 이미지, 표, 작업 목록, 다중 탭, 다중 포맷 내보내기를 지원합니다.",
+      pIntro: "MDeX v{ver} — 오프라인·인트라넷·개인정보 보호 환경을 위한 Markdown 리더 및 에디터. 모든 파일은 로컬에서 처리되며, 통신·업로드·클라우드 동기화 없음. 소스 코드: github.com/fwzheng/mdex; 다운로드: spinss.cn.",
       pPron: "“em-dex”로 발음합니다 (/ˌemˈdɛks/) — 문자 M 뒤에 “dex”가 오는 두 음절입니다.",
       hFeatures: "기능",
       features: [
@@ -6195,9 +8311,12 @@ def fib(n):
         { b: "수식", t: ": 인라인 <code>$...$</code>와 블록 <code>$$...$$</code>, KaTeX가 렌더링." },
         { b: "코드 하이라이트", t: ": 언어 자동 인식." },
         { b: "이미지", t: ": 붙여넣기 / 드롭 / 선택 — base64로 자동 삽입; 상대 로컬 경로도 가능." },
-        { b: "테마 / 언어", t: ": 다크 / 라이트, 11개 UI 언어." },
+        { b: "테마 / 언어", t: ": 다크 / 라이트, 17개 UI 언어." },
         { b: "자동 임시저장", t: ": 내용이 주기적으로 저장되어 예기치 않은 종료 후 복원됩니다." },
         { b: "내보내기", t: ": Markdown / PDF / LaTeX로 저장." },
+        { b: "글자 색", t: ": 도구 모음 팔레트가 선택한 글자를 색칠합니다(12색)." },
+        { b: "뒤로 / 앞으로", t: ": 문서와 커서 위치의 통합 기록; ◀ ▶ 버튼, Alt+←/→." },
+        { b: "링크 따라가기", t: ": 미리보기에서 링크를 클릭하면 <strong>새 탭</strong>으로 엽니다(http는 시스템 브라우저). 현재 문서는 바뀌지 않습니다." },
       ],
       hShortcuts: "단축키",
       pShortcut: "macOS는 <code>⌘</code>, Windows / Linux는 <code>Ctrl</code>.",
@@ -6237,7 +8356,7 @@ def fib(n):
     },
     es: {
       hIntro: "Descripción",
-      pIntro: "MDeX v{ver} — un editor Markdown completamente sin conexión basado en Tauri v2. Todos los archivos se procesan localmente, sin red ni subidas. Soporta vista previa en vivo, fórmulas LaTeX, resaltado de código, imágenes, tablas, listas de tareas, pestañas múltiples y exportación en varios formatos.",
+      pIntro: "MDeX v{ver} — un lector y editor de Markdown diseñado para entornos offline, intranet y privacidad. Todos los archivos se procesan localmente — sin red, sin subidas, sin sincronización en la nube. Código fuente: github.com/fwzheng/mdex; Descarga: spinss.cn.",
       pPron: "Se pronuncia «em-dex» (/ˌemˈdɛks/) — la letra M seguida de «dex», dos sílabas.",
       hFeatures: "Funciones",
       features: [
@@ -6246,9 +8365,12 @@ def fib(n):
         { b: "Fórmulas", t: ": en línea <code>$...$</code> y en bloque <code>$$...$$</code>, renderizadas por KaTeX." },
         { b: "Resaltado de código", t: ": idioma detectado automáticamente." },
         { b: "Imágenes", t: ": pegar / soltar / elegir — se incrustan en base64; las rutas locales relativas también funcionan." },
-        { b: "Tema / idioma", t: ": oscuro / claro, 11 idiomas de interfaz." },
+        { b: "Tema / idioma", t: ": oscuro / claro, 17 idiomas de interfaz." },
         { b: "Borrador automático", t: ": el contenido se guarda periódicamente y se restaura tras un cierre inesperado." },
         { b: "Exportar", t: ": guardar como Markdown / PDF / LaTeX." },
+        { b: "Color del texto", t: ": la paleta de la barra colorea el texto seleccionado (12 colores)." },
+        { b: "Atrás / Adelante", t: ": historial unificado de documentos y posiciones del cursor; botones ◀ ▶, Alt+←/→." },
+        { b: "Seguir enlaces", t: ": un clic en un enlace de la vista previa abre el destino en una <strong>nueva pestaña</strong> (http en el navegador del sistema); el documento actual no se reemplaza." },
       ],
       hShortcuts: "Atajos",
       pShortcut: "Usa <code>⌘</code> en macOS, <code>Ctrl</code> en Windows / Linux.",
@@ -6288,7 +8410,7 @@ def fib(n):
     },
     pt: {
       hIntro: "Visão geral",
-      pIntro: "MDeX v{ver} — um editor Markdown totalmente offline baseado em Tauri v2. Todos os arquivos são processados localmente — sem rede, sem uploads. Suporta pré-visualização ao vivo, fórmulas LaTeX, destaque de código, imagens, tabelas, listas de tarefas, abas múltiplas e exportação em vários formatos.",
+      pIntro: "MDeX v{ver} — um leitor e editor de Markdown feito para uso offline, intranet e privacidade. Todos os arquivos são processados localmente — sem rede, sem uploads, sem sincronização na nuvem. Código-fonte: github.com/fwzheng/mdex; Download: spinss.cn.",
       pPron: "Pronuncia-se «em-dex» (/ˌemˈdɛks/) — a letra M seguida de «dex», duas sílabas.",
       hFeatures: "Recursos",
       features: [
@@ -6297,9 +8419,12 @@ def fib(n):
         { b: "Fórmulas", t: ": em linha <code>$...$</code> e em bloco <code>$$...$$</code>, renderizadas por KaTeX." },
         { b: "Destaque de código", t: ": idioma detectado automaticamente." },
         { b: "Imagens", t: ": colar / soltar / escolher — incorporadas em base64; caminhos locais relativos também funcionam." },
-        { b: "Tema / idioma", t: ": escuro / claro, 11 idiomas de interface." },
+        { b: "Tema / idioma", t: ": escuro / claro, 17 idiomas de interface." },
         { b: "Rascunho automático", t: ": o conteúdo é salvo periodicamente e restaurado após um fechamento inesperado." },
         { b: "Exportar", t: ": salvar como Markdown / PDF / LaTeX." },
+        { b: "Cor do texto", t: ": a paleta da barra colore o texto selecionado (12 cores)." },
+        { b: "Voltar / Avançar", t: ": histórico unificado de documentos e posições do cursor; botões ◀ ▶, Alt+←/→." },
+        { b: "Seguir links", t: ": clicar num link da pré-visualização abre o destino numa <strong>nova aba</strong> (http no navegador do sistema); o documento atual não é substituído." },
       ],
       hShortcuts: "Atalhos",
       pShortcut: "Use <code>⌘</code> no macOS, <code>Ctrl</code> no Windows / Linux.",
@@ -6339,7 +8464,7 @@ def fib(n):
     },
     ar: {
       hIntro: "نظرة عامة",
-      pIntro: "MDeX v{ver} — محرر Markdown يعمل دون اتصال بالكامل ومبني على Tauri v2. تُعالَج جميع الملفات محليًا — بدون شبكة ولا رفع. يدعم المعاينة الحية، وصيغ LaTeX، وتلوين الكود، والصور، والجداول، وقوائم المهام، والتبويبات المتعددة، والتصدير بصيغ متعددة.",
+      pIntro: "MDeX v{ver} — قارئ ومحرر Markdown مصمم للاستخدام دون اتصال والشبكات الداخلية وحماية الخصوصية. تُعالَج جميع الملفات محليًا — دون شبكة ولا رفع ولا مزامنة سحابية. الكود المصدري: github.com/fwzheng/mdex؛ التنزيل: spinss.cn.",
       pPron: "يُنطق «em-dex» (/ˌemˈdɛks/) — الحرف M متبوعًا بـ «dex»، مقطعان لفظيان.",
       hFeatures: "الميزات",
       features: [
@@ -6348,9 +8473,12 @@ def fib(n):
         { b: "الصيغ", t: ": سطرية <code>$...$</code> وكتلية <code>$$...$$</code>، تُعرض بـ KaTeX." },
         { b: "تلوين الكود", t: ": يُكتشف اللغة تلقائيًا." },
         { b: "الصور", t: ": لصق / سحب / اختيار — تُضمَّن base64؛ تعمل المسارات النسبية المحلية أيضًا." },
-        { b: "السمة / اللغة", t: ": داكنة / فاتحة، 11 لغة واجهة." },
+        { b: "السمة / اللغة", t: ": داكنة / فاتحة، 17 لغة واجهة؛ العربية والأردية تلقائيًا من اليمين لليسار." },
         { b: "مسودة تلقائية", t: ": يُحفظ المحتوى دوريًا ويُستعاد بعد إغلاق غير متوقع." },
         { b: "التصدير", t: ": حفظ بصيغة Markdown / PDF / LaTeX." },
+        { b: "لون النص", t: ": لوحة الشريط تُلوِّن النص المحدد (12 لونًا)." },
+        { b: "رجوع / للأمام", t: ": سجل موحد للمستندات ومواضع المؤشر؛ زرّا ◀ ▶، Alt+←/→." },
+        { b: "اتباع الروابط", t: ": النقر على رابط في المعاينة يفتح الهدف في <strong>تبويب جديد</strong> (http في متصفح النظام)؛ لا يُستبدل المستند الحالي." },
       ],
       hShortcuts: "اختصارات",
       pShortcut: "استخدم <code>⌘</code> على macOS، و<code>Ctrl</code> على Windows / Linux.",
@@ -6388,6 +8516,378 @@ def fib(n):
       pContact: "شكرًا لاستخدام MDeX! للمشاكل أو الاقتراحات، تواصل معنا:",
       contactName: "Fawei Zheng (郑法伟)",
     },
+    hi: {
+      hIntro: "परिचय",
+      pIntro: "MDeX v{ver} — ऑफ़लाइन, इंट्रानेट तथा गोपनीयता सुरक्षा के लिए डिज़ाइन किया गया Markdown पाठक व संपादक। सभी फ़ाइलेँ स्थानीय रूप से संसाधित होती हैं — बिना नेटवर्क, बिना अपलोड, बिना क्लाउड सिंक। स्रोत कोड: github.com/fwzheng/mdex; डाउनलोड: spinss.cn.",
+      pPron: "उच्चारण “em-dex” (/ˌemˈdɛks/) — अक्षर M के बाद “dex”, दो अक्षर।",
+      hFeatures: "विशेषताएँ",
+      features: [
+        { b: "मल्टी-टैब", t: ": एक साथ कई फ़ाइलें खोलें; असहेजे परिवर्तन बिंदु से चिह्नित, बंद करने से पहले पुष्टि; टैब बंद करने मध्य-क्लिक करें।" },
+        { b: "लाइव विभाजित पूर्वावलोकन", t: ": आकार बदलने विभाजक खींचें; टूलबार बटन विभाजित / संपादक / पूर्वावलोकन चक्रित करता है।" },
+        { b: "क्लिक-से-स्थिति", t: ": संपादक में क्लिक कर पूर्वावलोकन स्क्रॉल करें; पूर्वावलोकन में क्लिक कर संपादक में कर्सर ले जाएँ।" },
+        { b: "खोज व प्रतिस्थापन", t: ": खोजें, एक या सभी बदलें, मिलान संख्या सहित; ⌘F / ⌘H।" },
+        { b: "गणित", t: ": इनलाइन <code>$...$</code> व ब्लॉक <code>$$...$$</code> (<code>\\(...\\)</code>, <code>\\[...\\]</code> भी), KaTeX द्वारा; लंबे समीकरण संकारकों पर लपेटते या स्वतः सिकुड़ते हैं।" },
+        { b: "कोड हाइलाइटिंग", t: ": भाषा स्वतः पहचानी; बड़े दस्तावेज़ चिकने रहने व्यूपोर्ट से आलसी-हाइलाइट।" },
+        { b: "चित्र", t: ": पेस्ट / ड्रॉप / चुनें — स्वतः base64 अंतर्निहित; सापेक्ष स्थानीय पथ भी काम; चित्र डिफ़ॉल्ट केंद्रित।" },
+        { b: "तालिकाएँ", t: ": GFM तालिकाएँ; सँकरी तालिकाएँ केंद्रित, चौड़ी क्षैतिज स्क्रॉल बिना कटे।" },
+        { b: "Mermaid आरेख", t: ": <code>```mermaid</code> ब्लॉक फ़्लोचार्ट / अनुक्रम / वर्ग / अवस्था / गैंट / पाई आदि; मेन्यू सहायता → Mermaid उदाहरण पूर्ण नमूना लोड करता है।" },
+        { b: "उद्धरण", t: ": BibTeX संख्यात्मक शैली; अंत में संदर्भ सूची बनती है, [n] व प्रविष्टि में द्वि-दिशा कूद।" },
+        { b: "HTML समर्थन", t: ": <code>.html</code> फ़ाइलें रेंडर कर खोलें; HTML ↔ Markdown रूपांतरण (मेन्यू फ़ाइल → रूपांतरण)।" },
+        { b: "थीम / भाषा", t: ": डार्क / लाइट, 17 UI भाषाएँ; अरबी व उर्दू स्वतः दाएँ-से-बाएँ।" },
+        { b: "स्वतः ड्राफ़्ट", t: ": सामग्री समय-समय सहेजी जाती व अप्रत्याशित बंद / क्रैश पर पुनर्स्थापित।" },
+        { b: "शब्द गणन", t: ": स्टेटस बार अक्षर / पंक्तियाँ / शब्द वर्तमान पंक्ति-स्तंभ सहित दिखाता है।" },
+        { b: "ड्रैग-एंड-ड्रॉप", t: ": <code>.md</code> फ़ाइल खोलने विंडो पर ड्रॉप; चित्र डालने ड्रॉप करें।" },
+        { b: "निर्यात", t: ": Markdown / HTML / PDF (वेक्टर + रास्टर) / LaTeX सहेजें।" },
+        { b: "पाठ रंग", t: ": टूलबार पैलेट चयनित पाठ को रंगता है (12 रंग)।" },
+        { b: "पीछे / आगे", t: ": दस्तावेज़ों व कर्सर स्थितियों का एकीकृत इतिहास; ◀ ▶ बटन, Alt+←/→।" },
+        { b: "लिंक खोलें", t: ": पूर्वावलोकन में लिंक पर क्लिक से लक्ष्य <strong>नई टैब</strong> में खुलता है (http सिस्टम ब्राउज़र में); मौजूदा दस्तावेज़ नहीं बदलता।" },
+      ],
+      hShortcuts: "शॉर्टकट",
+      pShortcut: "macOS पर <code>⌘</code>, Windows / Linux पर <code>Ctrl</code>। खोलने विंडो पर <code>.md</code> ड्रॉप करें; टैब बंद मध्य-क्लिक।",
+      thKey: "शॉर्टकट", thAction: "क्रिया",
+      shortcuts: sc(["नया","खोलें","सहेजें","नाम से सहेजें","टैब बंद","विंडो बंद","खोजें","बदलें","बोल्ड","तिरछा","इनलाइन कोड","लिंक","2 रिक्त जगह इंडेंट","आयताकार (कॉलम) चयन","कॉलम चयन बढ़ाएँ","चयन रद्द"]),
+      hMd: "Markdown संदर्भ",
+      md: [
+        "शीर्षक: <code># H1</code>, <code>## H2</code>, <code>### H3</code>",
+        "बोल्ड: <code>**पाठ**</code>; तिरछा: <code>*पाठ*</code>; strike: <code>~~पाठ~~</code>",
+        "इनलाइन कोड: <code>`कोड`</code>",
+        "कोड ब्लॉक: तीन backtick से घिरा; पहली पंक्ति में भाषा (जैसे <code>python</code>) जोड़ें",
+        "उद्धरण: <code>&gt; पाठ</code>",
+        "बुलेट सूची: <code>-</code> / <code>*</code> / <code>+</code>; क्रमांकित: <code>1.</code>",
+        "कार्य सूची: <code>- [ ]</code> या <code>- [x]</code>",
+        "लिंक: <code>[पाठ](url)</code>; चित्र: <code>![alt](url)</code> या पेस्ट / ड्रॉप",
+        "विभाजक: <code>---</code>",
+        "तालिका: <code>| A | B |</code> फिर <code>| --- | --- |</code>",
+      ],
+      hMath: "गणित",
+      math: [
+        "इनलाइन: <code>$E = mc^2$</code> (<code>\\(E = mc^2\\)</code> भी)",
+        "ब्लॉक: <code>$$</code> से घिरा, कई पंक्तियाँ, जैसे <code>$$\\int_0^1 x\\,dx$$</code> (<code>\\[...\\]</code> भी)",
+        "LaTeX सिंटैक्स, KaTeX द्वारा। कोड ब्लॉक के अंदर <code>$</code> गणित विभाजक नहीं।",
+      ],
+       hCite: "उद्धरण (BibTeX)", cite: CITE_HELP_EN,hExport: "निर्यात (नाम से सहेजें)",
+      pExport: "\"नाम से सहेजें\" चुनें और प्रारूप चुनें:",
+      export: [
+        { b: "Markdown (.md)", t: ": स्रोत सहेजता व टैब का नाम / पथ अद्यतन करता है।" },
+        { b: "PDF (.pdf)", t: ": ब्लॉक सीमाओं पर पृष्ठ-विभाजन — सूत्र / शीर्षक / कोड-ब्लॉक कटते नहीं; बड़ा ब्लॉक पूरा अगले पृष्ठ पर।" },
+        { b: "LaTeX (.tex)", t: ": संकलन-योग्य <code>.tex</code> में बदलता (documentclass व पैकेज सहित; गणित यथावत)। प्रतिलिपि निर्यात करता।" },
+      ],
+      hLicense: "लाइसेंस",
+      pLicense: "MDeX <strong>Apache License 2.0</strong> के अंतर्गत मुक्त-स्रोत, कॉपीराइट Fawei Zheng। बंडल घटक (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown व Tauri आदि) अपनी मूल लाइसेंस (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0) में।",
+      hContact: "संपर्क",
+      pContact: "MDeX चुनने के लिए धन्यवाद! समस्याओं या सुझावों के लिए संपर्क करें:",
+      contactName: "Fawei Zheng (郑法伟)",
+    },
+    pa: {
+      hIntro: "ਜਾਣ-ਪਛਾਣ",
+      pIntro: "MDeX v{ver} — ਆਫਲਾਈਨ, ਇੰਟ੍ਰਾਨੈੱਟ ਤੇ ਨਿੱਜਤਾ ਸੁਰੱਖਿਆ ਲਈ ਬਣਾਇਆ Markdown ਰੀਡਰ ਤੇ ਐਡੀਟਰ। ਸਭ ਫ਼ਾਈਲਾਂ ਸਥਾਨਕ ਵਰਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ — ਬਿਨਾਂ ਨੈੱਟਵਰਕ, ਬਿਨਾਂ ਅੱਪਲੋਡ, ਬਿਨਾਂ ਕਲਾਊਡ ਸਿੰਕ। ਸਰੋਤ ਕੋਡ: github.com/fwzheng/mdex; ਡਾਊਨਲੋਡ: spinss.cn.",
+      pPron: "ਉਚਾਰਨ “em-dex” (/ˌemˈdɛks/) — ਅੱਖਰ M ਮਗਰੋਂ “dex”, ਦੋ ਅੱਖਰ।",
+      hFeatures: "ਖਾਸੀਅਤਾਂ",
+      features: [
+        { b: "ਮਲਟੀ-ਟੈਬ", t: ": ਇੱਕੋ ਵੇਲੇ ਕਈ ਫ਼ਾਈਲਾਂ ਖੋਲ੍ਹੋ; ਨਾ-ਸੰਭਾਲੀਆਂ ਤਬਦੀਲੀਆਂ ਬਿੰਦੂ ਨਾਲ ਅੰਕਿਤ, ਬੰਦ ਤੋਂ ਪਹਿਲਾਂ ਪੁਸ਼ਟੀ।" },
+        { b: "ਲਾਈਵ ਵੰਡੀ ਝਲਕ", t: ": ਆਕਾਰ ਲਈ ਵਿਭਾਜਕ ਘਸੀਟੋ; ਟੂਲਬਾਰ ਬਟਨ ਵੰਡੀ / ਐਡੀਟਰ / ਝਲਕ ਬਦਲਦਾ ਹੈ।" },
+        { b: "ਕਲਿੱਕ-ਤੋਂ-ਸਥਿਤੀ", t: ": ਐਡੀਟਰ ਵਿੱਚ ਕਲਿੱਕ ਝਲਕ ਸਕ੍ਰੌਲ; ਝਲਕ ਵਿੱਚ ਕਲਿੱਕ ਐਡੀਟਰ ਕਰਸਰ ਲੈ ਜਾਂਦਾ।" },
+        { b: "ਖੋਜ ਤੇ ਬਦਲ", t: ": ਖੋਜੋ, ਇੱਕ ਜਾਂ ਸਭ ਬਦਲੋ, ਮਿਲਾਨ ਗਿਣਤੀ ਸਹਿਤ; ⌘F / ⌘H।" },
+        { b: "ਗਣਿਤ", t: ": ਇਨਲਾਈਨ <code>$...$</code> ਤੇ ਬਲਾਕ <code>$$...$$</code>, KaTeX ਰਾਹੀਂ; ਲੰਮੇ ਸਮੀਕਰਨ ਆਪਣੇ-ਆਪ ਸਮੇਟਦੇ ਜਾਂ ਸਕੁੰਚਿਤ।" },
+        { b: "ਕੋਡ ਹਾਈਲਾਈਟ", t: ": ਭਾਸ਼ਾ ਆਪਣੇ-ਆਪ ਪਛਾਣੀ; ਵੱਡੇ ਦਸਤਾਵੇਜ਼ ਵਿਊਪੋਰਟ ਤੋਂ ਆਲਸੀ-ਹਾਈਲਾਈਟ।" },
+        { b: "ਚਿੱਤਰ", t: ": ਪੇਸਟ / ਡਰੌਪ / ਚੁਣੋ — base64 ਅੰਤਰੀਕ੍ਰਿਤ; ਸਾਪੇਖਿਕ ਸਥਾਨਕ ਰਾਹ ਵੀ; ਚਿੱਤਰ ਡਿਫ਼ਾਲਟ ਕੇਂਦਰਿਤ।" },
+        { b: "ਸਾਰਣੀਆਂ", t: ": GFM ਸਾਰਣੀਆਂ; ਤੰਗ ਕੇਂਦਰਿਤ, ਚੌੜੀਆਂ ਕੱਟੇ ਬਿਨਾਂ ਖਿਤਿਜ਼ ਸਕ੍ਰੌਲ।" },
+        { b: "Mermaid ਚਾਰਟ", t: ": <code>```mermaid</code> ਫ਼ਲੋਚਾਰਟ / ਸੀਕੁਐਂਸ / ਕਲਾਸ / ਸਟੇਟ / ਗੈਂਟ / ਪਾਈ ਆਦਿ; ਮੀਨੂ ਮਦਦ → Mermaid ਨਮੂਨਾ ਲੋਡ ਕਰਦਾ।" },
+        { b: "ਹਵਾਲੇ", t: ": BibTeX ਅੰਕੀ ਸ਼ੈਲੀ; ਅੰਤ ਵਿੱਚ ਹਵਾਲਾ ਸੂਚੀ, [n] ਤੇ ਐਂਟਰੀ ਵਿੱਚ ਦੋ-ਪਾਸੇ ਛਾਲ।" },
+        { b: "HTML ਸਮਰਥਨ", t: ": <code>.html</code> ਰੈਂਡਰ ਖੋਲ੍ਹੋ; HTML ↔ Markdown ਬਦਲੋ (ਮੀਨੂ ਫ਼ਾਈਲ → ਬਦਲੋ)।" },
+        { b: "ਥੀਮ / ਭਾਸ਼ਾ", t: ": ਡਾਰਕ / ਲਾਈਟ, 17 UI ਭਾਸ਼ਾਵਾਂ; ਅਰਬੀ ਤੇ ਉਰਦੂ ਆਪਣੇ-ਆਪ ਸੱਜੇ-ਤੋਂ-ਖੱਬੇ।" },
+        { b: "ਆਟੋ-ਡਰਾਫ਼ਟ", t: ": ਸਮਗਰੀ ਸਮੇਂ-ਸਮੇਂ ਸੰਭਾਲੀ ਤੇ ਅਚਾਨਕ ਬੰਦ / ਕ੍ਰੈਸ਼ ਉੱਤੇ ਮੁੜ-ਸਥਾਪਤ।" },
+        { b: "ਸ਼ਬਦ ਗਿਣਤੀ", t: ": ਸਟੇਟਸ ਬਾਰ ਅੱਖਰ / ਸਤਰਾਂ / ਸ਼ਬਦ ਤੇ ਮੌਜੂਦਾ ਸਤਰ-ਕਾਲਮ ਵਿਖਾਉਂਦਾ।" },
+        { b: "ਡਰੈਗ-ਐਂਡ-ਡਰੌਪ", t: ": <code>.md</code> ਖੋਲ੍ਹਣ ਵਿੰਡੋ ਉੱਤੇ ਡਰੌਪ; ਚਿੱਤਰ ਪਾਉਣ ਡਰੌਪ।" },
+        { b: "ਨਿਰਯਾਤ", t: ": Markdown / HTML / PDF (ਵੈਕਟਰ + ਰਾਸਟਰ) / LaTeX ਸੰਭਾਲੋ।" },
+        { b: "ਟੈਕਸਟ ਰੰਗ", t: ": ਟੂਲਬਾਰ ਪੈਲੇਟ ਚੁਣੇ ਟੈਕਸਟ ਨੂੰ ਰੰਗਦਾ ਹੈ (12 ਰੰਗ)।" },
+        { b: "ਪਿੱਛੇ / ਅੱਗੇ", t: ": ਦਸਤਾਵੇਜ਼ਾਂ ਤੇ ਕਰਸਰ ਸਥਿਤੀਆਂ ਦਾ ਇਕਸਾਰ ਇਤਿਹਾਸ; ◀ ▶ ਬਟਨ, Alt+←/→।" },
+        { b: "ਲਿੰਕ ਖੋਲ੍ਹੋ", t: ": ਝਲਕ ਵਿੱਚ ਲਿੰਕ ਉੱਤੇ ਕਲਿੱਕ ਨਾਲ ਨਿਸ਼ਾਨਾ <strong>ਨਵੀਂ ਟੈਬ</strong> ਵਿੱਚ ਖੁੱਲ੍ਹਦਾ ਹੈ (http ਸਿਸਟਮ ਬਰਾਊਜ਼ਰ ਵਿੱਚ); ਮੌਜੂਦਾ ਦਸਤਾਵੇਜ਼ ਨਹੀਂ ਬਦਲਦਾ।" },
+      ],
+      hShortcuts: "ਸ਼ਾਰਟਕੱਟ",
+      pShortcut: "macOS ਉੱਤੇ <code>⌘</code>, Windows / Linux ਉੱਤੇ <code>Ctrl</code>। ਖੋਲ੍ਹਣ ਵਿੰਡੋ ਉੱਤੇ <code>.md</code> ਡਰੌਪ; ਟੈਬ ਬੰਦ ਮੱਧ-ਕਲਿੱਕ।",
+      thKey: "ਸ਼ਾਰਟਕੱਟ", thAction: "ਕਾਰਵਾਈ",
+      shortcuts: sc(["ਨਵਾਂ","ਖੋਲ੍ਹੋ","ਸੰਭਾਲੋ","ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ","ਟੈਬ ਬੰਦ","ਵਿੰਡੋ ਬੰਦ","ਖੋਜੋ","ਬਦਲੋ","ਬੋਲਡ","ਤਿਰਛਾ","ਇਨਲਾਈਨ ਕੋਡ","ਲਿੰਕ","2 ਸਪੇਸ ਇੰਡੈਂਟ","ਆਇਤਾਕਾਰ (ਕਾਲਮ) ਚੋਣ","ਕਾਲਮ ਚੋਣ ਵਧਾਓ","ਚੋਣ ਰੱਦ"]),
+      hMd: "Markdown ਹਵਾਲਾ",
+      md: [
+        "ਸਿਰਲੇਖ: <code># H1</code>, <code>## H2</code>, <code>### H3</code>",
+        "ਬੋਲਡ: <code>**ਪਾਠ**</code>; ਤਿਰਛਾ: <code>*ਪਾਠ*</code>; strike: <code>~~ਪਾਠ~~</code>",
+        "ਇਨਲਾਈਨ ਕੋਡ: <code>`ਕੋਡ`</code>",
+        "ਕੋਡ ਬਲਾਕ: ਤਿੰਨ backtick ਨਾਲ ਘਿਰਿਆ; ਪਹਿਲੀ ਸਤਰ ਵਿੱਚ ਭਾਸ਼ਾ (ਜਿਵੇਂ <code>python</code>) ਜੋੜੋ",
+        "ਹਵਾਲਾ: <code>&gt; ਪਾਠ</code>",
+        "ਬੁਲੈਟ ਸੂਚੀ: <code>-</code> / <code>*</code> / <code>+</code>; ਅੰਕਿਤ: <code>1.</code>",
+        "ਕੰਮ ਸੂਚੀ: <code>- [ ]</code> ਜਾਂ <code>- [x]</code>",
+        "ਲਿੰਕ: <code>[ਪਾਠ](url)</code>; ਚਿੱਤਰ: <code>![alt](url)</code> ਜਾਂ ਪੇਸਟ / ਡਰੌਪ",
+        "ਵਿਭਾਜਕ: <code>---</code>",
+        "ਸਾਰਣੀ: <code>| A | B |</code> ਫਿਰ <code>| --- | --- |</code>",
+      ],
+      hMath: "ਗਣਿਤ",
+      math: [
+        "ਇਨਲਾਈਨ: <code>$E = mc^2$</code> (<code>\\(E = mc^2\\)</code> ਵੀ)",
+        "ਬਲਾਕ: <code>$$</code> ਨਾਲ ਘਿਰਿਆ, ਕਈ ਸਤਰਾਂ, ਜਿਵੇਂ <code>$$\\int_0^1 x\\,dx$$</code> (<code>\\[...\\]</code> ਵੀ)",
+        "LaTeX ਸਿੰਟੈਕਸ, KaTeX ਰਾਹੀਂ। ਕੋਡ ਬਲਾਕ ਅੰਦਰ <code>$</code> ਗਣਿਤ ਵਿਭਾਜਕ ਨਹੀਂ।",
+      ],
+       hCite: "ਹਵਾਲੇ (BibTeX)", cite: CITE_HELP_EN,hExport: "ਨਿਰਯਾਤ (ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ)",
+      pExport: "\"ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ\" ਚੁਣੋ ਤੇ ਫਾਰਮੈਟ ਚੁਣੋ:",
+      export: [
+        { b: "Markdown (.md)", t: ": ਸਰੋਤ ਸੰਭਾਲਦਾ ਤੇ ਟੈਬ ਦਾ ਨਾਮ / ਰਾਹ ਅੱਪਡੇਟ ਕਰਦਾ।" },
+        { b: "PDF (.pdf)", t: ": ਬਲਾਕ ਹੱਦਾਂ ਉੱਤੇ ਸਫ਼ਾ-ਵੰਡ — ਸੂਤਰ / ਸਿਰਲੇਖ / ਕੋਡ-ਬਲਾਕ ਨਹੀਂ ਕੱਟਦੇ; ਵੱਡਾ ਬਲਾਕ ਪੂਰਾ ਅਗਲੇ ਸਫ਼ੇ ਉੱਤੇ।" },
+        { b: "LaTeX (.tex)", t: ": ਕੰਪਾਇਲ-ਯੋਗ <code>.tex</code> ਵਿੱਚ ਬਦਲਦਾ (documentclass ਤੇ ਪੈਕੇਜ; ਗਣਿਤ ਯਥਾਵਤ)। ਨਕਲ ਨਿਰਯਾਤ ਕਰਦਾ।" },
+      ],
+      hLicense: "ਲਾਈਸੈਂਸ",
+      pLicense: "MDeX <strong>Apache License 2.0</strong> ਹੇਠ ਓਪਨ-ਸ੍ਰੋਤ, ਕਾਪੀਰਾਈਟ Fawei Zheng। ਬੰਡਲ ਭਾਗ (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown ਤੇ Tauri ਆਦਿ) ਆਪਣੀ ਮੂਲ ਲਾਈਸੈਂਸ (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0) ਹੇਠ।",
+      hContact: "ਸੰਪਰਕ",
+      pContact: "MDeX ਵਰਤਣ ਲਈ ਧੰਨਵਾਦ! ਸਮੱਸਿਆਵਾਂ ਜਾਂ ਸੁਝਾਅ ਲਈ ਸੰਪਰਕ ਕਰੋ:",
+      contactName: "Fawei Zheng (郑法伟)",
+    },
+    vi: {
+      hIntro: "Tổng quan",
+      pIntro: "MDeX v{ver} — một trình đọc & soạn thảo Markdown dành cho môi trường ngoại tuyến, nội bộ và bảo mật. Mọi tệp xử lý tại máy — không mạng, không tải lên, không đồng bộ đám mây. Mã nguồn: github.com/fwzheng/mdex; Tải xuống: spinss.cn.",
+      pPron: "Đọc là “em-dex” (/ˌemˈdɛks/) — chữ M theo sau là “dex”, hai âm tiết.",
+      hFeatures: "Tính năng",
+      features: [
+        { b: "Đa thẻ", t: ": mở nhiều tệp cùng lúc; thay đổi chưa lưu được đánh dấu chấm, hỏi trước khi đóng; bấm chuột giữa thẻ để đóng." },
+        { b: "Xem trước chia đôi trực tiếp", t: ": kéo vạch chia để đổi kích thước; nút thanh công cụ xoay Chia đôi / Soạn thảo / Xem trước." },
+        { b: "Bấm để định vị", t: ": bấm trong trình soạn thảo để cuộn xem trước; bấm trong xem trước để nhảy con trỏ." },
+        { b: "Tìm & thay", t: ": tìm, thay một hoặc tất cả, kèm số kết quả; ⌘F / ⌘H." },
+        { b: "Toán học", t: ": nội dòng <code>$...$</code> và khối <code>$$...$$</code> (cả <code>\\(...\\)</code>, <code>\\[...\\]</code>), bởi KaTeX; phương trình dài tự ngắt tại toán tử hoặc tự thu nhỏ." },
+        { b: "Tô sáng mã", t: ": tự nhận diện ngôn ngữ; tài liệu lớn tô sáng lười theo vùng nhìn." },
+        { b: "Ảnh", t: ": dán / thả / chọn — tự nhúng base64; đường dẫn cục bộ tương đối cũng dùng được; ảnh mặc định căn giữa." },
+        { b: "Bảng", t: ": bảng GFM; bảng hẹp căn giữa, bảng rộng cuộn ngang không bị cắt." },
+        { b: "Sơ đồ Mermaid", t: ": khối <code>```mermaid</code> vẽ lưu đồ / tuần tự / lớp / trạng thái / Gantt / bánh; menu Trợ giúp → Ví dụ Mermaid tải mẫu đầy đủ." },
+        { b: "Trích dẫn", t: ": phong cách số BibTeX; danh sách Tài liệu tham khảo tạo ở cuối, nhảy hai chiều giữa [n] và mục." },
+        { b: "Hỗ trợ HTML", t: ": mở <code>.html</code> để kết xuất; chuyển đổi HTML ↔ Markdown (menu Tệp → Chuyển đổi)." },
+        { b: "Giao diện / ngôn ngữ", t: ": tối / sáng, 17 ngôn ngữ UI; Ả Rập & Urdu tự động phải-sang-trái." },
+        { b: "Tự động nháp", t: ": nội dung lưu định kỳ và khôi phục sau khi đóng bất thường." },
+        { b: "Đếm từ", t: ": thanh trạng thái hiển thị ký tự / dòng / từ cùng dòng-cột hiện tại." },
+        { b: "Kéo-thả", t: ": thả tệp <code>.md</code> vào cửa sổ để mở; thả ảnh để chèn." },
+        { b: "Xuất", t: ": lưu thành Markdown / HTML / PDF (vector + raster) / LaTeX." },
+        { b: "Màu chữ", t: ": bảng màu trên thanh công cụ tô màu chữ được chọn (12 màu)." },
+        { b: "Lùi / Tiến", t: ": lịch sử thống nhất qua tài liệu và vị trí con trỏ; nút ◀ ▶, Alt+←/→." },
+        { b: "Mở liên kết", t: ": nhấp liên kết trong xem trước sẽ mở đích trong <strong>tab mới</strong> (http trong trình duyệt hệ thống); tài liệu hiện tại không bị thay thế." },
+      ],
+      hShortcuts: "Phím tắt",
+      pShortcut: "Dùng <code>⌘</code> trên macOS, <code>Ctrl</code> trên Windows / Linux. Thả <code>.md</code> vào cửa sổ để mở; bấm giữa thẻ để đóng.",
+      thKey: "Phím tắt", thAction: "Hành động",
+      shortcuts: sc(["Mới","Mở","Lưu","Lưu thành","Đóng thẻ","Đóng cửa sổ","Tìm","Thay","Đậm","Nghiêng","Mã nội dòng","Liên kết","Thụt 2 dấu cách","Chọn cột chữ nhật","Mở rộng chọn cột","Hủy chọn"]),
+      hMd: "Tham chiếu Markdown",
+      md: [
+        "Tiêu đề: <code># H1</code>, <code>## H2</code>, <code>### H3</code>",
+        "Đậm: <code>**chữ**</code>; nghiêng: <code>*chữ*</code>; gạch ngang: <code>~~chữ~~</code>",
+        "Mã nội dòng: <code>`mã`</code>",
+        "Khối mã: bọc bằng ba dấu huyền; thêm ngôn ngữ (vd. <code>python</code>) ở dòng đầu",
+        "Trích dẫn: <code>&gt; chữ</code>",
+        "Danh sách đầu mục: <code>-</code> / <code>*</code> / <code>+</code>; danh sách số: <code>1.</code>",
+        "Danh sách việc: <code>- [ ]</code> hoặc <code>- [x]</code>",
+        "Liên kết: <code>[chữ](url)</code>; ảnh: <code>![alt](url)</code> hoặc dán / thả",
+        "Dòng phân cách: <code>---</code>",
+        "Bảng: <code>| A | B |</code> rồi <code>| --- | --- |</code>",
+      ],
+      hMath: "Toán học",
+      math: [
+        "Nội dòng: <code>$E = mc^2$</code> (cả <code>\\(E = mc^2\\)</code>)",
+        "Khối: bọc bằng <code>$$</code>, có thể nhiều dòng, vd. <code>$$\\int_0^1 x\\,dx$$</code> (cả <code>\\[...\\]</code>)",
+        "Dùng cú pháp LaTeX, kết xuất bởi KaTeX. <code>$</code> trong khối mã không là dấu phân cách công thức.",
+      ],
+       hCite: "Trích dẫn (BibTeX)", cite: CITE_HELP_EN,hExport: "Xuất (Lưu thành)",
+      pExport: "Bấm \"Lưu thành\" và chọn định dạng:",
+      export: [
+        { b: "Markdown (.md)", t: ": lưu nguồn và cập nhật tên / đường dẫn thẻ hiện tại." },
+        { b: "PDF (.pdf)", t: ": phân trang theo ranh giới khối — không cắt công thức / tiêu đề / khối mã; khối lớn chuyển nguyên sang trang kế." },
+        { b: "LaTeX (.tex)", t: ": chuyển thành mã nguồn <code>.tex</code> có thể biên dịch (kèm documentclass và gói; giữ nguyên công thức). Xuất bản sao." },
+      ],
+      hLicense: "Giấy phép",
+      pLicense: "MDeX là mã nguồn mở theo <strong>Apache License 2.0</strong>, bản quyền Fawei Zheng. Các thành phần đi kèm (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown và Tauri, v.v.) giữ giấy phép gốc (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
+      hContact: "Liên hệ",
+      pContact: "Cảm ơn bạn dùng MDeX! Mọi vấn đề hoặc góp ý, liên hệ:",
+      contactName: "Fawei Zheng (郑法伟)",
+    },
+    id: {
+      hIntro: "Ikhtisar",
+      pIntro: "MDeX v{ver} — pembaca & editor Markdown yang dirancang untuk mode luring, intranet, dan privasi. Semua berkas diproses secara lokal — tanpa jaringan, tanpa unggahan, tanpa sinkronisasi cloud. Kode sumber: github.com/fwzheng/mdex; Unduh: spinss.cn.",
+      pPron: "Dibaca “em-dex” (/ˌemˈdɛks/) — huruf M diikuti “dex”, dua suku kata.",
+      hFeatures: "Fitur",
+      features: [
+        { b: "Multi-tab", t: ": buka beberapa berkas sekaligus; perubahan belum tersimpan ditandai titik, dikonfirmasi sebelum ditutup; klik tengah tab untuk menutup." },
+        { b: "Pratinjau terbagi langsung", t: ": seret pembatas untuk mengubah ukuran; tombol bar siklus Bagi / Editor / Pratinjau." },
+        { b: "Klik-ke-posisi", t: ": klik di editor untuk menggulir pratinjau; klik di pratinjau untuk meloncatkan kursor." },
+        { b: "Cari & ganti", t: ": cari, ganti satu atau semua, dengan jumlah cocok; ⌘F / ⌘H." },
+        { b: "Matematika", t: ": sebaris <code>$...$</code> dan blok <code>$$...$$</code> (juga <code>\\(...\\)</code>, <code>\\[...\\]</code>), oleh KaTeX; persamaan panjang otomatis melipat atau mengecil." },
+        { b: "Penyorotan kode", t: ": bahasa dideteksi otomatis; dokumen besar disorot malas per viewport." },
+        { b: "Gambar", t: ": tempel / jatuhkan / pilih — otomatis base64; path lokal relatif juga; gambar default di tengah." },
+        { b: "Tabel", t: ": tabel GFM; tabel sempit di tengah, tabel lebar menggulir horizontal tanpa terpotong." },
+        { b: "Diagram Mermaid", t: ": blok <code>```mermaid</code> menjadi flowchart / sequence / class / state / Gantt / pie; menu Bantuan → Contoh Mermaid memuat sampel penuh." },
+        { b: "Kutipan", t: ": gaya numerik BibTeX; daftar Referensi dibuat di akhir, lompat dua arah antara [n] dan entri." },
+        { b: "Dukungan HTML", t: ": buka <code>.html</code> untuk dirender; konversi HTML ↔ Markdown (menu Berkas → Konversi)." },
+        { b: "Tema / bahasa", t: ": gelap / terang, 17 bahasa UI; Arab & Urdu otomatis kanan-ke-kiri." },
+        { b: "Draf otomatis", t: ": konten disimpan berkala dan dipulihkan setelah tutup mendadak." },
+        { b: "Hitung kata", t: ": bilah status menampilkan karakter / baris / kata plus baris-kolom kini." },
+        { b: "Seret & jatuhkan", t: ": jatuhkan <code>.md</code> ke jendela untuk membuka; jatuhkan gambar untuk menyisipkan." },
+        { b: "Ekspor", t: ": simpan sebagai Markdown / HTML / PDF (vektor + raster) / LaTeX." },
+        { b: "Warna teks", t: ": palet pada bilah alat mewarnai teks terpilih (12 warna)." },
+        { b: "Mundur / Maju", t: ": riwayat terpadu lintas dokumen dan posisi kursor; tombol ◀ ▶, Alt+←/→." },
+        { b: "Ikuti tautan", t: ": klik tautan di pratinjau membuka target di <strong>tab baru</strong> (http di peramban sistem); dokumen saat ini tidak diganti." },
+      ],
+      hShortcuts: "Pintasan",
+      pShortcut: "Gunakan <code>⌘</code> di macOS, <code>Ctrl</code> di Windows / Linux. Jatuhkan <code>.md</code> ke jendela untuk membuka; klik tengah tab untuk menutup.",
+      thKey: "Pintasan", thAction: "Aksi",
+      shortcuts: sc(["Baru","Buka","Simpan","Simpan Sebagai","Tutup Tab","Tutup Jendela","Cari","Ganti","Tebal","Miring","Kode sebaris","Tautan","Indentasi 2 spasi","Pilihan kolom (persegi)","Perluas pilihan kolom","Batal pilihan"]),
+      hMd: "Ringkasan Markdown",
+      md: [
+        "Judul: <code># H1</code>, <code>## H2</code>, <code>### H3</code>",
+        "Tebal: <code>**teks**</code>; miring: <code>*teks*</code>; coret: <code>~~teks~~</code>",
+        "Kode sebaris: <code>`kode`</code>",
+        "Blok kode: dibungkus tiga backtick; tambahkan bahasa (mis. <code>python</code>) di baris pertama",
+        "Kutipan: <code>&gt; teks</code>",
+        "Daftar poin: <code>-</code> / <code>*</code> / <code>+</code>; daftar bernomor: <code>1.</code>",
+        "Daftar tugas: <code>- [ ]</code> atau <code>- [x]</code>",
+        "Tautan: <code>[teks](url)</code>; gambar: <code>![alt](url)</code> atau tempel / jatuhkan",
+        "Pemisah: <code>---</code>",
+        "Tabel: <code>| A | B |</code> lalu <code>| --- | --- |</code>",
+      ],
+      hMath: "Matematika",
+      math: [
+        "Sebaris: <code>$E = mc^2$</code> (juga <code>\\(E = mc^2\\)</code>)",
+        "Blok: bungkus <code>$$</code>, bisa beberapa baris, mis. <code>$$\\int_0^1 x\\,dx$$</code> (juga <code>\\[...\\]</code>)",
+        "Memakai sintaks LaTeX, dirender KaTeX. <code>$</code> di dalam blok kode bukan pembatas matematika.",
+      ],
+       hCite: "Kutipan (BibTeX)", cite: CITE_HELP_EN,hExport: "Ekspor (Simpan Sebagai)",
+      pExport: "Klik \"Simpan Sebagai\" dan pilih format:",
+      export: [
+        { b: "Markdown (.md)", t: ": menyimpan sumber dan memperbarui nama / path tab kini." },
+        { b: "PDF (.pdf)", t: ": dipaginasi pada batas blok — rumus / judul / blok kode tak terpotong; blok besar pindah utuh ke halaman berikut." },
+        { b: "LaTeX (.tex)", t: ": dikonversi ke sumber <code>.tex</code> yang dapat dikompilasi (dengan documentclass dan paket; matematika tetap). Mengekspor salinan." },
+      ],
+      hLicense: "Lisensi",
+      pLicense: "MDeX bersumber terbuka di bawah <strong>Apache License 2.0</strong>, hak cipta Fawei Zheng. Komponen yang dibundel (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown dan Tauri dll.) tetap di bawah lisensi aslinya (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
+      hContact: "Kontak",
+      pContact: "Terima kasih memakai MDeX! Untuk masalah atau saran, hubungi:",
+      contactName: "Fawei Zheng (郑法伟)",
+    },
+    ur: {
+      hIntro: "تعارف",
+      pIntro: "MDeX v{ver} — آف لائن، انٹرانیٹ اور رازداری کی حفاظت کے لیے بنایا گیا Markdown قاری و ایڈیٹر۔ تمام فائلیں مقامی طور پر پروسیس ہوتی ہیں — بغیر نیٹ ورک، بغیر اپ لوڈ، بغیر کلاؤڈ سنک۔ سورس کوڈ: github.com/fwzheng/mdex؛ ڈاؤن لوڈ: spinss.cn۔",
+      pPron: "تلفظ “em-dex” (/ˌemˈdɛks/) — حرف M کے بعد “dex”， دو حصے۔",
+      hFeatures: "خصوصیات",
+      features: [
+        { b: "ملٹی ٹیب", t: ": ایک ساتھ کئی فائلیں کھولیں؛ غیر محفوظ تبدیلیاں نقطے سے نشان زد، بند کرنے سے پہلے تصدیق؛ ٹیب بند کے لیے درمیان کلک۔" },
+        { b: "لائیو تقسیم پیش نظارہ", t: ": سائز بدلنے تقسیم کار کو گھسیٹیں؛ ٹول بار بٹن تقسیم / ایڈیٹر / پیش نظارہ بدلتا ہے۔" },
+        { b: "کلک-سے-مقام", t: ": ایڈیٹر میں کلک کر پیش نظارہ اسکرول؛ پیش نظارہ میں کلک کر کرسر لے جائیں۔" },
+        { b: "تلاش و تبدیلی", t: ": تلاش، ایک یا سب تبدیل، میچ تعداد کے ساتھ؛ ⌘F / ⌘H۔" },
+        { b: "ریاضی", t: ": ان لائن <code>$...$</code> اور بلاک <code>$$...$$</code> (<code>\\(...\\)</code>، <code>\\[...\\]</code> بھی)، KaTeX کے ذریعے؛ لمبے مساوات آپریٹرز پر لپیٹتے یا خود سکڑتے ہیں۔" },
+        { b: "کوڈ ہائی لائٹ", t: ": زبان خود سمجھی جاتی؛ بڑے دستاویزات Viu port سے سست ہائی لائٹ۔" },
+        { b: "تصاویر", t: ": پیسٹ / ڈراپ / چنیں — خود base64 شامل؛ نسبتی مقامی راستے بھی؛ تصاویر طے شدہ درمیان۔" },
+        { b: "جداول", t: ": GFM جداول؛ تنگ جداول درمیان، چوڑی افقی اسکرول بغیر کٹائی۔" },
+        { b: "Mermaid خاکے", t: ": <code>```mermaid</code> بلاک فلو چارٹ / سلسلہ / کلاس / حالت / گینٹ / پائی وغیرہ؛ مینیو مدد → Mermaid نمونہ مکمل نمونہ لود کرتا ہے۔" },
+        { b: "حوالے", t: ": BibTeX عددی انداز؛ حوالہ جات فہرست آخر میں بنتی، [n] اور اندراج کے درمیان دو طرفہ چھلانگ۔" },
+        { b: "HTML معاونت", t: ": <code>.html</code> رینڈر کے لیے کھولیں؛ HTML ↔ Markdown تبدیلی (مینیو فائل → تبدیلی)۔" },
+        { b: "تھیم / زبان", t: ": گہرا / ہلکا، 17 UI زبانیں؛ عربی و اردو خود دائیں-سے-بائیں۔" },
+        { b: "خود مسودہ", t: ": مواد وقتاً فوقتاً محفوظ اور اچانک بند / کریش کے بعد بحال۔" },
+        { b: "لفظ گنتی", t: ": اسٹیٹس بار حروف / سطریں / الفاظ کے ساتھ موجودہ سطر-کالم دکھاتا ہے۔" },
+        { b: "ڈریگ اینڈ ڈراپ", t: ": <code>.md</code> کھولنے ونڈو پر ڈراپ؛ تصویر شامل کرنے ڈراپ کریں۔" },
+        { b: "برآمد", t: ": Markdown / HTML / PDF (ویکٹر + راسٹر) / LaTeX محفوظ کریں۔" },
+        { b: "متن کا رنگ", t: ": ٹول بار کی پلیٹ منتخب متن کو رنگتی ہے (12 رنگ)۔" },
+        { b: "پیچھے / آگے", t: ": دستاویزات و کرسر مقامات کی متفقہ تاریخ؛ ◀ ▶ بٹن، Alt+←/→۔" },
+        { b: "ربط کھولیں", t: ": پیش نظارہ میں ربط پر کلک سے ہدف <strong>نئی ٹیب</strong> میں کھلتا ہے (http سسٹم براؤزر میں)؛ موجودہ دستاویز تبدیل نہیں ہوتی۔" },
+      ],
+      hShortcuts: "شارٹ کٹ",
+      pShortcut: "macOS پر <code>⌘</code>، Windows / Linux پر <code>Ctrl</code>۔ کھولنے ونڈو پر <code>.md</code> ڈراپ؛ ٹیب بند درمیان کلک۔",
+      thKey: "شارٹ کٹ", thAction: "عمل",
+      shortcuts: sc(["نیا","کھولیں","محفوظ","اس نام سے محفوظ","ٹیب بند","ونڈو بند","تلاش","تبدیل","موٹا","ترچھا","ان لائن کوڈ","ربط","2 اسپیس انڈینٹ","مستطیل (کالم) انتخاب","کالم انتخاب بڑھائیں","انتخاب منسوخ"]),
+      hMd: "Markdown حوالہ",
+      md: [
+        "سرخیاں: <code># H1</code>، <code>## H2</code>، <code>### H3</code>",
+        "موٹا: <code>**متن**</code>؛ ترچھا: <code>*متن*</code>؛ strike: <code>~~متن~~</code>",
+        "ان لائن کوڈ: <code>`کوڈ`</code>",
+        "کوڈ بلاک: تین backtick سے گھرا؛ پہلی سطر میں زبان (جیسے <code>python</code>) شامل کریں",
+        "اقتباس: <code>&gt; متن</code>",
+        "نقطہ فہرست: <code>-</code> / <code>*</code> / <code>+</code>؛ ترقیم: <code>1.</code>",
+        "کام فہرست: <code>- [ ]</code> یا <code>- [x]</code>",
+        "ربط: <code>[متن](url)</code>؛ تصویر: <code>![alt](url)</code> یا پیسٹ / ڈراپ",
+        "تقسیم کار: <code>---</code>",
+        "جدول: <code>| A | B |</code> پھر <code>| --- | --- |</code>",
+      ],
+      hMath: "ریاضی",
+      math: [
+        "ان لائن: <code>$E = mc^2$</code> (<code>\\(E = mc^2\\)</code> بھی)",
+        "بلاک: <code>$$</code> سے گھرا، کئی سطریں، جیسے <code>$$\\int_0^1 x\\,dx$$</code> (<code>\\[...\\]</code> بھی)",
+        "LaTeX نحوی استعمال، KaTeX رینڈر۔ کوڈ بلاک کے اندر <code>$</code> ریاضی تقسیم کار نہیں۔",
+      ],
+       hCite: "حوالے (BibTeX)", cite: CITE_HELP_EN,hExport: "برآمد (اس نام سے محفوظ)",
+      pExport: "\"اس نام سے محفوظ\" چنیں اور فارمیٹ منتخب کریں:",
+      export: [
+        { b: "Markdown (.md)", t: ": ماخذ محفوظ اور ٹیب کا نام / راستہ اپ ڈیٹ کرتا ہے۔" },
+        { b: "PDF (.pdf)", t: ": بلاک حدوں پر صفحہ بندی — صیغے / سرخیاں / کوڈ بلاک نہیں کٹتے؛ بڑا بلاک مکمل اگلے صفحے پر۔" },
+        { b: "LaTeX (.tex)", t: ": مرتب-قابل <code>.tex</code> میں بدلتا (documentclass اور پیکجز؛ ریاضی یثابت)۔ ایک کاپی برآمد کرتا۔" },
+      ],
+      hLicense: "لائسنس",
+      pLicense: "MDeX <strong>Apache License 2.0</strong> کے تحت اوپن سورس، کاپی رائٹ Fawei Zheng۔ بنڈل شدہ اجزاء (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown اور Tauri وغیرہ) اپنی اصل لائسنس (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0) میں رہتے۔",
+      hContact: "رابطہ",
+      pContact: "MDeX چننے کا شکریہ! مسائل یا تجاویز کے لیے رابطہ کریں:",
+      contactName: "Fawei Zheng (郑法伟)",
+    },
+    mn: {
+      hIntro: "Тойм",
+      pIntro: "MDeX v{ver} — Офлайн, интранет ба нууцлал хамгаалалтад зориулсан Markdown уншигч ба засварлагч. Бүх файл орон нутагтаа боловсруулагдана — сүлжээгүй, байршуулалтгүй, үүлэн синкгүй. Эх код: github.com/fwzheng/mdex; Татаж авах: spinss.cn.",
+      pPron: "«em-dex» гэж дуудна (/ˌemˈdɛks/) — M үсгийн ард «dex», хоёр үе.",
+      hFeatures: "Боломжууд",
+      features: [
+        { b: "Олон таб", t: ": нэгэн зэрэг хэд хэдэн файл нээ; хадгалаагүй өөрчлөлт цэгээр тэмдэглэгдэж, хаахын өмнө баталгаажуулна; табыг хаахын тулд дунд товчийг дар." },
+        { b: "Шууд хуваасан урьдчилан харах", t: ": хэмжээ өөрчлөхдөө хуваагчийг чир; багажны товч Хуваасан / Засварлагч / Урьдчилан харах-г ээлжлэнэ." },
+        { b: "Дарж байрлуулах", t: ": засварлагч дээр дарж урьдчилан харахыг гүйлгэ; урьдчилан харах дээр дарж курсорыг засварлагч руу шилжүүл." },
+        { b: "Хайх ба солих", t: ": хайх, нэгийг эсвэл бүгдийг солих, тааралтын тооны хамт; ⌘F / ⌘H." },
+        { b: "Математик", t: ": шугаман <code>$...$</code> ба блок <code>$$...$$</code> (<code>\\(...\\)</code>, <code>\\[...\\]</code> бас), KaTeX-ээр; урт тэгшитгэл оператор дээр хугарах эсвэл автоматаар жижигрэнэ." },
+        { b: "Кодоор өнгөлөх", t: ": хэл автоматаар танигдана; том баримт дэлгэцийн бүсээр удаашралтай өнгөлнө." },
+        { b: "Зураг", t: ": буулгах / чирэх / сонгох — автоматаар base64; харьцангуй орон нутгийн зам ч ажиллана; зураг анхдагчаар төвд." },
+        { b: "Хүснэгт", t: ": GFM хүснэгт; нарийн хүснэгт агуулгаар төвдөг, өргөн нь хэвтээгээр гүйлгэхэд таслагдахгүй." },
+        { b: "Mermaid диаграмм", t: ": <code>```mermaid</code> блок урсгалын / дарааллын / ангийн / төлөвийн / Ганттын / бөөрөнхий диаграмм болно; цэс Тусламж → Mermaid жишээ бүрэн дээжийг ачаална." },
+        { b: "Эшлэл", t: ": BibTeX тоон хэв маяг; төгсгөлд Эх сурвалжийн жагсаалт үүсэх бөгөөд [n] болон бичлэг хооронд хоёр чиглэлийн үсрэлт." },
+        { b: "HTML дэмжлэг", t: ": <code>.html</code> файлыг хөрвүүлж нээ; HTML ↔ Markdown хооронд хөрвүүлэх (цэс Файл → Хөрвүүлэх)." },
+        { b: "Загвар / хэл", t: ": бараан / цайвар, 17 UI хэл; Араб, Урдү автоматаар баруунаас зүүн." },
+        { b: "Автомат ноорог", t: ": агуулга тогтмол хадгалагдаж, гэнэтийн хаагдах / гацахад сэргээгдэнэ." },
+        { b: "Үг тоолох", t: ": төлөвийн мөр тэмдэгт / мөр / үг болон одоогийн мөр-багныг харуулна." },
+        { b: "Чирж буулгах", t: ": <code>.md</code> файлыг цонх руу буулгаж нээ; зураг буулгаж оруул." },
+        { b: "Экспорт", t: ": Markdown / HTML / PDF (вектор + растр) / LaTeX болгох." },
+        { b: "Текстний өнгө", t: ": багажны самбар сонгосон текстийг өнгөлнө (12 өнгө)." },
+        { b: "Буцах / Урагш", t: ": баримт ба курсорын байрлалын нэгдмэл түүх; ◀ ▶ товч, Alt+←/→." },
+        { b: "Холбоос дагах", t: ": урьдчилан харах дотор холбоос даран зорьтыг <strong>шинэ табед</strong> нээнэ (http системийн хөтөч дотор); одоогийн баримт солигдохгүй." },
+      ],
+      hShortcuts: "Богино товчлол",
+      pShortcut: "macOS дээр <code>⌘</code>, Windows / Linux дээр <code>Ctrl</code>. Нээхийн тулд <code>.md</code>-г цонх руу буулга; табыг хаахын тулд дунд товч.",
+      thKey: "Богино товчлол", thAction: "Үйлдэл",
+      shortcuts: sc(["Шинэ","Нээх","Хадгалах","Өөр нэрээр хадгалах","Таб хаах","Цонх хаах","Хайх","Солих","Тод","Налуу","Шугаман код","Холбоос","2 зайгаар нүүх","Тэгш өнцөгт (баган) сонголт","Баган сонголтыг өргөтгөх","Сонголтыг цуцлах"]),
+      hMd: "Markdown лавлах",
+      md: [
+        "Гарчиг: <code># H1</code>, <code>## H2</code>, <code>### H3</code>",
+        "Тод: <code>**текст**</code>; налуу: <code>*текст*</code>; дундуур зураас: <code>~~текст~~</code>",
+        "Шугаман код: <code>`код`</code>",
+        "Кодын блок: гурван backtick-ээр хүрээлэгдсэн; эхний мөрөнд хэл (жишээ нь <code>python</code>) нэм",
+        "Ишлэл: <code>&gt; текст</code>",
+        "Цэгт жагсаалт: <code>-</code> / <code>*</code> / <code>+</code>; дугаарласан: <code>1.</code>",
+        "Даалгаврын жагсаалт: <code>- [ ]</code> эсвэл <code>- [x]</code>",
+        "Холбоос: <code>[текст](url)</code>; зураг: <code>![alt](url)</code> эсвэл буулгах / чирэх",
+        "Хуваагч: <code>---</code>",
+        "Хүснэгт: <code>| A | B |</code> дараа нь <code>| --- | --- |</code>",
+      ],
+      hMath: "Математик",
+      math: [
+        "Шугаман: <code>$E = mc^2$</code> (<code>\\(E = mc^2\\)</code> бас)",
+        "Блок: <code>$$</code>-ээр хүрээлэх, хэд хэдэн мөр болно, жишээ нь <code>$$\\int_0^1 x\\,dx$$</code> (<code>\\[...\\]</code> бас)",
+        "LaTeX бичиглэл ашиглана, KaTeX-ээр хөрвүүлнэ. Кодын блок дотор <code>$</code> нь математик тусгаарлагч биш.",
+      ],
+       hCite: "Эшлэл (BibTeX)", cite: CITE_HELP_EN,hExport: "Экспорт (Өөр нэрээр хадгалах)",
+      pExport: "\"Өөр нэрээр хадгалах\"-г дарж форматыг сонго:",
+      export: [
+        { b: "Markdown (.md)", t: ": эхийг хадгалж одоогийн табын нэр / замыг шинэчилнэ." },
+        { b: "PDF (.pdf)", t: ": блокийн хил дээр хуудасладаг — томьёо / гарчиг / кодын блок таслагдахгүй; багтаагүй блок бүхлээрээ дараагийн хуудас руу шилжинэ." },
+        { b: "LaTeX (.tex)", t: ": эмхэтгэх боломжтой <code>.tex</code> эх болгон хөрвүүлнэ (documentclass болон багцуудтай; математик хадгалагдана). Хуулбарыг экспортлоно." },
+      ],
+      hLicense: "Лиценз",
+      pLicense: "MDeX нь <strong>Apache License 2.0</strong>-ийн дор нээлттэй эхийн, зохиогч Fawei Zheng. Багцалсан бүрэлдэхүүнүүд (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown болон Tauri гэх мэт) анхны лицензээрээ (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0) үлдэнэ.",
+      hContact: "Холбоо",
+      pContact: "MDeX-г сонгосонд баярлалаа! Асуудал эсвэл санал хүсэлт байвал холбоо барина уу:",
+      contactName: "Fawei Zheng (郑法伟)",
+    },
   };
   function helpContent() { return buildHelp(HELP_STRINGS[curLang] || HELP_STRINGS.en); }
   function openHelp() {
@@ -6400,6 +8900,14 @@ def fib(n):
   $("help-close").onclick = closeHelp;
   $("help-mask").addEventListener("click", (e) => { if (e.target === $("help-mask")) closeHelp(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("help-mask").hidden) closeHelp(); });
+  // Tauri webview 不会自动用系统浏览器打开外部 http(s) 链接（且 CSP 禁止 webview 内导航）。
+  // 拦截 http(s) 链接点击 → 走 opener 插件交给系统浏览器（应用本体仍离线）。mailto 由 webview 原生处理。
+  document.addEventListener("click", (e) => {
+    const a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (!a) return;
+    const href = a.getAttribute("href") || "";
+    if (isTauri && /^https?:\/\//i.test(href)) { e.preventDefault(); invoke("plugin:opener|open_url", { url: href }).catch(() => {}); }
+  });
 
   /* ---------- 默认文档（按当前语言取示例模板，回退 zh）---------- */
   function getSampleDoc(kind) {

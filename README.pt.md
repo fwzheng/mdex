@@ -1,12 +1,12 @@
 <details>
 <summary><b>🌐 Idioma: Português</b> — clique para escolher outro idioma</summary>
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · **[Português](README.pt.md)** · [Italiano](README.it.md) · [Русский](README.ru.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [العربية](README.ar.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · **[Português](README.pt.md)** · [Italiano](README.it.md) · [Русский](README.ru.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [ਪੰਜਾਬੀ](README.pa.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md) · [اردو](README.ur.md) · [Монгол (Кирилл)](README.mn.md)
 
 </details>
 
 
-# MDeX (macOS · Windows · Linux · Totalmente Offline · Tauri v2)
+# MDeX v1.2.0 (macOS · Windows · Linux · Totalmente Offline · Tauri v2)
 
 > **MDeX** · pronuncia-se "em-dex" (/ˌemˈdɛks/) — a letra M seguida de "dex", duas sílabas.
 
@@ -22,11 +22,11 @@ Um leitor e editor Markdown offline-first para uso em **ambientes isolados / int
 
 ## 🌐 Idiomas
 
-A interface é disponibilizada em **11 idiomas**: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية.
+A interface é disponibilizada em **17 idiomas**: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл).
 
 - Troque a qualquer momento pelo menu de idioma na barra de ferramentas; sua escolha é lembrada entre sessões.
 - **O árabe é renderizado da direita para a esquerda (RTL)** automaticamente — o corpo do texto, os títulos, os marcadores de lista e toda a barra de ferramentas são espelhados para a direita; blocos de código embutidos, fórmulas matemáticas em LaTeX, termos em inglês e números de versão permanecem da esquerda para a direita, nunca espelhados.
-- Este próprio README está traduzido para todos os 11 idiomas — use o seletor no topo desta página.
+- Este próprio README está traduzido para todos os 17 idiomas — use o seletor no topo desta página.
 
 ---
 
@@ -43,11 +43,14 @@ A interface é disponibilizada em **11 idiomas**: English, 简体中文, França
 - **Tabelas**: tabelas GFM; tabelas estreitas são centralizadas conforme o conteúdo, as largas rolam horizontalmente sem corte.
 - **Citações (BibTeX)**: sintaxe `[@key]` / `\cite{key}`, estilo numérico; uma lista de Referências é gerada ao final, com saltos bidirecionais entre `[n]` no texto e a entrada; suporta um bloco ` ```bibtex ` embutido ou um `.bib` carregado separadamente.
 - **Suporte a HTML**: abra arquivos `.html` para renderização; converta entre HTML e Markdown.
-- **Tema / idioma**: escuro / claro, **11 idiomas de interface** (中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية — o árabe é automaticamente da direita para a esquerda).
+- **Tema / idioma**: escuro / claro, **17 idiomas de interface** (中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл) — o árabe e o urdu são automaticamente da direita para a esquerda).
 - **Rascunho automático**: o conteúdo é salvo periodicamente e restaurado após um fechamento / travamento inesperado.
 - **Contagem de palavras**: a barra de status mostra caracteres / linhas / palavras ao vivo, além da linha e coluna atuais.
 - **Arrastar e soltar**: solte um arquivo `.md` sobre a janela para abri-lo; solte uma imagem para inseri-la.
 - **Exportação**: salvar como Markdown / HTML / PDF (vetorial + raster) / LaTeX.
+- **Cor do texto**: a paleta da barra envolve a seleção em `<span style="color:…">`.
+- **Voltar / Avançar**: histórico unificado de documentos e posições do cursor; botões ◀ ▶, `Alt+←/→`.
+- **Seguir links**: clicar num link da pré-visualização abre o destino numa nova aba (http no navegador do sistema); o documento atual não é substituído.
 
 ---
 
@@ -110,55 +113,31 @@ Clique em "Salvar como" e escolha um formato:
 ## 📦 Instalação
 
 ### Downloads pré-compilados
-Baixe o instalador para sua plataforma em [Releases](./): macOS (`.dmg`, arm64 + x86_64 universal), Windows (`.exe` / `.msi`), Linux (`.deb` / `.AppImage`).
+Baixe o instalador para sua plataforma de qualquer uma das fontes:
+
+- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
+- **Site espelho**: <https://www.spinss.cn/>
+
+macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
 
 ### Abrindo o aplicativo não assinado no macOS (contornar o Gatekeeper)
-Este aplicativo não é assinado pelo desenvolvedor / não tem notarização (cenários offline normalmente não conseguem notarizar online). A primeira execução é bloqueada — escolha uma:
 
-- **CLI (recomendado)**: arraste o `.app` para o Applications, depois
-  ```bash
-  xattr -dr com.apple.quarantine "/Applications/MDeX.app"
-  ```
-- **GUI**: no Finder, clique com o botão direito no `.app` → "Abrir" → "Abrir" novamente no diálogo; ou "Ajustes do Sistema → Privacidade e Segurança" → role para baixo → "Abrir Mesmo Assim".
+Este aplicativo **não** é assinado pelo desenvolvedor / não tem notarização (cenários offline normalmente não conseguem notarizar online). No macOS 12+, **especialmente macOS 26 (Tahoe)**, iniciá-lo direto do `.dmg` — ou de um build recém-copiado — falha com **"MDeX.app is damaged and can't be opened."** Isso é o Gatekeeper, não dano real. Corrija no Terminal:
+
+1. **Primeiro arraste `MDeX.app` do `.dmg` para `/Applications`** — nunca o execute direto do dmg (isso aciona App Translocation e o atributo `com.apple.provenance`, a verdadeira causa de "danificado" no macOS 26).
+2. Limpe os atributos e assine novamente:
+   ```bash
+   xattr -cr /Applications/MDeX.app
+   codesign --force --deep --sign - /Applications/MDeX.app
+   ```
+   > `com.apple.provenance` é protegido pelo SIP e **não pode** ser removido nem com `sudo`; reassinar reinicia a assinatura para que o Gatekeeper permita a execução. `spctl` ainda reporta `rejected` para assinatura ad hoc — esperado, e isso **não** bloqueia `open`.
+3. Inicie com `open /Applications/MDeX.app` (ou duplo clique). O primeiro início ainda pode pedir confirmação uma vez — confirme em **Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**, ou clique com o botão direito no app → **Abrir**.
 
 ---
 
-## 🛠️ Compilar a partir do fonte
+## 🛠️ Compilar a partir do código-fonte
 
-### Configuração única (macOS)
-```bash
-xcode-select --install                       # ferramentas de linha de comando do Xcode
-rustup target add aarch64-apple-darwin x86_64-apple-darwin   # ambos necessários para universal
-npm install                                  # Tauri CLI
-npm run fetch                                # baixa dependências do frontend para vendor/ (online apenas aqui)
-```
-
-### Desenvolvimento local
-```bash
-npm run tauri dev        # compila dist/index.html, depois abre a janela do aplicativo
-```
-
-### Build
-```bash
-# Apenas Apple Silicon (mais rápido)
-npm run tauri build
-
-# Binário universal (Apple Silicon + Intel, para distribuição)
-npm run tauri build -- --target universal-apple-darwin
-```
-
-Saída:
-```
-src-tauri/target/universal-apple-darwin/release/bundle/
-├── macos/MDeX.app
-└── dmg/MDeX_1.1.0_universal.dmg
-```
-
-### Windows / Linux / multiplataforma
-- **Build nativo do Windows** (produz um instalador NSIS `.exe`): veja [BUILD-WINDOWS.md](./BUILD-WINDOWS.md).
-- **Linux / macOS Intel / outras plataformas**: veja [BUILD-CROSS.md](./BUILD-CROSS.md).
-
-O frontend `dist/index.html` não precisa de alterações entre plataformas; basta ajustar o empacotamento no sistema operacional de destino (`tauri.conf.json` `bundle.targets` adiciona `nsis` / `deb` / `appimage`, além de dependências do sistema como WebView2 / webkit2gtk).
+Código-fonte: <https://github.com/fwzheng/mdex>. Siga as instruções de build no repositório (setup, dependências e comandos estão documentados lá).
 
 ---
 
@@ -200,11 +179,11 @@ markdown/
 
 ## 📄 Licença
 
-O código próprio deste projeto é open-source sob a **Apache License 2.0**.
+O código próprio deste projeto é de código aberto sob a **Apache License 2.0**.
 
-- Texto completo da licença: [LICENSE](./LICENSE).
-- Avisos de componentes de terceiros: [NOTICE](./NOTICE) (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown / mermaid / @retorquere/bibtex-parser e Tauri, etc., cada um sob MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).
-- Nos termos da Apache-2.0, a redistribuição deve manter a LICENSE e a NOTICE e indicar alterações em arquivos modificados.
+Componentes de terceiros: o projeto utiliza alguns componentes de terceiros (incluindo, mas não se limitando a marked, KaTeX, highlight.js, DOMPurify, jsPDF, html2canvas-pro, turndown, mermaid, @retorquere/bibtex-parser e Tauri, etc.); seus avisos de direitos autorais e licença estão detalhados nos respectivos arquivos-fonte. Esses componentes são distribuídos sob as licenças MIT, BSD-3-Clause, Apache-2.0, MPL-2.0 e outras de código aberto.
+
+Requisitos de distribuição: segundo a licença Apache-2.0, redistribuir este projeto exige manter os arquivos LICENSE e NOTICE; se você modificar algum arquivo-fonte, deve indicar claramente as alterações no arquivo correspondente.
 
 ---
 

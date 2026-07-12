@@ -326,6 +326,30 @@ fn read_file_at(path: String) -> Result<String, String> {
     fs::read_to_string(&path).map_err(|e| format!("读取失败: {e}"))
 }
 
+/// 解析 Markdown 内的链接（相对 base_dir 或绝对），返回指向【已存在文件】的规范路径；
+/// 目录(如 `./`)、失效链接、带协议(http/mailto/...)、锚点(#x) 一律返回 None。
+/// 用于「渲染区点链接 → 新标签页打开」，避免误把目录/外链当文件打开后替换当前文档。
+#[tauri::command]
+fn resolve_doc_link(base_dir: String, href: String) -> Option<String> {
+    use std::path::PathBuf;
+    let href = href.trim();
+    if href.is_empty() || href.starts_with('#') || href.contains("://") {
+        return None;
+    }
+    let href = href.strip_prefix("file://").unwrap_or(href);
+    let pb = PathBuf::from(href);
+    let abs = if pb.is_absolute() {
+        PathBuf::from(href)
+    } else {
+        PathBuf::from(&base_dir).join(href)
+    };
+    // canonicalize 顺便消解 `./`、`../`、符号链接；不存在则 None
+    match abs.canonicalize() {
+        Ok(c) if c.is_file() => Some(c.to_string_lossy().into_owned()),
+        _ => None,
+    }
+}
+
 /// 按完整路径写入。
 #[tauri::command]
 fn write_file_at(path: String, content: String) -> Result<(), String> {
@@ -578,6 +602,90 @@ fn labels(lang: &str) -> Labels {
             toggle_theme: "تبديل داكن/فاتح", sync_scroll: "تبديل التمرير المتزامن",
             split: "عرض مقسم", editor_only: "المحرر فقط", preview_only: "المعاينة فقط", help: "مساعدة", help_intro: "مقدمة عن MDeX", mdex_example: "مثال MDeX…", convert_md: "تحويل إلى Markdown", convert_html: "تحويل إلى HTML", find: "بحث", replace: "استبدال",
         },
+        "hi" => Labels {
+            file: "फ़ाइल", edit: "संपादन", format: "प्रारूप", view: "दृश्य", window: "विंडो", language: "भाषा",
+            new: "नया", open: "खोलें…",
+            load_bib: "ग्रंथ-सूची लोड करें…",
+            clear_bib: "ग्रंथ-सूची अनलोड करें",
+            cite_example: "उद्धरण उदाहरण…", mermaid_example: "Mermaid उदाहरण…", close_file: "टैब बंद करें", save: "सहेजें", save_as: "नाम से सहेजें…",
+            export_pdf: "PDF निर्यात…", close_window: "विंडो बंद करें",
+            bold: "बोल्ड", italic: "तिरछा", code: "इनलाइन कोड", link: "लिंक",
+            h1: "शीर्षक 1", h2: "शीर्षक 2", h3: "शीर्षक 3",
+            quote: "उद्धरण", ul: "बुलेट सूची", ol: "क्रमांकित सूची", task: "कार्य सूची",
+            formula: "सूत्र खंड", image: "चित्र डालें…", table: "तालिका", hr: "विभाजक",
+            toggle_theme: "गहरा/हल्का बदलें", sync_scroll: "सिंक स्क्रॉल बदलें",
+            split: "विभाजित दृश्य", editor_only: "केवल संपादक", preview_only: "केवल पूर्वावलोकन", help: "सहायता", help_intro: "MDeX परिचय", mdex_example: "MDeX उदाहरण…", convert_md: "Markdown में बदलें", convert_html: "HTML में बदलें", find: "खोजें", replace: "बदलें",
+        },
+        "pa" => Labels {
+            file: "ਫ਼ਾਈਲ", edit: "ਸੰਪਾਦਨ", format: "ਫਾਰਮੈਟ", view: "ਵੇਖੋ", window: "ਵਿੰਡੋ", language: "ਭਾਸ਼ਾ",
+            new: "ਨਵਾਂ", open: "ਖੋਲ੍ਹੋ…",
+            load_bib: "ਗ੍ਰੰਥ-ਸੂਚੀ ਲੋਡ ਕਰੋ…",
+            clear_bib: "ਗ੍ਰੰਥ-ਸੂਚੀ ਅਨਲੋਡ",
+            cite_example: "ਹਵਾਲਾ ਉਦਾਹਰਣ…", mermaid_example: "Mermaid ਉਦਾਹਰਣ…", close_file: "ਟੈਬ ਬੰਦ", save: "ਸੰਭਾਲੋ", save_as: "ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ…",
+            export_pdf: "PDF ਨਿਰਯਾਤ…", close_window: "ਵਿੰਡੋ ਬੰਦ",
+            bold: "ਬੋਲਡ", italic: "ਤਿਰਛਾ", code: "ਇਨਲਾਈਨ ਕੋਡ", link: "ਲਿੰਕ",
+            h1: "ਸਿਰਲੇਖ 1", h2: "ਸਿਰਲੇਖ 2", h3: "ਸਿਰਲੇਖ 3",
+            quote: "ਹਵਾਲਾ", ul: "ਬੁਲੈਟ ਸੂਚੀ", ol: "ਅੰਕਿਤ ਸੂਚੀ", task: "ਕੰਮ ਸੂਚੀ",
+            formula: "ਫਾਰਮੂਲਾ ਬਲਾਕ", image: "ਚਿੱਤਰ ਪਾਓ…", table: "ਸਾਰਣੀ", hr: "ਵੱਖਰੇਵਾਂ",
+            toggle_theme: "ਗੂੜ੍ਹਾ/ਹਲਕਾ ਬਦਲੋ", sync_scroll: "ਸਿੰਕ ਸਕ੍ਰੌਲ ਬਦਲੋ",
+            split: "ਵੰਡੀ ਵੇਖੋ", editor_only: "ਸਿਰਫ਼ ਸੰਪਾਦਕ", preview_only: "ਸਿਰਫ਼ ਝਲਕ", help: "ਮਦਦ", help_intro: "MDeX ਜਾਣ-ਪਛਾਣ", mdex_example: "MDeX ਉਦਾਹਰਣ…", convert_md: "Markdown ਵਿੱਚ ਬਦਲੋ", convert_html: "HTML ਵਿੱਚ ਬਦਲੋ", find: "ਖੋਜੋ", replace: "ਬਦਲੋ",
+        },
+        "vi" => Labels {
+            file: "Tệp", edit: "Soạn thảo", format: "Định dạng", view: "Xem", window: "Cửa sổ", language: "Ngôn ngữ",
+            new: "Mới", open: "Mở…",
+            load_bib: "Nạp tài liệu tham khảo…",
+            clear_bib: "Bỏ nạp tài liệu tham khảo",
+            cite_example: "Ví dụ trích dẫn…", mermaid_example: "Ví dụ Mermaid…", close_file: "Đóng thẻ", save: "Lưu", save_as: "Lưu thành…",
+            export_pdf: "Xuất PDF…", close_window: "Đóng cửa sổ",
+            bold: "Đậm", italic: "Nghiêng", code: "Mã nội dòng", link: "Liên kết",
+            h1: "Tiêu đề 1", h2: "Tiêu đề 2", h3: "Tiêu đề 3",
+            quote: "Trích dẫn", ul: "Danh sách đầu mục", ol: "Danh sách số", task: "Danh sách việc",
+            formula: "Khối công thức", image: "Chèn ảnh…", table: "Bảng", hr: "Dòng phân cách",
+            toggle_theme: "Tối/Sáng", sync_scroll: "Bật/Tắt đồng bộ cuộn",
+            split: "Chia đôi", editor_only: "Chỉ soạn thảo", preview_only: "Chỉ xem trước", help: "Trợ giúp", help_intro: "Giới thiệu MDeX", mdex_example: "Ví dụ MDeX…", convert_md: "Chuyển sang Markdown", convert_html: "Chuyển sang HTML", find: "Tìm", replace: "Thay thế",
+        },
+        "id" => Labels {
+            file: "Berkas", edit: "Sunting", format: "Format", view: "Tampilan", window: "Jendela", language: "Bahasa",
+            new: "Baru", open: "Buka…",
+            load_bib: "Muat Pustaka…",
+            clear_bib: "Lepas Pustaka",
+            cite_example: "Contoh Kutipan…", mermaid_example: "Contoh Mermaid…", close_file: "Tutup Tab", save: "Simpan", save_as: "Simpan Sebagai…",
+            export_pdf: "Ekspor PDF…", close_window: "Tutup Jendela",
+            bold: "Tebal", italic: "Miring", code: "Kode Sebaris", link: "Tautan",
+            h1: "Judul 1", h2: "Judul 2", h3: "Judul 3",
+            quote: "Kutipan", ul: "Daftar Poin", ol: "Daftar Bernomor", task: "Daftar Tugas",
+            formula: "Blok Rumus", image: "Sisip Gambar…", table: "Tabel", hr: "Pemisah",
+            toggle_theme: "Gelap/Terang", sync_scroll: "Aktif/Nonaktif Sinkron Gulir",
+            split: "Bagi", editor_only: "Editor", preview_only: "Pratinjau", help: "Bantuan", help_intro: "Pengenalan MDeX", mdex_example: "Contoh MDeX…", convert_md: "Konversi ke Markdown", convert_html: "Konversi ke HTML", find: "Cari", replace: "Ganti",
+        },
+        "ur" => Labels {
+            file: "فائل", edit: "ترمیم", format: "تصور", view: "دیکھیں", window: "ونڈو", language: "زبان",
+            new: "نیا", open: "کھولیں…",
+            load_bib: "کتابیات لوڈ کریں…",
+            clear_bib: "کتابیات ان لوڈ",
+            cite_example: "اقتباس مثال…", mermaid_example: "Mermaid مثالیں…", close_file: "ٹیب بند کریں", save: "محفوظ کریں", save_as: "اس نام سے محفوظ…",
+            export_pdf: "PDF برآمد…", close_window: "ونڈو بند کریں",
+            bold: "موٹا", italic: "ترچھا", code: "ان لائن کوڈ", link: "ربط",
+            h1: "سرخی 1", h2: "سرخی 2", h3: "سرخی 3",
+            quote: "اقتباس", ul: "نقطہ فہرست", ol: "ترقیم فہرست", task: "فہرستِ کام",
+            formula: "صیغہ بلاک", image: "تصویر داخل کریں…", table: "جدول", hr: "تقسیم کار",
+            toggle_theme: "گہرا/ہلکا بدلیں", sync_scroll: "مطابقت اسکرول بدلیں",
+            split: "تقسیم", editor_only: "صرف ایڈیٹر", preview_only: "صرف پیش نظارہ", help: "مدد", help_intro: "MDeX تعارف", mdex_example: "MDeX مثال…", convert_md: "Markdown میں تبدیل", convert_html: "HTML میں تبدیل", find: "تلاش", replace: "تبدیل",
+        },
+        "mn" => Labels {
+            file: "Файл", edit: "Засварлах", format: "Формат", view: "Харах", window: "Цонх", language: "Хэл",
+            new: "Шинэ", open: "Нээх…",
+            load_bib: "Номын сан ачаалах…",
+            clear_bib: "Номын сан ачаалахгүй болгох",
+            cite_example: "Эшлэлийн жишээ…", mermaid_example: "Mermaid жишээ…", close_file: "Таб хаах", save: "Хадгалах", save_as: "Өөр нэрээр хадгалах…",
+            export_pdf: "PDF экспортлох…", close_window: "Цонх хаах",
+            bold: "Тод", italic: "Налуу", code: "Шугаман код", link: "Холбоос",
+            h1: "Гарчиг 1", h2: "Гарчиг 2", h3: "Гарчиг 3",
+            quote: "Ишлэл", ul: "Цэгт жагсаалт", ol: "Дугаарласан жагсаалт", task: "Даалгаврын жагсаалт",
+            formula: "Томьёоны блок", image: "Зураг оруулах…", table: "Хүснэгт", hr: "Хуваагч",
+            toggle_theme: "Бараан/Цайвар сэлгэх", sync_scroll: "Синхрон гүйлгэх сэлгэх",
+            split: "Хуваасан харагдац", editor_only: "Зөвхөн засварлагч", preview_only: "Зөвхөн урьдчилан харах", help: "Тусламж", help_intro: "MDeX-ийн танилцуулга", mdex_example: "MDeX жишээ…", convert_md: "Markdown болгох", convert_html: "HTML болгох", find: "Хайх", replace: "Солих",
+        },
         _ => Labels {
             // 中文（默认）
             file: "文件", edit: "编辑", format: "格式", view: "视图", window: "窗口", language: "语言",
@@ -734,6 +842,12 @@ fn build_menu(app: &tauri::AppHandle, lang: &str) -> tauri::Result<Menu<tauri::W
             &lang_item(app, "es", "Español")?,
             &lang_item(app, "pt", "Português")?,
             &lang_item(app, "ar", "العربية")?,
+            &lang_item(app, "hi", "हिन्दी")?,
+            &lang_item(app, "pa", "ਪੰਜਾਬੀ")?,
+            &lang_item(app, "vi", "Tiếng Việt")?,
+            &lang_item(app, "id", "Bahasa Indonesia")?,
+            &lang_item(app, "ur", "اردو")?,
+            &lang_item(app, "mn", "Монгол (Кирилл)")?,
         ],
     )?;
 
@@ -774,6 +888,8 @@ fn build_menu(app: &tauri::AppHandle, lang: &str) -> tauri::Result<Menu<tauri::W
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // 用系统浏览器打开帮助文档里的外部链接（GitHub / 下载站点）。应用本身仍完全离线。
+        .plugin(tauri_plugin_opener::init())
         .manage(WindowState {
             open: Mutex::new(HashMap::new()),
             pending: Mutex::new(HashMap::new()),
@@ -789,6 +905,7 @@ pub fn run() {
             pick_save_path,
             write_bytes_at,
             read_file_at,
+            resolve_doc_link,
             write_file_at,
             read_image_data_url,
             change_language,

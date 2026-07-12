@@ -1,12 +1,12 @@
 <details>
 <summary><b>🌐 Язык: Русский</b> — нажмите, чтобы выбрать другой язык</summary>
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · **[Русский](README.ru.md)** · [日本語](README.ja.md) · [한국어](README.ko.md) · [العربية](README.ar.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · **[Русский](README.ru.md)** · [日本語](README.ja.md) · [한국어](README.ko.md) · [العربية](README.ar.md) · [हिन्दी](README.hi.md) · [ਪੰਜਾਬੀ](README.pa.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md) · [اردو](README.ur.md) · [Монгол (Кирилл)](README.mn.md)
 
 </details>
 
 
-# MDeX (macOS · Windows · Linux · Полностью автономно · Tauri v2)
+# MDeX v1.2.0 (macOS · Windows · Linux · Полностью автономно · Tauri v2)
 
 > **MDeX** · произносится «эм-декс» (/ˌemˈdɛks/) — буква M, за которой следует «dex», два слога.
 
@@ -22,11 +22,11 @@
 
 ## 🌐 Языки
 
-Интерфейс доступен на **11 языках**: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية.
+Интерфейс доступен на **17 языках**: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл).
 
 - Переключайтесь в любой момент через меню языка на панели инструментов; ваш выбор сохраняется между сессиями.
 - **Арабский отображается письмом справа налево (RTL)** автоматически — основной текст, заголовки, маркеры списков и вся панель инструментов зеркально переносятся вправо; встроенные блоки кода, формулы LaTeX, английские термины и номера версий остаются слева направо и никогда не зеркалируются.
-- Сам этот README переведён на все 11 языков — воспользуйтесь переключателем в самом верху страницы.
+- Сам этот README переведён на все 17 языков — воспользуйтесь переключателем в самом верху страницы.
 
 ---
 
@@ -43,11 +43,14 @@
 - **Таблицы**: таблицы GFM; узкие таблицы центрируются по содержимому, широкие прокручиваются по горизонтали без обрезки.
 - **Цитирование (BibTeX)**: синтаксис `[@key]` / `\cite{key}`, числовой стиль; в конце формируется список ссылок с двусторонними переходами между в текстовой `[n]` и записью; поддерживается встроенный блок ` ```bibtex ` или отдельно загружаемый `.bib`.
 - **Поддержка HTML**: открывайте файлы `.html` для отображения; конвертируйте между HTML и Markdown.
-- **Тема / язык**: тёмная / светлая, **11 языков интерфейса** (中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية — арабский автоматически справа налево).
+- **Тема / язык**: тёмная / светлая, **17 языков интерфейса** (中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл) — арабский и урду автоматически справа налево).
 - **Автосохранение черновика**: содержимое периодически сохраняется и восстанавливается после непредвиденного закрытия / сбоя.
 - **Подсчёт слов**: в строке состояния отображаются символы / строки / слова в реальном времени, а также текущие строка и столбец.
 - **Перетаскивание**: перетащите файл `.md` на окно, чтобы открыть его; перетащите изображение, чтобы вставить его.
 - **Экспорт**: сохранение как Markdown / HTML / PDF (векторный + растровый) / LaTeX.
+- **Цвет текста**: палитра на панели обёртывает выделение в `<span style="color:…">`.
+- **Назад / Вперёд**: единая история по документам и позициям курсора; кнопки ◀ ▶, `Alt+←/→`.
+- **Переход по ссылкам**: клик по ссылке в предпросмотре открывает цель в новой вкладке (http — в системном браузере); текущий документ не заменяется.
 
 ---
 
@@ -110,55 +113,31 @@
 ## 📦 Установка
 
 ### Готовые сборки
-Скачайте установщик для вашей платформы из [Releases](./): macOS (`.dmg`, универсальный arm64 + x86_64), Windows (`.exe` / `.msi`), Linux (`.deb` / `.AppImage`).
+Скачайте установщик для вашей платформы из любого источника:
+
+- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
+- **Зеркало**: <https://www.spinss.cn/>
+
+macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
 
 ### Открытие неподписанного приложения на macOS (обход Gatekeeper)
-Это приложение не имеет подписи разработчика / не нотаризовано (в автономных сценариях нотаризация онлайн обычно невозможна). Первый запуск блокируется — выберите вариант:
 
-- **CLI (рекомендуется)**: перетащите `.app` в Applications, затем
-  ```bash
-  xattr -dr com.apple.quarantine "/Applications/MDeX.app"
-  ```
-- **GUI**: в Finder щёлкните правой кнопкой по `.app` → «Открыть» → снова «Открыть» в диалоге; либо «Системные настройки → Конфиденциальность и безопасность» → прокрутите вниз → «Всё равно открыть».
+Это приложение **не** имеет подписи разработчика / не нотаризовано (в автономных сценариях нотаризация онлайн обычно невозможна). На macOS 12+, **особенно macOS 26 (Tahoe)**, запуск прямо из `.dmg` — или свежескопированной сборки — завершается ошибкой **"MDeX.app is damaged and can't be opened."** Это Gatekeeper, а не реальное повреждение. Исправьте в Terminal:
+
+1. **Сначала перетащите `MDeX.app` из `.dmg` в `/Applications`** — никогда не запускайте напрямую из dmg (это вызывает App Translocation и атрибут `com.apple.provenance`, настоящую причину «повреждено» на macOS 26).
+2. Очистите атрибуты и переподпишите:
+   ```bash
+   xattr -cr /Applications/MDeX.app
+   codesign --force --deep --sign - /Applications/MDeX.app
+   ```
+   > `com.apple.provenance` защищён SIP и **не может** быть удалён даже с `sudo`; переподпись сбрасывает подпись, чтобы Gatekeeper разрешил запуск. `spctl` всё равно сообщает `rejected` для ad-hoc подписи — это ожидаемо и **не** блокирует `open`.
+3. Запустите через `open /Applications/MDeX.app` (или двойной клик). При первом запуске может появиться запрос — подтвердите через **Системные настройки → Конфиденциальность и безопасность → Открыть всё равно**, или кликните правой кнопкой по приложению → **Открыть**.
 
 ---
 
 ## 🛠️ Сборка из исходников
 
-### Однократная настройка (macOS)
-```bash
-xcode-select --install                       # Xcode command-line tools
-rustup target add aarch64-apple-darwin x86_64-apple-darwin   # both needed for universal
-npm install                                  # Tauri cli
-npm run fetch                                # download frontend deps into vendor/ (online only here)
-```
-
-### Локальная разработка
-```bash
-npm run tauri dev        # builds dist/index.html, then launches the app window
-```
-
-### Сборка
-```bash
-# Apple Silicon only (faster)
-npm run tauri build
-
-# Universal binary (Apple Silicon + Intel, for distribution)
-npm run tauri build -- --target universal-apple-darwin
-```
-
-Результат:
-```
-src-tauri/target/universal-apple-darwin/release/bundle/
-├── macos/MDeX.app
-└── dmg/MDeX_1.1.0_universal.dmg
-```
-
-### Windows / Linux / кросс-платформенно
-- **Нативная сборка Windows** (создаёт установщик NSIS `.exe`): см. [BUILD-WINDOWS.md](./BUILD-WINDOWS.md).
-- **Linux / macOS Intel / прочие кросс-платформенные варианты**: см. [BUILD-CROSS.md](./BUILD-CROSS.md).
-
-Фронтенд `dist/index.html` не требует изменений между платформами; достаточно настроить упаковку под целевую ОС (`tauri.conf.json` `bundle.targets` добавляет `nsis` / `deb` / `appimage`, а также системные зависимости наподобие WebView2 / webkit2gtk).
+Исходный код: <https://github.com/fwzheng/mdex>. Следуйте инструкциям по сборке в репозитории (настройка, зависимости и команды описаны там).
 
 ---
 
@@ -200,11 +179,11 @@ markdown/
 
 ## 📄 Лицензия
 
-Собственный код проекта распространяется по лицензии **Apache License 2.0**.
+Собственный код проекта имеет открытый исходный код под **Apache License 2.0**.
 
-- Полный текст лицензии: [LICENSE](./LICENSE).
-- Уведомления о сторонних компонентах: [NOTICE](./NOTICE) (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown / mermaid / @retorquere/bibtex-parser и Tauri и т. д., каждый под MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).
-- Согласно Apache-2.0, при распространении необходимо сохранять LICENSE и NOTICE, а также указывать изменения в модифицированных файлах.
+Сторонние компоненты: проект использует ряд сторонних компонентов (включая, но не ограничиваясь marked, KaTeX, highlight.js, DOMPurify, jsPDF, html2canvas-pro, turndown, mermaid, @retorquere/bibtex-parser и Tauri и др.); их уведомления об авторских правах и лицензиях приведены в соответствующих исходных файлах. Эти компоненты распространяются под лицензиями MIT, BSD-3-Clause, Apache-2.0, MPL-2.0 и другими открытыми лицензиями.
+
+Требования к распространению: согласно лицензии Apache-2.0, при повторном распространении этого проекта необходимо сохранять файлы LICENSE и NOTICE; если вы изменяли исходный файл, вы должны явно отметить изменения в соответствующем файле.
 
 ---
 

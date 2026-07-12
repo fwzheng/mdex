@@ -1,12 +1,12 @@
 <details>
 <summary><b>🌐 اللغة: العربية</b> — انقر لاختيار لغة أخرى</summary>
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **[العربية](README.ar.md)**
+[English](README.md) · [简体中文](README.zh-CN.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Русский](README.ru.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **[العربية](README.ar.md)** · [हिन्दी](README.hi.md) · [ਪੰਜਾਬੀ](README.pa.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md) · [اردو](README.ur.md) · [Монгол (Кирилл)](README.mn.md)
 
 </details>
 
 
-# MDeX (macOS · Windows · Linux · يعمل بالكامل دون اتصال · Tauri v2)
+# MDeX v1.2.0 (macOS · Windows · Linux · يعمل بالكامل دون اتصال · Tauri v2)
 
 > **MDeX** · يُنطق "em-dex" (/ˌemˈdɛks/) — الحرف M يتبعه "dex"، مقطعان لفظيان.
 
@@ -22,11 +22,11 @@
 
 ## 🌐 Languages
 
-تأتي الواجهة بـ **11 لغة**: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية.
+تأتي الواجهة بـ **17 لغة**: English, 简体中文, Français, Deutsch, Español, Português, Italiano, Русский, 日本語, 한국어, العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл).
 
 - بدِّل اللغة في أي وقت من قائمة اللغات في شريط الأدوات؛ ويتم تذكُّر اختيارك عبر الجلسات.
 - **تُعرض العربية من اليمين إلى اليسار (RTL)** تلقائياً — ينعكس نص المتن، والعناوين، وعلامات القوائم، وكامل شريط الأدوات إلى اليمين؛ أما كتل الشيفرة المُضمَّنة، وصيغ الرياضيات LaTeX، والمصطلحات الإنجليزية، وأرقام الإصدارات فتبقى من اليسار إلى اليمين ولا تنعكس أبداً.
-- تُرجم ملف README هذا نفسه إلى جميع اللغات الـ 11 — استخدم المُنتقي أعلى هذه الصفحة.
+- تُرجم ملف README هذا نفسه إلى جميع اللغات الـ 17 — استخدم المُنتقي أعلى هذه الصفحة.
 
 ---
 
@@ -43,11 +43,14 @@
 - **الجداول**: جداول GFM؛ الجداول الضيقة تُوسَّط حسب المحتوى، والعريضة تُمرَّر أفقياً دون قص.
 - **الاستشهادات (BibTeX)**: الصياغة `[@key]` / `\cite{key}`، بنمط رقمي؛ ويُولَّد قائمة المراجع في النهاية، مع قفزات ثنائية الاتجاه بين `[n]` في النص والبند المقابل؛ ويدعم كتلة ` ```bibtex ` مُضمَّنة أو ملف `.bib` يُحمَّل على حدة.
 - **دعم HTML**: افتح ملفات `.html` للعرض؛ وحوِّل بين HTML وMarkdown.
-- **السمة / اللغة**: داكنة / فاتحة، **11 لغة واجهة** (中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية — العربية تلقائياً من اليمين إلى اليسار).
+- **السمة / اللغة**: داكنة / فاتحة، **17 لغة واجهة** (中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية — العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл) — العربية والأردية تلقائياً من اليمين إلى اليسار).
 - **المسودة التلقائية**: يُحفظ المحتوى دورياً ويُستعاد بعد إغلاق غير متوقع / انهيار.
 - **عدّ الكلمات**: يعرض شريط الحالة الأحرف / الأسطر / الكلمات لحظياً، إضافة إلى الصف والعمود الحاليين.
 - **السحب والإفلات**: أفلت ملف `.md` على النافذة لفتحه؛ وأفلت صورة لإدراجها.
 - **التصدي**: احفظ بصيغة Markdown / HTML / PDF (متجه + نقطي) / LaTeX.
+- **لون النص**: لوحة الشريط تحيط التحديد بـ `<span style="color:…">`.
+- **رجوع / للأمام**: سجل موحد للمستندات ومواضع المؤشر؛ زرّا ◀ ▶، `Alt+←/→`.
+- **اتباع الروابط**: النقر على رابط في المعاينة يفتح الهدف في تبويب جديد (http في متصفح النظام)؛ لا يُستبدل المستند الحالي.
 
 ---
 
@@ -110,55 +113,31 @@
 ## 📦 التثبيت
 
 ### التنزيلات الجاهزة
-نزِّل المُثبِّت لمنصتك من [Releases](./): macOS (`.dmg`، شامل arm64 وx86_64)، Windows (`.exe` / `.msi`)، Linux (`.deb` / `.AppImage`).
+نزِّل المُثبِّت لمنصتك من أحد المصدرين:
+
+- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
+- **موقع مرآة**: <https://www.spinss.cn/>
+
+macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
 
 ### فتح التطبيق غير الموقَّع على macOS (تجاوز Gatekeeper)
-هذا التطبيق غير موقَّع من المطوِّر وغير موثَّق (بيئات العمل دون اتصال لا تستطيع عادةً التوثيق عبر الشبكة). يُحجَب عند الإطلاق الأول — اختر طريقة:
 
-- **سطر الأوامر (موصى به)**: اسحب الـ `.app` إلى Applications، ثم
-  ```bash
-  xattr -dr com.apple.quarantine "/Applications/MDeX.app"
-  ```
-- **الواجهة الرسومية**: في Finder، انقر بالزر الأيمن على الـ `.app` ← "فتح" ← "فتح" مرة أخرى في الحوار؛ أو "إعدادات النظام ← الخصوصية والأمان" ← مرر للأسفل ← "فتح على أي حال".
+هذا التطبيق **غير** موقَّع من المطوِّر وغير موثَّق (بيئات العمل دون اتصال لا تستطيع عادةً التوثيق عبر الشبكة). على macOS 12+، **وخاصة macOS 26 (Tahoe)**، يفشل تشغيله مباشرةً من الـ `.dmg` — أو من نسخة بناء حديثة — مع الرسالة **"MDeX.app is damaged and can't be opened."** هذا تصرُّف Gatekeeper وليس تلفًا حقيقيًا. أصلِحه في Terminal:
+
+1. **اسحب أولًا `MDeX.app` من الـ `.dmg` إلى `/Applications`** — لا تشغِّله أبدًا مباشرةً من الـ dmg (ذلك يُفعِّل App Translocation وسمة `com.apple.provenance`، وهو السبب الحقيقي لرسالة "damaged" على macOS 26).
+2. امسح السمات وأعِد التوقيع:
+   ```bash
+   xattr -cr /Applications/MDeX.app
+   codesign --force --deep --sign - /Applications/MDeX.app
+   ```
+   > `com.apple.provenance` محمي بواسطة SIP و**لا** يمكن إزالته حتى مع `sudo`؛ إعادة التوقيع تُعيد ضبط التوقيع فيسمح Gatekeeper بتشغيله. `spctl` يبقى يُبلغ عن `rejected` للتوقيع المُرتجل (ad-hoc) — هذا متوقَّع، ولا **يُعيق** `open`.
+3. شغِّل عبر `open /Applications/MDeX.app` (أو عبر النقر المزدوج). قد يستمر الإطلاق الأول في طلب تأكيد مرة واحدة — أكِّد عبر **إعدادات النظام ← الخصوصية والأمان ← فتح على أي حال**، أو انقر بالزر الأيمن على التطبيق ← **فتح**.
 
 ---
 
 ## 🛠️ البناء من المصدر
 
-### الإعداد لمرة واحدة (macOS)
-```bash
-xcode-select --install                       # Xcode command-line tools
-rustup target add aarch64-apple-darwin x86_64-apple-darwin   # both needed for universal
-npm install                                  # Tauri CLI
-npm run fetch                                # download frontend deps into vendor/ (online only here)
-```
-
-### التطوير المحلي
-```bash
-npm run tauri dev        # builds dist/index.html, then launches the app window
-```
-
-### البناء
-```bash
-# Apple Silicon only (faster)
-npm run tauri build
-
-# Universal binary (Apple Silicon + Intel, for distribution)
-npm run tauri build -- --target universal-apple-darwin
-```
-
-المخرجات:
-```
-src-tauri/target/universal-apple-darwin/release/bundle/
-├── macos/MDeX.app
-└── dmg/MDeX_1.1.0_universal.dmg
-```
-
-### Windows / Linux / المنصات المشتركة
-- **بناء Windows الأصلي** (يُنتج مُثبِّت NSIS بصيغة `.exe`): راجع [BUILD-WINDOWS.md](./BUILD-WINDOWS.md).
-- **Linux / macOS Intel / المنصات المشتركة الأخرى**: راجع [BUILD-CROSS.md](./BUILD-CROSS.md).
-
-لا تحتاج الواجهة الأمامية `dist/index.html` إلى أي تغيير عبر المنصات؛ فقط اضبط التجميع على نظام الهدف (`tauri.conf.json` في `bundle.targets` يُضيف `nsis` / `deb` / `appimage`، إضافة إلى اعتمادات النظام مثل WebView2 / webkit2gtk).
+الكود المصدري: <https://github.com/fwzheng/mdex>. اتبع تعليمات البناء في المستودع (الإعداد والتبعيات والأوامر موثقة هناك).
 
 ---
 
@@ -200,11 +179,11 @@ markdown/
 
 ## 📄 الترخيص
 
-شيفرة هذا المشروع نفسها مفتوحة المصدر بموجب **Apache License 2.0**.
+شيفرة المشروع نفسها مفتوحة المصدر تحت **Apache License 2.0**.
 
-- النص الكامل للترخيص: [LICENSE](./LICENSE).
-- إشعارات مكوِّنات الطرف الثالث: [NOTICE](./NOTICE) (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown / mermaid / @retorquere/bibtex-parser وTauri، وغيرها، كلٌّ بموجب MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).
-- بموجب Apache-2.0، يجب أن تحتفظ إعادة التوزيع بـ LICENSE وNOTICE وتُبيِّن التغييرات في الملفات المُعدَّلة.
+مكوِّنات الطرف الثالث: يستخدم المشروع بعض مكوِّنات الطرف الثالث (بما في ذلك على سبيل المثال لا الحصر marked وKaTeX وhighlight.js وDOMPurify وjsPDF وhtml2canvas-pro وturndown وmermaid و@retorquere/bibtex-parser وTauri وغيرها)؛ تُفصَّل إشعارات حقوق النشر والترخيص في ملفات المصدر الخاصة بكلٍّ منها. تُوزَّع هذه المكوِّنات تحت تراخيص MIT وBSD-3-Clause وApache-2.0 وMPL-2.0 وتراخيص مفتوحة المصدر أخرى.
+
+متطلبات التوزيع: وفقًا لترخيص Apache-2.0، تتطلب إعادة توزيع هذا المشروع الاحتفاظ بملفي LICENSE وNOTICE؛ وإذا عدَّلت أي ملف مصدر فيجب الإشارة إلى التغييرات بوضوح في الملف المقابل.
 
 ---
 
