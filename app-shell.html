@@ -191,7 +191,7 @@
     overflow-x: auto; margin: 0 0 1em; border: 1px solid var(--border); }
   #preview pre code { background: none; padding: 0; font-size: .85em; line-height: 1.5; }
   /* RTL（<html dir="rtl">，如阿拉伯语）：代码块 / 行内代码 / LaTeX 公式始终保持 LTR，
-     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.2.0)等由 Unicode 双向算法
+     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.3.0)等由 Unicode 双向算法
      天然在 RTL 段落内保持 LTR，无需额外处理。
      选择器含 #preview/.katex，buildStandaloneHtml 导出时会随样式一并收集，故导出文档同样生效。 */
   html[dir="rtl"] #preview pre,
@@ -216,7 +216,7 @@
   #preview .table-wrap > table { display: table; margin: 0 auto; width: auto; }
   /* mermaid 图：包一层 .mermaid-wrap，居中、宽图横向滚动；错误回退为代码块 */
   #preview .mermaid-wrap { margin: 0 0 1em; text-align: center; overflow-x: auto; }
-  #preview .mermaid-wrap > svg { max-width: 100%; height: auto; }
+  #preview .mermaid-wrap > svg { max-width: 100%; height: auto; cursor: zoom-in; }
   #preview .mermaid-err { color: #d33; font-family: var(--mono); font-size: .85em; text-align: start;
     background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; overflow-x: auto; }
   #preview th, #preview td { border: 1px solid var(--border); padding: 6px 13px; }
@@ -330,6 +330,53 @@
     border: 1px solid var(--border); border-radius: 8px; }
   .help-body .contact .name { font-weight: 600; }
   .help-body .contact a { color: var(--accent); }
+
+  /* ---------- Mermaid 图查看器（点击渲染区 mermaid 图 → 大图弹窗，缩放/平移/全屏）----------
+     沿用 .modal-mask 模式（自绘弹窗，见 bug_history BUG-006：Tauri WKWebView 不用原生 alert/confirm）。
+     z-index 高于普通 modal(200)。缩放走【改 SVG 的 width/height】让浏览器按新尺寸重绘矢量（放大不糊），
+     而非 transform:scale（会把图层按原尺寸栅格化再 GPU 拉伸纹理→模糊）；平移用 transform:translate
+     （只移动不拉伸纹理，保持清晰），不依赖原生滚动条（见 bug_history BUG-015）。全屏走 Tauri 窗口
+     setFullscreen（系统级；WKWebView 下 Element.requestFullscreen 不可靠），见查看器 IIFE。 */
+  .mv-mask { z-index: 300; background: rgba(0,0,0,.6); }
+  .mv-mask[hidden] { display: none; } /* BUG-058：设了 display 必须 [hidden] 高特异性盖回，否则 hidden 失效 */
+  .mv-card { background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 10px; box-shadow: var(--shadow); width: 92vw; height: 88vh; max-width: 1400px;
+    padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .mv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 10px 12px; border-bottom: 1px solid var(--border); flex: none; }
+  .mv-title { font-weight: 600; font-size: 14px; color: var(--fg-muted); padding-inline-start: 4px; }
+  .mv-tools { display: flex; align-items: center; gap: 4px; }
+  .mv-zoom { font-size: 12px; color: var(--fg-muted); min-width: 44px; text-align: center; font-family: var(--mono); }
+  .mv-close { font-size: 20px; line-height: 1; }
+  .mv-stage { position: relative; flex: 1; min-height: 0; overflow: hidden;
+    background: var(--bg-alt); cursor: grab; touch-action: none; }
+  .mv-stage.mv-dragging { cursor: grabbing; }
+  .mv-content { position: absolute; top: 0; left: 0; will-change: transform; }
+  .mv-content svg { display: block; max-width: none; max-height: none; shape-rendering: geometricPrecision; }
+  .mv-content img { display: block; max-width: none; max-height: none; }
+  /* 全屏：Tauri 窗口 setFullscreen 使整个 OS 窗口全屏，遮罩本就 inset:0 自动铺满。
+     .mv-fs 标记当前查看器全屏态（按钮标题据此切换）；:fullscreen 规则留给 DOM Fullscreen API 回退路径。 */
+  .mv-card:fullscreen, .mv-card:-webkit-full-screen { width: 100vw; height: 100vh; max-width: none;
+    border-radius: 0; border: 0; }
+  .mv-card:fullscreen .mv-stage, .mv-card:-webkit-full-screen .mv-stage { background: var(--bg); }
+  .mv-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: var(--fg-muted); background: var(--bg); border: 1px solid var(--border);
+    padding: 3px 10px; border-radius: 12px; pointer-events: none; opacity: .85; white-space: nowrap; }
+  /* mermaid 查看器作为独立 OS 窗口时（html.mv-win）：隐藏编辑器 UI，查看器卡片铺满整个窗口 */
+  html.mv-win .toolbar,
+  html.mv-win .main,
+  html.mv-win .statusbar,
+  html.mv-win .empty-state { display: none !important; }
+  html.mv-win .mv-mask { background: var(--bg); z-index: auto; }
+  html.mv-win .mv-card { width: 100vw; height: 100vh; max-width: none; border-radius: 0; border: 0; box-shadow: none; }
+
+  /* ---------- 编辑区/预览区字体缩放控件（pane-head 右侧 −/百分比/+，各自独立）---------- */
+  .pane-head-right { display: flex; align-items: center; gap: 10px; }
+  .zoom-ctl { display: inline-flex; align-items: center; gap: 2px; }
+  .zoom-ctl .btn { padding: 1px 7px; min-width: 22px; font-size: 15px; line-height: 1.4; border-radius: 5px; }
+  .zoom-ctl .zlvl { font-size: 11px; color: var(--fg-muted); min-width: 36px; text-align: center;
+    cursor: pointer; user-select: none; text-transform: none; letter-spacing: 0; }
+  .zoom-ctl .zlvl:hover { color: var(--fg); }
 
   /* ---------- 导出 PDF 的离屏捕获容器 ---------- */
   /* 作为「一页高度的裁剪窗口」：固定 A4 宽（96dpi ≈ 794px）、白底黑字、复制 #preview 排版；
@@ -478,7 +525,7 @@
 <!-- 主区域 -->
 <div class="main view-split" id="main">
   <div class="pane" id="pane-editor">
-    <div class="pane-head"><div class="tabs" id="tabs"></div><span id="wc">0 字</span></div>
+    <div class="pane-head"><div class="tabs" id="tabs"></div><div class="pane-head-right"><div class="zoom-ctl" id="editor-zoom"><button class="btn" id="ez-out" title="缩小">−</button><span class="zlvl" id="ez-lvl" title="重置">100%</span><button class="btn" id="ez-in" title="放大">+</button></div><span id="wc">0 字</span></div></div>
     <div id="search-bar" hidden>
       <div class="search-row">
         <input id="search-input" type="text" data-i18n-ph="searchPh" placeholder="搜索…">
@@ -500,7 +547,7 @@
   </div>
   <div class="gutter" id="gutter"></div>
   <div class="pane" id="pane-preview">
-    <div class="pane-head"><span data-i18n="preview">预览</span><span id="rs" data-i18n="ready">就绪</span></div>
+    <div class="pane-head"><span data-i18n="preview">预览</span><div class="pane-head-right"><div class="zoom-ctl" id="preview-zoom"><button class="btn" id="pz-out" title="缩小">−</button><span class="zlvl" id="pz-lvl" title="重置">100%</span><button class="btn" id="pz-in" title="放大">+</button></div><span id="rs" data-i18n="ready">就绪</span></div></div>
     <article id="preview"></article>
   </div>
   <div class="empty-state" id="empty-state">
@@ -583,6 +630,28 @@
       <button class="help-close" id="help-close" title="关闭">×</button>
     </div>
     <div class="help-body" id="help-body"></div>
+  </div>
+</div>
+
+<!-- Mermaid 图查看器：点击渲染区 mermaid 图弹出大图，支持缩放/平移/全屏。文案由 mermaidI18n() 注入。 -->
+<div class="modal-mask mv-mask" id="mermaid-viewer" hidden>
+  <div class="mv-card">
+    <div class="mv-head">
+      <span class="mv-title" id="mv-title">Mermaid</span>
+      <div class="mv-tools">
+        <button class="btn icon" id="mv-out" title="缩小">−</button>
+        <span class="mv-zoom" id="mv-zoom">100%</span>
+        <button class="btn icon" id="mv-in" title="放大">+</button>
+        <button class="btn icon" id="mv-reset" title="重置缩放">↺</button>
+        <button class="btn icon" id="mv-center" title="居中（保持缩放）">⌖</button>
+        <button class="btn icon" id="mv-fullscreen" title="全屏">⛶</button>
+        <button class="btn icon mv-close" id="mv-close" title="关闭">×</button>
+      </div>
+    </div>
+    <div class="mv-stage" id="mv-stage">
+      <div class="mv-content" id="mv-content"></div>
+      <div class="mv-hint" id="mv-hint"></div>
+    </div>
   </div>
 </div>
 
@@ -4935,6 +5004,19 @@ def fib(n):
     const ni = navI18n();
     const nb = $("nav-back"), nf = $("nav-fwd");
     if (nb) nb.title = ni.back; if (nf) nf.title = ni.fwd;
+    // 图查看器按钮多语言标题（全屏态切换为 exitFullscreen；mv-* 元素在主窗口/查看器窗口都存在）
+    const mv = mermaidI18n();
+    const mvIn = $("mv-in"), mvOut = $("mv-out"), mvReset = $("mv-reset"), mvCenter = $("mv-center"), mvFs = $("mv-fullscreen"), mvClose = $("mv-close"), mvTitle = $("mv-title"), mvHint = $("mv-hint");
+    if (mvIn) mvIn.title = mv.zoomIn; if (mvOut) mvOut.title = mv.zoomOut; if (mvReset) mvReset.title = mv.reset;
+    if (mvCenter) mvCenter.title = mv.center;
+    if (mvClose) mvClose.title = mv.close; if (mvHint) mvHint.textContent = mv.hint; // title 由内容类型设（svg/img）
+    const mvMask = $("mermaid-viewer");
+    if (mvFs) mvFs.title = (mvMask && mvMask.classList.contains("mv-fs")) ? mv.exitFullscreen : mv.fullscreen;
+    // 编辑区/预览区字体缩放按钮多语言标题（百分比标签点击重置）
+    const zi = zoomI18n();
+    const ezIn = $("ez-in"), ezOut = $("ez-out"), ezLvl = $("ez-lvl"), pzIn = $("pz-in"), pzOut = $("pz-out"), pzLvl = $("pz-lvl");
+    if (ezIn) ezIn.title = zi.zoomIn; if (ezOut) ezOut.title = zi.zoomOut; if (ezLvl) ezLvl.title = zi.reset;
+    if (pzIn) pzIn.title = zi.zoomIn; if (pzOut) pzOut.title = zi.zoomOut; if (pzLvl) pzLvl.title = zi.reset;
     refreshViewLabel();
   }
 
@@ -5240,10 +5322,17 @@ def fib(n):
         startOnLoad: false,
         theme: dark ? "dark" : "default",
         securityLevel: "strict",
+        suppressErrorRendering: true, // 错误由本程序 .catch 自绘 .mermaid-err，不让 mermaid 自渲染错误图
         flowchart: { htmlLabels: true, curve: "basis" },
       });
       mermaidReady = true;
     } catch (e) { mermaidReady = false; }
+  }
+  // 清除 mermaid.render 在 <body> 留下的临时错误元素 <div id="d<renderId>">（含"Syntax error…mermaid version"）。
+  // 它在 #preview 之外，重渲预览/换标签都清不掉、每次出错累加、仅重启消失（bug_history BUG-068）。每次 render 后主动删。
+  function cleanupMermaidTemp(id) {
+    const el = document.getElementById("d" + id);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
   }
   // 还原 marked 对代码内容的 HTML 转义，得到 mermaid 源码
   function decodeEntities(s) {
@@ -5270,7 +5359,8 @@ def fib(n):
           const msg = String((e && e.message) || e);
           return '<div class="mermaid-wrap"><pre class="mermaid-err">' +
             escapeHtml(src) + "\n\n⚠ " + escapeHtml(msg) + "</pre></div>";
-        });
+        })
+        .finally(() => cleanupMermaidTemp(id)); // 清除 mermaid 在 body 留下的 d<id> 错误残留（BUG-068）
     }));
     html = html.replace(/​MERMAID(\d+)​/g, (_m, i) => svgs[+i] || "");
     return html;
@@ -5459,6 +5549,7 @@ def fib(n):
     $("rs").textContent = t("rendered");
     buildPreviewBlockY(); // 测预览块顶 Y（非虚拟化每次渲染测一次缓存；虚拟化用 vprefix，此处空操作）
     if (searchBar && !searchBar.hidden) highlightPreview();
+    syncViewerWindows();   // mermaid 查看器 live update：推送对应块的新 SVG
   }
 
   /* ---------- 预览虚拟化（大文档）---------- */
@@ -5562,6 +5653,7 @@ def fib(n):
     $("rs").textContent = t("rendered");
     buildPreviewBlockY(); // 测预览块顶 Y（非虚拟化每次渲染测一次缓存；虚拟化用 vprefix，此处空操作）
     if (searchBar && !searchBar.hidden) highlightPreview();
+    syncViewerWindows();   // mermaid 查看器 live update：推送对应块的新 SVG
   }
   function scheduleRenderVisible() {
     if (vScrollRaf) return;
@@ -5571,8 +5663,11 @@ def fib(n):
   // 把容器内指向本地文件的 <img>（相对路径）按 .md 所在目录解析为 base64 data URL。
   function resolveImages(root, dir) {
     root.querySelectorAll("img").forEach((img) => {
-      const src = img.getAttribute("src") || "";
+      let src = img.getAttribute("src") || "";
       if (!src || /^(data:|https?:|blob:|asset:)/i.test(src)) return; // 已是可用源
+      // marked 会把图片 URL 中的非 ASCII（如中文文件夹名 未命名_images）percent-encode 成 %E6%9C%AA…
+      // 直接当 fs 路径读会与真实 UTF-8 文件名不匹配 → 读不到。先 decodeURIComponent 还原 UTF-8 再拼路径。
+      try { src = decodeURIComponent(src); } catch (_) {}
       // 绝对路径（Unix / 开头 或 Windows 盘符 X:）直接用；相对路径按文档目录拼。
       // 草稿标签（未保存、dir 为空）拖入的图片是绝对路径，仍可读取渲染；
       // 此时相对路径无法解析则跳过，避免拼成 "/pic.png" 误读根路径（见 BUG-033）。
@@ -5844,6 +5939,8 @@ def fib(n):
       type: opts.type || "md", // "md" | "html"：决定 render() 走 Markdown 还是 HTML 渲染
       bibText: opts.bibText || "", // 加载的 .bib 文献库内容（参考文献渲染用）
       sample: opts.sample || null, // {kind,ver}：标记为内置示例文档（cite/mermaid/mdex），便于模板更新后自动刷新
+      imgDir: opts.imgDir || null, // 本标签粘贴图片的落盘目录（草稿=缓存临时目录，已保存=<文档目录>/<文件名>_images）
+      imgSub: opts.imgSub || null, // markdown 里写的引用前缀（草稿=绝对路径，已保存=<文件名>_images）
       dirty: false,
       scrollTop: 0,
       selStart: 0,
@@ -5998,6 +6095,8 @@ def fib(n):
     }
     tabs.splice(idx, 1);
     if (tab.path && isTauri) invoke("unregister_file", { path: tab.path }).catch(() => {});
+    // 未保存草稿：清理其临时图片目录（已保存的图片在文档目录，不动）
+    if (!tab.path && tab.imgDir && isTauri) invoke("remove_dir", { path: tab.imgDir }).catch(() => {});
     if (activeId === id) {
       if (tabs.length === 0) {
         // 最后一个标签已关闭：进入空状态（显示「请打开或创建…」提示），不再自动新建空白标签。
@@ -6141,14 +6240,98 @@ def fib(n):
     }
     return tab && tab.type === "html" ? saveAsHtml() : saveAsMarkdown();
   }
+  // 文档保存到 newPath 时安置图片：
+  //   草稿首存(oldPath 空) → 移动临时图片目录到 <newDir>/<stem>_images（消费临时目录），绝对引用重写为相对
+  //   另存为副本(oldPath 有) → 扫描 markdown 里【所有相对图片引用】，把引用到的图片文件夹/散图
+  //     从 oldDir 拷到 newDir（保留原件；不重写引用，引用仍按相对路径在新目录有效）
+  // 草稿临时目录重名 → 自动改名 <stem>_images_N 并提示。
+  async function placeImagesOnSave(tab, oldPath, newPath) {
+    if (!isTauri) return;
+    const newDir = dirOf(newPath);
+    const newStem = (baseName(newPath).replace(/\.[^.]+$/, "")) || "doc";
+
+    // —— 草稿首存：移动临时目录 ——
+    if (!oldPath) {
+      if (!tab.imgDir) { tab.imgDir = newDir + "/" + newStem + "_images"; tab.imgSub = newStem + "_images"; return; }
+      let newImgDir = newDir + "/" + newStem + "_images";
+      let newImgSub = newStem + "_images";
+      if (newImgDir === tab.imgDir) return;
+      let renamed = false;
+      try {
+        if (await invoke("path_exists", { path: newImgDir })) {
+          let n = 2;
+          while (await invoke("path_exists", { path: newDir + "/" + newStem + "_images_" + n })) n++;
+          newImgDir = newDir + "/" + newStem + "_images_" + n;
+          newImgSub = newStem + "_images_" + n;
+          renamed = true;
+        }
+      } catch (_) {}
+      try { await invoke("move_dir", { from: tab.imgDir, to: newImgDir }); }
+      catch (_) { return; }
+      if (renamed) toast(imgI18n().renamed.replace("{n}", newImgSub));
+      if (tab.imgSub && tab.imgSub !== newImgSub) {
+        editor.value = editor.value.split(tab.imgSub + "/").join(newImgSub + "/");
+        tab.content = editor.value;
+        try { await invoke("write_file_at", { path: newPath, content: editor.value }); } catch (_) {}
+      }
+      tab.imgDir = newImgDir; tab.imgSub = newImgSub;
+      return;
+    }
+
+    // —— 另存为副本(oldPath 有)：引用到的每张图片拷到 <newDir>/<newStem>_images/（扁平，不拷文件夹），
+    //    重名自动改名 _2/_3，markdown 引用同步改为 <newStem>_images/<名> ——
+    const oldDir = dirOf(oldPath);
+    const targetDir = newDir + "/" + newStem + "_images";
+    const targetSub = newStem + "_images";
+    const exists = (p) => invoke("path_exists", { path: p }).catch(() => false);
+    const usedNames = new Set();          // 本批已用的目标文件名（防同批重名）
+    const refMap = Object.create(null);   // 原引用 path → 新引用 targetSub/名（去重：同源只拷一次）
+    const re = /!\[[^\]]*\]\(([^)]+)\)/g;
+    let m;
+    while ((m = re.exec(editor.value))) {
+      const p = (m[1] || "").split(/\s+/)[0].replace(/^<|>$/g, "");
+      if (refMap[p] !== undefined) continue;            // 同一原引用已处理
+      let decoded = p;
+      try { decoded = decodeURIComponent(decoded); } catch (_) {}
+      if (!decoded || /^(data:|https?:|blob:|asset:|mailto:|#)/i.test(decoded)) { refMap[p] = p; continue; }
+      const isAbs = decoded.charAt(0) === "/" || /^[A-Za-z]:[\\/]/.test(decoded);
+      const src = isAbs ? decoded : (oldDir + "/" + decoded); // 绝对路径用其自身，相对路径按文档目录拼
+      const origName = baseName(decoded);
+      let finalName = origName;
+      // 重名：本批已用 或 目标已存在（且非源自身）→ _2/_3
+      let n = 2;
+      while (usedNames.has(finalName) || (src !== targetDir + "/" + finalName && await exists(targetDir + "/" + finalName))) {
+        finalName = origName.replace(/^([^.]*)(\.[^.]+)?$/, (_, s, e) => s + "_" + n++ + (e || ""));
+      }
+      usedNames.add(finalName);
+      refMap[p] = targetSub + "/" + finalName;
+      const dst = targetDir + "/" + finalName;
+      if (src !== dst) {
+        try { if (await exists(src)) await invoke("copy_file", { from: src, to: dst }); } catch (_) {}
+      }
+    }
+    // 应用引用替换（锚定 `](<path>`，避免子串误伤）并回写文件
+    let changed = false;
+    for (const p in refMap) {
+      if (refMap[p] !== p) { editor.value = editor.value.split("](" + p).join("](" + refMap[p]); changed = true; }
+    }
+    if (changed) {
+      tab.content = editor.value;
+      try { await invoke("write_file_at", { path: newPath, content: editor.value }); } catch (_) {}
+    }
+    tab.imgDir = targetDir; tab.imgSub = targetSub;
+  }
   // 仅 Markdown 的另存为（保存/关闭前保存的回退路径）。会更新标签身份。
   async function saveAsMarkdown() {
     const tab = activeTab();
     if (!tab) return false;
     if (isTauri) {
+      const oldPath = tab.path; // 保存前路径：空=草稿首存(移动临时目录)；有=另存为副本(拷贝)
       try {
         const path = await invoke("save_as", { content: editor.value, defaultName: tab.name });
         if (!path) return false; // 用户取消
+        // 图片文件夹随保存安置：草稿首存移动临时目录、另存为副本拷贝；重名自动改名
+        await placeImagesOnSave(tab, oldPath, path);
         tab.path = path;
         tab.dir = dirOf(path);
         tab.name = baseName(path) || tab.name;
@@ -6308,7 +6491,9 @@ def fib(n):
           toast(t("exported") + baseName(path));
         } else {
           // md：按源文件保存并更新身份
+          const oldMdPath = tab.path; // 保存前路径（空=草稿首存 move；有=另存为副本 copy）
           await invoke("write_file_at", { path, content: editor.value });
+          await placeImagesOnSave(tab, oldMdPath, path); // 图片文件夹随另存为拷贝/草稿首存迁移
           tab.path = path;
           tab.dir = dirOf(path);
           tab.name = baseName(path) || tab.name;
@@ -6432,7 +6617,13 @@ def fib(n):
     toast(t("convertedHtml"));
   }
 
-  /* ---------- 图片：选择 / 粘贴 / 拖拽 → base64 ---------- */
+  /* ---------- 图片：选择 / 粘贴 / 拖拽 ----------
+     Tauri 下统一落盘到该标签的图片目录、插入文件引用（保持 .md 源码干净，无 base64）：
+       - 已保存文档：<文档目录>/<文件名>_images/，引用 ![name](<文件名>_images/name)（相对）
+       - 未保存草稿：MDeX 缓存目录下 mdex_draft_images/<tabId>/（多草稿各自独立），引用绝对路径；
+         文档保存时把该目录迁移到 <保存目录>/<文件名>_images 并重写引用为相对（见 migrateImagesOnSave）。
+     预览由 resolveImages 按文档目录(相对)或直接(绝对)解析渲染。浏览器/落盘失败 → 回退 base64。 */
+  let draftImgBase = ""; // 草稿图片临时目录基址（缓存 invoke 结果）
   function pickImage() {
     fileInput.accept = "image/*";
     fileInput.onchange = () => {
@@ -6442,19 +6633,66 @@ def fib(n):
     };
     fileInput.click();
   }
-  function insertImages(files) {
-    let done = 0;
-    files.forEach((file) => {
+  function readImgDataUrl(file) {
+    return new Promise((res) => {
       const r = new FileReader();
-      r.onload = () => {
-        const md = `![${file.name.replace(/\.[^.]+$/, "")}](${r.result})\n\n`;
-        const s = editor.selectionStart;
-        editor.value = editor.value.slice(0, s) + md + editor.value.slice(s);
-        editor.setSelectionRange(s + md.length, s + md.length);
-        if (++done === files.length) { scheduleRender(); toast(t("insImgPre") + files.length + t("insImgSuf")); }
-      };
+      r.onload = () => res(r.result || "");
+      r.onerror = () => res("");
       r.readAsDataURL(file);
     });
+  }
+  function imgExtOf(file) {
+    const m = (file.name || "").match(/\.([a-zA-Z0-9]+)$/);
+    if (m) return m[1].toLowerCase();
+    const tm = (file.type || "").match(/image\/([a-zA-Z0-9.+-]+)/);
+    return tm ? tm[1].replace("jpeg", "jpg") : "png";
+  }
+  function insertMdAtCursor(md) {
+    const s = editor.selectionStart;
+    editor.value = editor.value.slice(0, s) + md + editor.value.slice(s);
+    editor.setSelectionRange(s + md.length, s + md.length);
+  }
+  // 确保标签有图片目录（懒创建）：已保存→<dir>/<stem>_images；草稿→缓存下 mdex_draft_images/<tabId>。
+  async function ensureImgDir(tab) {
+    if (tab.imgDir) return tab.imgDir;
+    if (!isTauri) return null;
+    if (tab.path) {
+      const stem = (baseName(tab.path).replace(/\.[^.]+$/, "")) || "doc";
+      tab.imgDir = (tab.dir || dirOf(tab.path)) + "/" + stem + "_images";
+      tab.imgSub = stem + "_images";
+    } else {
+      if (!draftImgBase) { try { draftImgBase = await invoke("draft_images_base"); } catch (_) { draftImgBase = ""; } }
+      if (!draftImgBase) return null;
+      tab.imgDir = draftImgBase + "/" + tab.id;
+      tab.imgSub = tab.imgDir; // 草稿用绝对路径（无文档目录，resolveImages 直接读绝对路径）
+    }
+    return tab.imgDir;
+  }
+  async function insertImages(files) {
+    const at = activeTab();
+    const imgDir = (isTauri && at) ? await ensureImgDir(at) : null;
+    const useFolder = !!(imgDir && at && at.imgSub);
+    let mdAcc = "", saved = 0;
+    for (const file of files) {
+      const dataUrl = await readImgDataUrl(file);
+      const stem = ((file.name || "image").replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|\s]/g, "_")) || "image";
+      if (useFolder && dataUrl) {
+        try {
+          const b64 = dataUrl.split(",")[1] || "";
+          const fname = stem + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6) + "." + imgExtOf(file);
+          await invoke("write_bytes_at", { path: imgDir + "/" + fname, data: b64 });
+          mdAcc += `![${stem}](${at.imgSub}/${fname})\n\n`;
+          saved++;
+          continue;
+        } catch (_) { /* 落 base64 回退 */ }
+      }
+      mdAcc += `![${stem}](${dataUrl})\n\n`; // 浏览器/落盘失败 → base64
+    }
+    if (mdAcc) {
+      insertMdAtCursor(mdAcc);
+      scheduleRender();
+      toast(t("insImgPre") + (saved > 0 ? saved + "/" + files.length : files.length) + t("insImgSuf"));
+    }
   }
   editor.addEventListener("paste", (e) => {
     const imgs = Array.from((e.clipboardData && e.clipboardData.items) || [])
@@ -6873,7 +7111,7 @@ def fib(n):
           tabs: tabs.map((x) => ({ id: x.id, name: x.name, path: x.path, dir: x.dir,
             content: x.content, type: x.type || "md", dirty: x.dirty, scrollTop: x.scrollTop,
             selStart: x.selStart, selEnd: x.selEnd, bibText: x.bibText || "",
-            sample: x.sample || null })),
+            sample: x.sample || null, imgDir: x.imgDir || null, imgSub: x.imgSub || null })),
           activeId,
         }));
       } catch (_) {}
@@ -6909,14 +7147,17 @@ def fib(n):
   let editorLH = 23.8;          // 编辑器实际行高（px）
   let editorCharsPerRow = 80;   // 编辑器内容区每行可容纳字符数
   let editorFontMeasured = false;
-  // 量等宽字体的单字符宽与行高（隐藏 span，仅字体/主题变化才需重测）
+  // 量等宽字体的单字符宽与行高（隐藏 span）。字号须取 #editor 当前计算值（字体缩放后随变），
+  // 否则折行映射 charsPerRow/visLineStart 算错 → 滚动同步偏（bug_history BUG-060）。
   function measureEditorFont() {
     let m = $("editor-measure");
+    const fs = getComputedStyle(editor).fontSize || "14px";
     if (!m) {
       m = document.createElement("span"); m.id = "editor-measure";
-      m.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;font-family:var(--mono);font-size:14px;line-height:1.7;";
+      m.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;font-family:var(--mono);line-height:1.7;";
       document.body.appendChild(m);
     }
+    m.style.fontSize = fs;
     m.textContent = "MMMMMMMMMM"; editorCharW = m.getBoundingClientRect().width / 10 || 8.4;
     m.textContent = Array(11).join("M\n"); editorLH = m.getBoundingClientRect().height / 10 || 23.8;
   }
@@ -7357,7 +7598,44 @@ def fib(n):
   }
   function closeCiteJump() { const m = $("cite-jump-mask"); if (m) m.hidden = true; }
 
+  // 已打开的 mermaid 查看器窗口跟踪（live update）：{label, offset}。编辑区重渲后按 data-src-offset
+  // 找到对应块的新 SVG，经 emit_viewer_update 定向推给查看器窗口。块内编辑时起始偏移不变→稳定匹配。
+  let liveViewers = [];
+  function syncViewerWindows() {
+    if (!isTauri || !liveViewers.length) return;
+    const checks = liveViewers.map((v) => {
+      const wrap = preview.querySelector('.mermaid-wrap[data-src-offset="' + v.offset + '"]');
+      const svg = wrap && wrap.querySelector("svg");
+      if (!svg) return Promise.resolve(true);          // 块暂未找到（偏移变/块删除）→ 保留待下次
+      return invoke("emit_viewer_update", { target: v.label, content: svg.outerHTML })
+        .then((ok) => ok !== false, () => false);        // false=目标窗口已关 → 清除跟踪
+    });
+    Promise.all(checks).then((keep) => { liveViewers = liveViewers.filter((_, i) => keep[i]); });
+  }
+
   preview.addEventListener("click", (e) => {
+    // Mermaid 图：点击渲染区 mermaid 图 → 弹大图查看器（缩放/平移/全屏）。
+    // 必须在 data-src-offset 块级定位（bug_history BUG-057）之前拦截，否则点击落到源码定位；
+    // 仅成功渲染（含 <svg>）的 .mermaid-wrap 触发，错误回退 .mermaid-err 不弹。
+    const mwrap = e.target.closest && e.target.closest(".mermaid-wrap");
+    if (mwrap && mwrap.querySelector("svg")) {
+      const svgEl = mwrap.querySelector("svg");
+      // Tauri：新建独立窗口显示（可移动/缩放/全屏）；记 data-src-offset 供 live update 跟踪
+      if (isTauri) {
+        const off = parseInt(mwrap.getAttribute("data-src-offset"), 10);
+        invoke("open_viewer_window", { content: svgEl.outerHTML }).then((label) => {
+          if (label && !isNaN(off)) liveViewers.push({ label, offset: off });
+        }).catch(() => {});
+      } else if (openViewer) openViewer(svgEl);   // 浏览器降级：页内弹窗
+      return;
+    }
+    // 普通图片：点击非链接、非 mermaid 的 <img> → 弹独立窗口查看（位图放大仍糊）
+    const imgEl = e.target.closest && e.target.closest("img");
+    if (imgEl && imgEl.closest("#preview") && !imgEl.closest("a") && !imgEl.closest(".mermaid-wrap")) {
+      if (isTauri) invoke("open_viewer_window", { content: imgEl.outerHTML }).catch(() => {});
+      else if (openViewer) openViewer(imgEl);
+      return;
+    }
     // 文献表 [n] 回链：跳回正文引用处（多处则弹选择器）
     const back = e.target.closest(".bib-back");
     if (back) {
@@ -7689,6 +7967,36 @@ def fib(n):
     if (SHORTCUT_TO_MENU[k]) { e.preventDefault(); handleMenu(SHORTCUT_TO_MENU[k]); }
   });
 
+  /* ---------- 字体 / 图片缩放快捷键（每窗独立，Tauri 与浏览器均生效）----------
+     Cmd/Ctrl + =/-/0（及小键盘 +-/0）。缩放【最后点击的窗格】：点编辑器→编辑器字体、点预览→预览字体；
+     查看器打开时缩放图。按"最后点击窗格"而非 Shift 区分——因 "+" 在多数键盘是 Shift+=，
+     用 Shift 区分会与"放大当前窗格"的直觉冲突。用 e.code（物理键，不随 Shift 变字符）。 */
+  let zoomTarget = "editor"; // "editor" | "preview"：最后点击的窗格（mousedown 更新）
+  // 用 mousedown 而非 focus 追踪：点击预览会触发 click-to-locate -> editor.focus()，
+  // 若用 focus 监听会把 zoomTarget 改回 editor；mousedown 是用户直接点击意图，程序化 focus 不触发。
+  editor.addEventListener("mousedown", () => { zoomTarget = "editor"; });
+  preview.addEventListener("mousedown", () => { zoomTarget = "preview"; });
+  document.addEventListener("keydown", (e) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+    const code = e.code || "";
+    const isIn = code === "Equal" || code === "NumpadAdd";
+    const isOut = code === "Minus" || code === "NumpadSubtract";
+    const isReset = code === "Digit0" || code === "Numpad0";
+    if (!isIn && !isOut && !isReset) return;
+    const mvMask = $("mermaid-viewer");
+    const viewerOpen = mvMask && !mvMask.hidden;
+    e.preventDefault();
+    const click = (id) => { const b = $(id); if (b) b.click(); };
+    if (viewerOpen) {                                   // 查看器（独立窗口/页内弹窗）打开 → 缩放图
+      if (isIn) click("mv-in"); else if (isOut) click("mv-out"); else click("mv-reset");
+    } else if (zoomTarget === "preview") {              // 最后点击预览区 → 预览区字体
+      if (isIn) click("pz-in"); else if (isOut) click("pz-out"); else click("pz-lvl");
+    } else {                                            // 最后点击编辑器（默认）→ 编辑器字体
+      if (isIn) click("ez-in"); else if (isOut) click("ez-out"); else click("ez-lvl");
+    }
+  });
+
   /* ---------- 顶栏按钮 ---------- */
   document.querySelector('[data-act="new"]').onclick = newFile;
   document.querySelector('[data-act="open"]').onclick = openFile;
@@ -7806,6 +8114,69 @@ def fib(n):
     mn: { color: "Текстний өнгө", coloredText: "өнгөт бичвэр" },
   };
   function colorI18n() { return COLOR_I18N[curLang] || COLOR_I18N.en; }
+  // Mermaid 图查看器（点击放大弹窗）的本地化文案。回退 en（与 COLOR_I18N/NAV_I18N 同策略）。
+  const MERMAID_I18N = {
+    zh: { title: "Mermaid 图", imageTitle: "图片", center: "居中（保持缩放）", zoomIn: "放大", zoomOut: "缩小", reset: "重置缩放", fullscreen: "全屏", exitFullscreen: "退出全屏", close: "关闭", hint: "滚轮缩放 · 拖拽平移" },
+    en: { title: "Mermaid Diagram", imageTitle: "Image", center: "Center (keep zoom)", zoomIn: "Zoom in", zoomOut: "Zoom out", reset: "Reset zoom", fullscreen: "Fullscreen", exitFullscreen: "Exit fullscreen", close: "Close", hint: "Scroll to zoom · Drag to pan" },
+    fr: { title: "Diagramme Mermaid", imageTitle: "Image", center: "Centrer (zoom constant)", zoomIn: "Agrandir", zoomOut: "Réduire", reset: "Réinitialiser le zoom", fullscreen: "Plein écran", exitFullscreen: "Quitter le plein écran", close: "Fermer", hint: "Molette pour zoomer · Glisser pour déplacer" },
+    de: { title: "Mermaid-Diagramm", imageTitle: "Bild", center: "Zentrieren (Zoom behalten)", zoomIn: "Vergrößern", zoomOut: "Verkleinern", reset: "Zoom zurücksetzen", fullscreen: "Vollbild", exitFullscreen: "Vollbild beenden", close: "Schließen", hint: "Scrollen zum Zoomen · Ziehen zum Verschieben" },
+    ru: { title: "Диаграмма Mermaid", imageTitle: "Изображение", center: "Центрировать (без изменения масштаба)", zoomIn: "Увеличить", zoomOut: "Уменьшить", reset: "Сбросить масштаб", fullscreen: "Во весь экран", exitFullscreen: "Выйти из полноэкранного режима", close: "Закрыть", hint: "Колесо для масштаба · Перетаскивание для сдвига" },
+    it: { title: "Diagramma Mermaid", imageTitle: "Immagine", center: "Centra (mantieni zoom)", zoomIn: "Ingrandisci", zoomOut: "Riduci", reset: "Reimposta zoom", fullscreen: "Schermo intero", exitFullscreen: "Esci da schermo intero", close: "Chiudi", hint: "Scorri per zoom · Trascina per spostare" },
+    ja: { title: "Mermaid 図", imageTitle: "画像", center: "中央に配置（ズーム維持）", zoomIn: "拡大", zoomOut: "縮小", reset: "ズームをリセット", fullscreen: "全画面", exitFullscreen: "全画面を終了", close: "閉じる", hint: "スクロールでズーム · ドラッグで移動" },
+    ko: { title: "Mermaid 다이어그램", imageTitle: "이미지", center: "가운데 (확대 유지)", zoomIn: "확대", zoomOut: "축소", reset: "확대 초기화", fullscreen: "전체 화면", exitFullscreen: "전체 화면 종료", close: "닫기", hint: "스크롤로 확대 · 드래그로 이동" },
+    es: { title: "Diagrama Mermaid", imageTitle: "Imagen", center: "Centrar (mantener zoom)", zoomIn: "Acercar", zoomOut: "Alejar", reset: "Restablecer zoom", fullscreen: "Pantalla completa", exitFullscreen: "Salir de pantalla completa", close: "Cerrar", hint: "Rueda para zoom · Arrastrar para mover" },
+    pt: { title: "Diagrama Mermaid", imageTitle: "Imagem", center: "Centralizar (manter zoom)", zoomIn: "Ampliar", zoomOut: "Reduzir", reset: "Redefinir zoom", fullscreen: "Tela cheia", exitFullscreen: "Sair da tela cheia", close: "Fechar", hint: "Roda para zoom · Arrastar para mover" },
+    ar: { title: "مخطط Mermaid", imageTitle: "صورة", center: "توسيط (مع الحفاظ على التكبير)", zoomIn: "تكبير", zoomOut: "تصغير", reset: "إعادة ضبط التكبير", fullscreen: "ملء الشاشة", exitFullscreen: "إنهاء ملء الشاشة", close: "إغلاق", hint: "العجلة للتقريب · السحب للتحريك" },
+    hi: { title: "Mermaid आरेख", imageTitle: "छवि", center: "केंद्रित करें (ज़ूम बनाए रखें)", zoomIn: "बड़ा करें", zoomOut: "छोटा करें", reset: "ज़ूम रीसेट", fullscreen: "पूर्ण स्क्रीन", exitFullscreen: "पूर्ण स्क्रीन से बाहर", close: "बंद करें", hint: "ज़ूम के लिए स्क्रॉल · खिसकाने के लिए खींचें" },
+    pa: { title: "Mermaid ਚਿੱਤਰ", imageTitle: "ਚਿੱਤਰ", center: "ਕੇਂਦਰਿਤ (ਜ਼ੂਮ ਬਰਕਰਾਰ)", zoomIn: "ਜ਼ੂਮ ਇਨ", zoomOut: "ਜ਼ੂਮ ਆਉਟ", reset: "ਜ਼ੂਮ ਰੀਸੈਟ", fullscreen: "ਪੂਰੀ ਸਕਰੀਨ", exitFullscreen: "ਪੂਰੀ ਸਕਰੀਨ ਬੰਦ", close: "ਬੰਦ ਕਰੋ", hint: "ਜ਼ੂਮ ਲਈ ਸਕ੍ਰੋਲ · ਹਿਲਾਉਣ ਲਈ ਖਿੱਚੋ" },
+    vi: { title: "Sơ đồ Mermaid", imageTitle: "Hình ảnh", center: "Căn giữa (giữ zoom)", zoomIn: "Phóng to", zoomOut: "Thu nhỏ", reset: "Đặt lại zoom", fullscreen: "Toàn màn hình", exitFullscreen: "Thoát toàn màn hình", close: "Đóng", hint: "Cuộn để zoom · Kéo để di chuyển" },
+    id: { title: "Diagram Mermaid", imageTitle: "Gambar", center: "Tengah (pertahankan zoom)", zoomIn: "Perbesar", zoomOut: "Perkecil", reset: "Reset zoom", fullscreen: "Layar penuh", exitFullscreen: "Keluar layar penuh", close: "Tutup", hint: "Gulir untuk zoom · Seret untuk geser" },
+    ur: { title: "Mermaid خاکہ", imageTitle: "تصویر", center: "مرکز (زوم برقرار)", zoomIn: "زوم اِن", zoomOut: "زوم آؤٹ", reset: "زوم ری سیٹ", fullscreen: "پوری اسکرین", exitFullscreen: "پوری اسکرین سے نکلیں", close: "بند کریں", hint: "زوم کے لیے اسکرول · منتقل کرنے کے لیے گھسیٹیں" },
+    mn: { title: "Mermaid диаграмм", imageTitle: "Зураг", center: "Төвлөрөх (томруулалт хадгалах)", zoomIn: "Томруулах", zoomOut: "Жижиглэх", reset: "Хэмжээ шинэчлэх", fullscreen: "Бүтэн дэлгэц", exitFullscreen: "Бүтэн дэлгэцээс гарах", close: "Хаах", hint: "Жолоогоор томруул · Чирж шилжүүл" },
+  };
+  function mermaidI18n() { return MERMAID_I18N[curLang] || MERMAID_I18N.en; }
+  // 编辑区/预览区字体缩放控件的本地化文案。回退 en（与 COLOR_I18N/NAV_I18N 同策略）。
+  const ZOOM_I18N = {
+    zh: { zoomIn: "放大", zoomOut: "缩小", reset: "重置字号" },
+    en: { zoomIn: "Zoom in", zoomOut: "Zoom out", reset: "Reset font size" },
+    fr: { zoomIn: "Agrandir", zoomOut: "Réduire", reset: "Réinitialiser la taille" },
+    de: { zoomIn: "Vergrößern", zoomOut: "Verkleinern", reset: "Schriftgröße zurücksetzen" },
+    ru: { zoomIn: "Увеличить", zoomOut: "Уменьшить", reset: "Сбросить размер шрифта" },
+    it: { zoomIn: "Ingrandisci", zoomOut: "Riduci", reset: "Reimposta dimensione" },
+    ja: { zoomIn: "拡大", zoomOut: "縮小", reset: "文字サイズをリセット" },
+    ko: { zoomIn: "확대", zoomOut: "축소", reset: "글자 크기 초기화" },
+    es: { zoomIn: "Acercar", zoomOut: "Alejar", reset: "Restablecer tamaño" },
+    pt: { zoomIn: "Ampliar", zoomOut: "Reduzir", reset: "Redefinir tamanho" },
+    ar: { zoomIn: "تكبير", zoomOut: "تصغير", reset: "إعادة ضبط حجم الخط" },
+    hi: { zoomIn: "बड़ा करें", zoomOut: "छोटा करें", reset: "फ़ॉन्ट आकार रीसेट" },
+    pa: { zoomIn: "ਜ਼ੂਮ ਇਨ", zoomOut: "ਜ਼ੂਮ ਆਉਟ", reset: "ਫੌਂਟ ਆਕਾਰ ਰੀਸੈਟ" },
+    vi: { zoomIn: "Phóng to", zoomOut: "Thu nhỏ", reset: "Đặt lại cỡ chữ" },
+    id: { zoomIn: "Perbesar", zoomOut: "Perkecil", reset: "Reset ukuran font" },
+    ur: { zoomIn: "زوم اِن", zoomOut: "زوم آؤٹ", reset: "فونٹ سائز ری سیٹ" },
+    mn: { zoomIn: "Томруулах", zoomOut: "Жижиглэх", reset: "Фонтын хэмжээ шинэчлэх" },
+  };
+  function zoomI18n() { return ZOOM_I18N[curLang] || ZOOM_I18N.en; }
+  // 图片文件夹重名自动改名时的提示。{n}=新文件夹名。回退 en。
+  const IMG_I18N = {
+    zh: { renamed: "目标已有同名文件夹，图片文件夹已改名为 {n}" },
+    en: { renamed: "A folder with the same name already exists; image folder renamed to {n}" },
+    fr: { renamed: "Un dossier de même nom existait déjà ; dossier d'images renommé en {n}" },
+    de: { renamed: "Ein Ordner gleichen Namens existierte bereits; Bildordner umbenannt in {n}" },
+    ru: { renamed: "Папка с таким именем уже существовала; папка изображений переименована в {n}" },
+    it: { renamed: "Esisteva già una cartella con lo stesso nome; cartella immagini rinominata in {n}" },
+    ja: { renamed: "同名フォルダが既存のため、画像フォルダを {n} に変更しました" },
+    ko: { renamed: "같은 이름의 폴더가 있어 이미지 폴더 이름을 {n}(으)로 바꿨습니다" },
+    es: { renamed: "Ya existía una carpeta con el mismo nombre; carpeta de imágenes renombrada a {n}" },
+    pt: { renamed: "Já existia uma pasta com o mesmo nome; pasta de imagens renomeada para {n}" },
+    ar: { renamed: "كانت هناك مجلدات بنفس الاسم؛ تمت إعادة تسمية مجلد الصور إلى {n}" },
+    hi: { renamed: "उसी नाम का फ़ोल्डर पहले से था; छवि फ़ोल्डर का नाम बदलकर {n} कर दिया गया" },
+    pa: { renamed: "ਉਹੀ ਨਾਮ ਵਾਲਾ ਫੋਲਡਰ ਪਹਿਲਾਂ ਸੀ; ਚਿੱਤਰ ਫੋਲਡਰ ਦਾ ਨਾਮ {n} ਕਰ ਦਿੱਤਾ ਗਿਆ" },
+    vi: { renamed: "Đã có thư mục cùng tên; thư mục hình ảnh đã đổi thành {n}" },
+    id: { renamed: "Folder dengan nama yang sama sudah ada; folder gambar diubah namanya menjadi {n}" },
+    ur: { renamed: "اسی نام کا فولڈر پہلے سے تھا؛ تصویر فولڈر کا نام {n} کر دیا گیا" },
+    mn: { renamed: "Ижил нэртэй хавтас байсан тул зургийн хавтасыг {n} болгов" },
+  };
+  function imgI18n() { return IMG_I18N[curLang] || IMG_I18N.en; }
   // 返回/前进按钮的本地化标题。
   const NAV_I18N = {
     zh: { back: "返回", fwd: "前进" },
@@ -7834,7 +8205,7 @@ def fib(n):
     const rows = (arr) => arr.map((r) => "<tr><td><code>" + r.k + "</code></td><td>" + r.a + "</td></tr>").join("");
     return [
       "<p class=\"pron-line\"><strong>MDeX</strong> · " + s.pPron + "</p>",
-      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.2.0") + "</p>",
+      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.3.0") + "</p>",
       "<h2>" + s.hFeatures + "</h2>", pairs(s.features),
       "<h2>" + s.hShortcuts + "</h2>", "<p>" + s.pShortcut + "</p>",
       "<table><tr><th>" + s.thKey + "</th><th>" + s.thAction + "</th></tr>" + rows(s.shortcuts) + "</table>",
@@ -7909,9 +8280,10 @@ def fib(n):
         { b: "搜索替换", t: "：查找、逐个替换、全部替换，显示匹配数；⌘F / ⌘H 唤起。" },
         { b: "数学公式", t: "：行内 <code>$...$</code> 与块级 <code>$$...$$</code>（也支持 <code>\\(...\\)</code>、<code>\\[...\\]</code>），由 KaTeX 渲染；超长公式自动按运算符折行，无法折行的等比缩小。" },
         { b: "代码高亮", t: "：自动识别语言着色；大文档按视口懒加载，避免卡顿。" },
-        { b: "图片", t: "：粘贴 / 拖拽 / 选择，自动转 base64 嵌入；也可用相对路径引用本地图片；图片默认居中显示。" },
+        { b: "图片", t: "：粘贴 / 拖拽 / 选择，自动保存到文档同目录的 <code>&lt;文件名&gt;_images/</code> 文件夹并插入相对引用（源码干净、不再 base64）；草稿先存临时目录、保存时迁移；另存为时把图片扁平拷到目标；图片默认居中。" },
         { b: "表格", t: "：GFM 表格；窄表按内容居中，宽表在容器内横向滚动，不被裁切。" },
-        { b: "Mermaid 图", t: "：<code>```mermaid</code> 代码块渲染为流程图 / 时序图 / 类图 / 状态图 / 甘特图 / 饼图等；菜单「帮助 → Mermaid 图示例」载入完整示例。" },
+        { b: "Mermaid 图", t: "：<code>```mermaid</code> 代码块渲染为流程图 / 时序图 / 类图 / 状态图 / 甘特图 / 饼图等；点击预览区的 mermaid 图可弹出独立窗口放大查看（缩放 / 平移 / 居中 / 全屏），并跟随编辑实时更新；菜单「帮助 → Mermaid 图示例」载入完整示例。" },
+        { b: "字体缩放", t: "：编辑区、预览区各自独立放大 / 缩小（pane-head 的 −/百分比/+ 或快捷键 ⌘=/−/0），点百分比重置；倍率持久化。" },
         { b: "文献引用", t: "：BibTeX numeric 风格，文末自动生成「参考文献」表，正文 [n] 与条目双向跳转（详见下文）。" },
         { b: "HTML 支持", t: "：可直接打开 <code>.html</code> 渲染预览；支持 HTML ↔ Markdown 互转（菜单「文件」→「转为 Markdown / HTML」）。" },
         { b: "主题 / 语言", t: "：深色 / 浅色主题，17 种界面语言；阿拉伯语、乌尔都语自动右到左。" },
@@ -7974,9 +8346,10 @@ def fib(n):
         { b: "Search & replace", t: ": find, replace one or all, with match count; ⌘F / ⌘H." },
         { b: "Math", t: ": inline <code>$...$</code> and block <code>$$...$$</code> (also <code>\\(...\\)</code>, <code>\\[...\\]</code>), rendered by KaTeX; long equations wrap at operators or auto-shrink." },
         { b: "Code highlighting", t: ": language auto-detected; large docs lazy-highlight by viewport to stay smooth." },
-        { b: "Images", t: ": paste / drop / pick — auto-embedded as base64; relative local paths also work; images are centered by default." },
+        { b: "Images", t: ": paste / drop / pick — saved to a <code>&lt;filename&gt;_images/</code> folder next to the doc with a clean relative reference (no more inline base64); drafts use a temp folder migrated on save; Save As flattens images into the target; images are centered by default." },
         { b: "Tables", t: ": GFM tables; narrow tables are centered to content, wide ones scroll horizontally without clipping." },
-        { b: "Mermaid diagrams", t: ": a <code>```mermaid</code> code block renders as flowchart / sequence / class / state / Gantt / pie, etc.; menu Help → Mermaid Examples loads a full sample." },
+        { b: "Mermaid diagrams", t: ": a <code>```mermaid</code> code block renders as flowchart / sequence / class / state / Gantt / pie, etc.; click a diagram in the preview to open a standalone zoom/pan/fullscreen viewer window that updates live as you edit; menu Help → Mermaid Examples loads a full sample." },
+        { b: "Font zoom", t: ": zoom the editor and preview fonts independently (the −/percentage/+ controls, or ⌘=/−/0); click the percentage to reset; the level persists." },
         { b: "Citations", t: ": BibTeX numeric style; a References list is generated at the end, with two-way jumps between in-text [n] and the entry (see below)." },
         { b: "HTML support", t: ": open <code>.html</code> files for rendering; convert between HTML and Markdown (menu File → Convert)." },
         { b: "Theme / language", t: ": dark / light, 17 UI languages; Arabic & Urdu auto right-to-left." },
@@ -8040,7 +8413,9 @@ def fib(n):
         { b: "Aperçu scindé en direct", t: " : glissez le séparateur pour redimensionner ; le bouton de la barre cycle Scindé / Éditeur / Aperçu." },
         { b: "Formules", t: " : en ligne <code>$...$</code> et en bloc <code>$$...$$</code>, rendues par KaTeX." },
         { b: "Coloration du code", t: " : langue détectée automatiquement." },
-        { b: "Images", t: " : coller / glisser-déposer / choisir — intégrées en base64 ; les chemins locaux relatifs fonctionnent aussi." },
+        { b: "Images", t: ": coller / glisser-déposer / choisir - enregistrées dans un dossier <code>&lt;filename&gt;_images/</code> à côté du doc (plus de base64) ; brouillons en dossier temporaire migré à l'enregistrement ; centrées par défaut." },
+        { b: "Zoom police", t: " : zoom indépendant éditeur / aperçu (−/%/+ ou ⌘=/−/0) ; persistant." },
+        { b: "Diagrammes Mermaid", t: " : un bloc <code>```mermaid</code> rendu en organigramme / séquence / classe / état / Gantt / camembert, etc. ; cliquez sur un diagramme pour ouvrir une fenêtre de visualisation indépendante (zoom / pan / plein écran), mise à jour en direct." },
         { b: "Thème / langue", t: " : sombre / clair, 17 langues d'interface." },
         { b: "Brouillon auto", t: " : le contenu est sauvegardé périodiquement et restauré après une fermeture inattendue." },
         { b: "Export", t: " : enregistrer en Markdown / PDF / LaTeX." },
@@ -8094,7 +8469,9 @@ def fib(n):
         { b: "Live geteilte Vorschau", t: ": Trenner ziehen zum Skalieren; die Toolbar-Schaltfläche schaltet Geteilt / Editor / Vorschau um." },
         { b: "Formeln", t: ": inline <code>$...$</code> und Block <code>$$...$$</code>, gerendert durch KaTeX." },
         { b: "Code-Hervorhebung", t: ": Sprache wird automatisch erkannt." },
-        { b: "Bilder", t: ": Einfügen / Ablegen / Auswählen — als base64 eingebettet; relative lokale Pfade funktionieren ebenfalls." },
+        { b: "Bilder", t: ": einfügen / ablegen / auswählen - in <code>&lt;dateiname&gt;_images/</code> Ordner gespeichert (kein Base64); Entwürfe in temporärem Ordner, bei Speichern migriert; zentriert." },
+        { b: "Schrift-Zoom", t: ": Editor / Vorschau unabhängig zoomen (−/%/+ oder ⌘=/−/0); bleibt erhalten." },
+        { b: "Mermaid-Diagramme", t: ": ein <code>```mermaid</code>-Block als Flussdiagramm / Sequenz / Klasse / Zustand / Gantt / Tortendiagramm usw.; klicken Sie ein Diagram an für ein eigenständiges Zoom-/Pan-/Vollbild-Fenster, live aktualisiert." },
         { b: "Design / Sprache", t: ": Dunkel / Hell, 17 UI-Sprachen." },
         { b: "Auto-Entwurf", t: ": Inhalt wird regelmäßig gespeichert und nach unerwartetem Schließen wiederhergestellt." },
         { b: "Export", t: ": speichern als Markdown / PDF / LaTeX." },
@@ -8148,7 +8525,9 @@ def fib(n):
         { b: "Живой разделённый предпросмотр", t: ": перетаскивайте разделитель для изменения размера; кнопка панели переключает Разделено / Редактор / Предпросмотр." },
         { b: "Формулы", t: ": строчные <code>$...$</code> и блочные <code>$$...$$</code>, рендер KaTeX." },
         { b: "Подсветка кода", t: ": язык определяется автоматически." },
-        { b: "Изображения", t: ": вставка / перетаскивание / выбор — встраиваются как base64; относительные локальные пути тоже работают." },
+        { b: "Изображения", t: ": вставка / перетаскивание / выбор - в папку <code>&lt;filename&gt;_images/</code> (без base64); черновики во временной папке, мигрируемой при сохранении; по центру." },
+        { b: "Масштаб шрифта", t: ": независимый масштаб редактора / предпросмотра (−/%/+ или ⌘=/−/0); сохраняется." },
+        { b: "Диаграммы Mermaid", t: ": блок <code>```mermaid</code> — блок-схема / последовательность / класс / состояние / Гант / круговая и т.д. ; нажмите на диаграмму для отдельного окна просмотра (масштаб / пан / полный экран), обновляемого в реальном времени." },
         { b: "Тема / язык", t: ": тёмная / светлая, 17 языков интерфейса." },
         { b: "Автосохранение", t: ": содержимое периодически сохраняется и восстанавливается после неожиданного закрытия." },
         { b: "Экспорт", t: ": сохранить как Markdown / PDF / LaTeX." },
@@ -8202,7 +8581,9 @@ def fib(n):
         { b: "Anteprima divisa live", t: ": trascina il divisore per ridimensionare; il pulsante della barra cicla Diviso / Editor / Anteprima." },
         { b: "Formule", t: ": inline <code>$...$</code> e blocco <code>$$...$$</code>, renderizzate da KaTeX." },
         { b: "Evidenziazione codice", t: ": lingua rilevata automaticamente." },
-        { b: "Immagini", t: ": incolla / trascina / scegli — incorporate in base64; funzionano anche i percorsi locali relativi." },
+        { b: "Immagini", t: ": incolla / trascina / scegli - salvate in cartella <code>&lt;nomefile&gt;_images/</code> (niente base64); bozze in cartella temporanea migrata al salvataggio; centrate." },
+        { b: "Zoom caratteri", t: ": zoom indipendente editor / anteprima (−/%/+ o ⌘=/−/0); persistente." },
+        { b: "Diagrammi Mermaid", t: ": un blocco <code>```mermaid</code> renderizzato come flowchart / sequenza / classe / stato / Gantt / torta, ecc.; clicca un diagramma per aprire una finestra di visualizzazione indipendente (zoom / pan / schermo intero), aggiornata in tempo reale." },
         { b: "Tema / lingua", t: ": scuro / chiaro, 17 lingue dell'interfaccia." },
         { b: "Bozza automatica", t: ": il contenuto è salvato periodicamente e ripristinato dopo una chiusura imprevista." },
         { b: "Esportazione", t: ": salva come Markdown / PDF / LaTeX." },
@@ -8256,7 +8637,9 @@ def fib(n):
         { b: "ライブ分割プレビュー", t: "：区切り線をドラッグして比率を調整。ツールバーボタンで「分割 / エディタ / プレビュー」を切り替え。" },
         { b: "数式", t: "：インライン <code>$...$</code> とブロック <code>$$...$$</code>、KaTeX が描画。" },
         { b: "コードハイライト", t: "：言語を自動検出。" },
-        { b: "画像", t: "：貼り付け / ドラッグ / 選択で base64 自動埋め込み。相対ローカルパスも可。" },
+        { b: "画像", t: ": 貼り付け / ドロップ / 選択 - <code>&lt;filename&gt;_images/</code> フォルダに保存（base64 廃止）; 下書きは一時フォルダ->保存時に移行; 中央寄せ。" },
+        { b: "フォントズーム", t: ": エディタ / プレビュー各自独立ズーム（−/%/+ または ⌘=/−/0）; 永続。" },
+        { b: "Mermaid 図", t: ": <code>```mermaid</code> ブロックがフローチャート / シーケンス / クラス / 状態 / ガント / パイなどに描画；図をクリックすると独立したズーム/パン/全画面の表示ウィンドウが開き、リアルタイム更新。" },
         { b: "テーマ / 言語", t: "：ダーク / ライト、17 言語の UI。" },
         { b: "自動下書き", t: "：内容を定期的に保存し、異常終了後に復元。" },
         { b: "エクスポート", t: "：Markdown / PDF / LaTeX で保存。" },
@@ -8310,7 +8693,9 @@ def fib(n):
         { b: "실시간 분할 미리보기", t: ": 구분선을 드래그해 비율 조정; 도구모음 버튼으로 분할 / 편집기 / 미리보기를 순환." },
         { b: "수식", t: ": 인라인 <code>$...$</code>와 블록 <code>$$...$$</code>, KaTeX가 렌더링." },
         { b: "코드 하이라이트", t: ": 언어 자동 인식." },
-        { b: "이미지", t: ": 붙여넣기 / 드롭 / 선택 — base64로 자동 삽입; 상대 로컬 경로도 가능." },
+        { b: "이미지", t: ": 붙여넣기 / 드롭 / 선택 - <code>&lt;filename&gt;_images/</code> 폴더에 저장 (base64 폐지); 초안은 임시 폴더->저장 시 이동; 중앙 정렬." },
+        { b: "글자 확대", t: ": 편집기 / 미리보기 독립 확대 (−/%/+ 또는 ⌘=/−/0); 유지." },
+        { b: "Mermaid 다이어그램", t: ": <code>```mermaid</code> 블록이 순서도 / 시퀀스 / 클래스 / 상태 / 간트 / 파이 등으로 렌더링; 다이어그램 클릭 시 독립된 확대/이동/전체화면 보기 창이 열리고 실시간 업데이트." },
         { b: "테마 / 언어", t: ": 다크 / 라이트, 17개 UI 언어." },
         { b: "자동 임시저장", t: ": 내용이 주기적으로 저장되어 예기치 않은 종료 후 복원됩니다." },
         { b: "내보내기", t: ": Markdown / PDF / LaTeX로 저장." },
@@ -8364,7 +8749,9 @@ def fib(n):
         { b: "Vista previa dividida en vivo", t: ": arrastra el divisor para redimensionar; el botón de la barra alterna Dividido / Editor / Vista previa." },
         { b: "Fórmulas", t: ": en línea <code>$...$</code> y en bloque <code>$$...$$</code>, renderizadas por KaTeX." },
         { b: "Resaltado de código", t: ": idioma detectado automáticamente." },
-        { b: "Imágenes", t: ": pegar / soltar / elegir — se incrustan en base64; las rutas locales relativas también funcionan." },
+        { b: "Imágenes", t: ": pegar / soltar / elegir - guardadas en carpeta <code>&lt;nombrearchivo&gt;_images/</code> (sin base64); borradores en carpeta temporal migrada al guardar; centradas." },
+        { b: "Zoom de fuente", t: ": zoom independiente editor / vista (−/%/+ o ⌘=/−/0); persistente." },
+        { b: "Diagramas Mermaid", t: ": un bloque <code>```mermaid</code> se renderiza como diagrama de flujo / secuencia / clase / estado / Gantt / pastel, etc.; haz clic en un diagrama para abrir una ventana de visualización independiente (zoom / pan / pantalla completa), actualizada en vivo." },
         { b: "Tema / idioma", t: ": oscuro / claro, 17 idiomas de interfaz." },
         { b: "Borrador automático", t: ": el contenido se guarda periódicamente y se restaura tras un cierre inesperado." },
         { b: "Exportar", t: ": guardar como Markdown / PDF / LaTeX." },
@@ -8418,7 +8805,9 @@ def fib(n):
         { b: "Pré-visualização dividida ao vivo", t: ": arraste o divisor para redimensionar; o botão da barra alterna Dividido / Editor / Pré-visualização." },
         { b: "Fórmulas", t: ": em linha <code>$...$</code> e em bloco <code>$$...$$</code>, renderizadas por KaTeX." },
         { b: "Destaque de código", t: ": idioma detectado automaticamente." },
-        { b: "Imagens", t: ": colar / soltar / escolher — incorporadas em base64; caminhos locais relativos também funcionam." },
+        { b: "Imagens", t: ": colar / soltar / escolher - salvas em pasta <code>&lt;nomearquivo&gt;_images/</code> (sem base64); rascunhos em pasta temporária migrada ao salvar; centralizadas." },
+        { b: "Zoom de fonte", t: ": zoom independente editor / preview (−/%/+ ou ⌘=/−/0); persistente." },
+        { b: "Diagramas Mermaid", t: ": um bloco <code>```mermaid</code> renderizado como fluxograma / sequência / classe / estado / Gantt / pizza, etc.; clique num diagrama para abrir uma janela de visualização independente (zoom / pan / tela cheia), atualizada ao vivo." },
         { b: "Tema / idioma", t: ": escuro / claro, 17 idiomas de interface." },
         { b: "Rascunho automático", t: ": o conteúdo é salvo periodicamente e restaurado após um fechamento inesperado." },
         { b: "Exportar", t: ": salvar como Markdown / PDF / LaTeX." },
@@ -8472,7 +8861,9 @@ def fib(n):
         { b: "معاينة مقسمة حية", t: ": اسحب الفاصل لتغيير الحجم؛ زر الشريط يبدّل مقسم / المحرر / المعاينة." },
         { b: "الصيغ", t: ": سطرية <code>$...$</code> وكتلية <code>$$...$$</code>، تُعرض بـ KaTeX." },
         { b: "تلوين الكود", t: ": يُكتشف اللغة تلقائيًا." },
-        { b: "الصور", t: ": لصق / سحب / اختيار — تُضمَّن base64؛ تعمل المسارات النسبية المحلية أيضًا." },
+        { b: "الصور", t: ": لصق / سحب / اختيار - تُحفظ في <code>&lt;filename&gt;_images/</code> (بدون base64)؛ المسودات في مجلد مؤقت يُنقل عند الحفظ؛ توسيط." },
+        { b: "تكبير الخط", t: ": تكبير مستقل للمحرر / المعاينة (−/%/+ أو ⌘=/−/0)؛ دائم." },
+        { b: "مخططات Mermaid", t: ": يُعرض كتلة <code>```mermaid</code> كمخطط انسيابي / تسلسل / فئة / حالة / غانت / دائري، إلخ؛ انقر على مخطط لفتح نافذة عرض مستقلة (تكبير / تحريك / ملء الشاشة)، تتحدث مباشرة." },
         { b: "السمة / اللغة", t: ": داكنة / فاتحة، 17 لغة واجهة؛ العربية والأردية تلقائيًا من اليمين لليسار." },
         { b: "مسودة تلقائية", t: ": يُحفظ المحتوى دوريًا ويُستعاد بعد إغلاق غير متوقع." },
         { b: "التصدير", t: ": حفظ بصيغة Markdown / PDF / LaTeX." },
@@ -8528,9 +8919,10 @@ def fib(n):
         { b: "खोज व प्रतिस्थापन", t: ": खोजें, एक या सभी बदलें, मिलान संख्या सहित; ⌘F / ⌘H।" },
         { b: "गणित", t: ": इनलाइन <code>$...$</code> व ब्लॉक <code>$$...$$</code> (<code>\\(...\\)</code>, <code>\\[...\\]</code> भी), KaTeX द्वारा; लंबे समीकरण संकारकों पर लपेटते या स्वतः सिकुड़ते हैं।" },
         { b: "कोड हाइलाइटिंग", t: ": भाषा स्वतः पहचानी; बड़े दस्तावेज़ चिकने रहने व्यूपोर्ट से आलसी-हाइलाइट।" },
-        { b: "चित्र", t: ": पेस्ट / ड्रॉप / चुनें — स्वतः base64 अंतर्निहित; सापेक्ष स्थानीय पथ भी काम; चित्र डिफ़ॉल्ट केंद्रित।" },
+        { b: "चित्र", t: ": पेस्ट / ड्रॉप / चुनें - <code>&lt;filename&gt;_images/</code> फ़ोल्डर में सहेजा (base64 नहीं); ड्राफ्ट अस्थायी->सहेजने पर माइग्रेट; केंद्रित।" },
+        { b: "फ़ॉन्ट ज़ूम", t: ": संपादक / पूर्वावलोकन स्वतंत्र ज़ूम (−/%/+ या ⌘=/−/0); बना रहता।" },
         { b: "तालिकाएँ", t: ": GFM तालिकाएँ; सँकरी तालिकाएँ केंद्रित, चौड़ी क्षैतिज स्क्रॉल बिना कटे।" },
-        { b: "Mermaid आरेख", t: ": <code>```mermaid</code> ब्लॉक फ़्लोचार्ट / अनुक्रम / वर्ग / अवस्था / गैंट / पाई आदि; मेन्यू सहायता → Mermaid उदाहरण पूर्ण नमूना लोड करता है।" },
+        { b: "Mermaid आरेख", t: ": <code>```mermaid</code> ब्लॉक फ़्लोचार्ट / अनुक्रम / वर्ग / अवस्था / गैंट / पाई आदि; मेन्यू सहायता → Mermaid उदाहरण पूर्ण नमूना लोड करता है। ; आरेख क्लिक करें अलग ज़ूम/पैन/फुलस्क्रीन व्यूअर विंडो खोलने के लिए, वास्तविक समय अपडेट" },
         { b: "उद्धरण", t: ": BibTeX संख्यात्मक शैली; अंत में संदर्भ सूची बनती है, [n] व प्रविष्टि में द्वि-दिशा कूद।" },
         { b: "HTML समर्थन", t: ": <code>.html</code> फ़ाइलें रेंडर कर खोलें; HTML ↔ Markdown रूपांतरण (मेन्यू फ़ाइल → रूपांतरण)।" },
         { b: "थीम / भाषा", t: ": डार्क / लाइट, 17 UI भाषाएँ; अरबी व उर्दू स्वतः दाएँ-से-बाएँ।" },
@@ -8590,9 +8982,10 @@ def fib(n):
         { b: "ਖੋਜ ਤੇ ਬਦਲ", t: ": ਖੋਜੋ, ਇੱਕ ਜਾਂ ਸਭ ਬਦਲੋ, ਮਿਲਾਨ ਗਿਣਤੀ ਸਹਿਤ; ⌘F / ⌘H।" },
         { b: "ਗਣਿਤ", t: ": ਇਨਲਾਈਨ <code>$...$</code> ਤੇ ਬਲਾਕ <code>$$...$$</code>, KaTeX ਰਾਹੀਂ; ਲੰਮੇ ਸਮੀਕਰਨ ਆਪਣੇ-ਆਪ ਸਮੇਟਦੇ ਜਾਂ ਸਕੁੰਚਿਤ।" },
         { b: "ਕੋਡ ਹਾਈਲਾਈਟ", t: ": ਭਾਸ਼ਾ ਆਪਣੇ-ਆਪ ਪਛਾਣੀ; ਵੱਡੇ ਦਸਤਾਵੇਜ਼ ਵਿਊਪੋਰਟ ਤੋਂ ਆਲਸੀ-ਹਾਈਲਾਈਟ।" },
-        { b: "ਚਿੱਤਰ", t: ": ਪੇਸਟ / ਡਰੌਪ / ਚੁਣੋ — base64 ਅੰਤਰੀਕ੍ਰਿਤ; ਸਾਪੇਖਿਕ ਸਥਾਨਕ ਰਾਹ ਵੀ; ਚਿੱਤਰ ਡਿਫ਼ਾਲਟ ਕੇਂਦਰਿਤ।" },
+        { b: "ਚਿੱਤਰ", t: ": ਪੇਸਟ / ਡਰੌਪ / ਚੁਣੋ - <code>&lt;filename&gt;_images/</code> ਫੋਲਡਰ ਵਿੱਚ ਸੰਭਾਲੇ (base64 ਨਹੀਂ); ਡਰਾਫਟ ਅਸਥਾਈ->ਸੰਭਾਲਣ ਵੇਲੇ ਮਾਈਗ੍ਰੇਟ; ਕੇਂਦਰਿਤ।" },
+        { b: "ਫੌਂਟ ਜ਼ੂਮ", t: ": ਸੰਪਾਦਕ / ਝਲਕ ਸੁਤੰਤਰ ਜ਼ੂਮ (−/%/+ ਜਾਂ ⌘=/−/0); ਸਥਾਈ।" },
         { b: "ਸਾਰਣੀਆਂ", t: ": GFM ਸਾਰਣੀਆਂ; ਤੰਗ ਕੇਂਦਰਿਤ, ਚੌੜੀਆਂ ਕੱਟੇ ਬਿਨਾਂ ਖਿਤਿਜ਼ ਸਕ੍ਰੌਲ।" },
-        { b: "Mermaid ਚਾਰਟ", t: ": <code>```mermaid</code> ਫ਼ਲੋਚਾਰਟ / ਸੀਕੁਐਂਸ / ਕਲਾਸ / ਸਟੇਟ / ਗੈਂਟ / ਪਾਈ ਆਦਿ; ਮੀਨੂ ਮਦਦ → Mermaid ਨਮੂਨਾ ਲੋਡ ਕਰਦਾ।" },
+        { b: "Mermaid ਚਾਰਟ", t: ": <code>```mermaid</code> ਫ਼ਲੋਚਾਰਟ / ਸੀਕੁਐਂਸ / ਕਲਾਸ / ਸਟੇਟ / ਗੈਂਟ / ਪਾਈ ਆਦਿ; ਮੀਨੂ ਮਦਦ → Mermaid ਨਮੂਨਾ ਲੋਡ ਕਰਦਾ। ; ਚਾਰਟ ਤੇ ਕਲਿੱਕ ਕਰੋ ਵੱਖਰਾ ਜ਼ੂਮ/ਪੈਨ/ਫੁੱਲਸਕਰੀਨ ਵਿਊਅਰ ਵਿੰਡੋ ਖੋਲ੍ਹਣ ਲਈ, ਰੀਅਲ-ਟਾਈਮ ਅੱਪਡੇਟ" },
         { b: "ਹਵਾਲੇ", t: ": BibTeX ਅੰਕੀ ਸ਼ੈਲੀ; ਅੰਤ ਵਿੱਚ ਹਵਾਲਾ ਸੂਚੀ, [n] ਤੇ ਐਂਟਰੀ ਵਿੱਚ ਦੋ-ਪਾਸੇ ਛਾਲ।" },
         { b: "HTML ਸਮਰਥਨ", t: ": <code>.html</code> ਰੈਂਡਰ ਖੋਲ੍ਹੋ; HTML ↔ Markdown ਬਦਲੋ (ਮੀਨੂ ਫ਼ਾਈਲ → ਬਦਲੋ)।" },
         { b: "ਥੀਮ / ਭਾਸ਼ਾ", t: ": ਡਾਰਕ / ਲਾਈਟ, 17 UI ਭਾਸ਼ਾਵਾਂ; ਅਰਬੀ ਤੇ ਉਰਦੂ ਆਪਣੇ-ਆਪ ਸੱਜੇ-ਤੋਂ-ਖੱਬੇ।" },
@@ -8652,9 +9045,10 @@ def fib(n):
         { b: "Tìm & thay", t: ": tìm, thay một hoặc tất cả, kèm số kết quả; ⌘F / ⌘H." },
         { b: "Toán học", t: ": nội dòng <code>$...$</code> và khối <code>$$...$$</code> (cả <code>\\(...\\)</code>, <code>\\[...\\]</code>), bởi KaTeX; phương trình dài tự ngắt tại toán tử hoặc tự thu nhỏ." },
         { b: "Tô sáng mã", t: ": tự nhận diện ngôn ngữ; tài liệu lớn tô sáng lười theo vùng nhìn." },
-        { b: "Ảnh", t: ": dán / thả / chọn — tự nhúng base64; đường dẫn cục bộ tương đối cũng dùng được; ảnh mặc định căn giữa." },
+        { b: "Ảnh", t: ": dán / kéo / chọn - lưu vào <code>&lt;filename&gt;_images/</code> (không base64); bản nháp tạm->di chuyển khi lưu; căn giữa." },
+        { b: "Thu phóng chữ", t: ": zoom độc lập trình soạn / xem trước (−/%/+ hoặc ⌘=/−/0); lưu lại." },
         { b: "Bảng", t: ": bảng GFM; bảng hẹp căn giữa, bảng rộng cuộn ngang không bị cắt." },
-        { b: "Sơ đồ Mermaid", t: ": khối <code>```mermaid</code> vẽ lưu đồ / tuần tự / lớp / trạng thái / Gantt / bánh; menu Trợ giúp → Ví dụ Mermaid tải mẫu đầy đủ." },
+        { b: "Sơ đồ Mermaid", t: ": khối <code>```mermaid</code> vẽ lưu đồ / tuần tự / lớp / trạng thái / Gantt / bánh; menu Trợ giúp → Ví dụ Mermaid tải mẫu đầy đủ. ; nhấp sơ đồ để mở cửa sổ xem độc lập (zoom / pan / toàn màn hình), cập nhật trực tiếp" },
         { b: "Trích dẫn", t: ": phong cách số BibTeX; danh sách Tài liệu tham khảo tạo ở cuối, nhảy hai chiều giữa [n] và mục." },
         { b: "Hỗ trợ HTML", t: ": mở <code>.html</code> để kết xuất; chuyển đổi HTML ↔ Markdown (menu Tệp → Chuyển đổi)." },
         { b: "Giao diện / ngôn ngữ", t: ": tối / sáng, 17 ngôn ngữ UI; Ả Rập & Urdu tự động phải-sang-trái." },
@@ -8714,9 +9108,10 @@ def fib(n):
         { b: "Cari & ganti", t: ": cari, ganti satu atau semua, dengan jumlah cocok; ⌘F / ⌘H." },
         { b: "Matematika", t: ": sebaris <code>$...$</code> dan blok <code>$$...$$</code> (juga <code>\\(...\\)</code>, <code>\\[...\\]</code>), oleh KaTeX; persamaan panjang otomatis melipat atau mengecil." },
         { b: "Penyorotan kode", t: ": bahasa dideteksi otomatis; dokumen besar disorot malas per viewport." },
-        { b: "Gambar", t: ": tempel / jatuhkan / pilih — otomatis base64; path lokal relatif juga; gambar default di tengah." },
+        { b: "Gambar", t: ": tempel / seret / pilih - ke <code>&lt;filename&gt;_images/</code> (tanpa base64); draf folder sementara->dipindahkan saat disimpan; rata tengah." },
+        { b: "Zoom font", t: ": zoom editor / preview independen (−/%/+ atau ⌘=/−/0); tersimpan." },
         { b: "Tabel", t: ": tabel GFM; tabel sempit di tengah, tabel lebar menggulir horizontal tanpa terpotong." },
-        { b: "Diagram Mermaid", t: ": blok <code>```mermaid</code> menjadi flowchart / sequence / class / state / Gantt / pie; menu Bantuan → Contoh Mermaid memuat sampel penuh." },
+        { b: "Diagram Mermaid", t: ": blok <code>```mermaid</code> menjadi flowchart / sequence / class / state / Gantt / pie; menu Bantuan → Contoh Mermaid memuat sampel penuh. ; klik diagram untuk jendela viewer independen (zoom / pan / layar penuh), diperbarui langsung" },
         { b: "Kutipan", t: ": gaya numerik BibTeX; daftar Referensi dibuat di akhir, lompat dua arah antara [n] dan entri." },
         { b: "Dukungan HTML", t: ": buka <code>.html</code> untuk dirender; konversi HTML ↔ Markdown (menu Berkas → Konversi)." },
         { b: "Tema / bahasa", t: ": gelap / terang, 17 bahasa UI; Arab & Urdu otomatis kanan-ke-kiri." },
@@ -8776,9 +9171,10 @@ def fib(n):
         { b: "تلاش و تبدیلی", t: ": تلاش، ایک یا سب تبدیل، میچ تعداد کے ساتھ؛ ⌘F / ⌘H۔" },
         { b: "ریاضی", t: ": ان لائن <code>$...$</code> اور بلاک <code>$$...$$</code> (<code>\\(...\\)</code>، <code>\\[...\\]</code> بھی)، KaTeX کے ذریعے؛ لمبے مساوات آپریٹرز پر لپیٹتے یا خود سکڑتے ہیں۔" },
         { b: "کوڈ ہائی لائٹ", t: ": زبان خود سمجھی جاتی؛ بڑے دستاویزات Viu port سے سست ہائی لائٹ۔" },
-        { b: "تصاویر", t: ": پیسٹ / ڈراپ / چنیں — خود base64 شامل؛ نسبتی مقامی راستے بھی؛ تصاویر طے شدہ درمیان۔" },
+        { b: "تصاویر", t: ": پیسٹ / ڈراپ / منتخب - <code>&lt;filename&gt;_images/</code> میں محفوظ (base64 نہیں)؛ ڈرافٹ عارضی->محفوظ کرنے پر منتقل؛ مرکز۔" },
+        { b: "فونٹ زوم", t: ": ایڈیٹر / پیش نظارہ آزاد زوم (−/%/+ یا ⌘=/−/0); مستقل۔" },
         { b: "جداول", t: ": GFM جداول؛ تنگ جداول درمیان، چوڑی افقی اسکرول بغیر کٹائی۔" },
-        { b: "Mermaid خاکے", t: ": <code>```mermaid</code> بلاک فلو چارٹ / سلسلہ / کلاس / حالت / گینٹ / پائی وغیرہ؛ مینیو مدد → Mermaid نمونہ مکمل نمونہ لود کرتا ہے۔" },
+        { b: "Mermaid خاکے", t: ": <code>```mermaid</code> بلاک فلو چارٹ / سلسلہ / کلاس / حالت / گینٹ / پائی وغیرہ؛ مینیو مدد → Mermaid نمونہ مکمل نمونہ لود کرتا ہے۔ ; خاکے پر کلک کریں آزاد زوم/پین/فل اسکرین ویور ونڈو کھولنے کے لیے، حقیقی وقت اپ ڈیٹ" },
         { b: "حوالے", t: ": BibTeX عددی انداز؛ حوالہ جات فہرست آخر میں بنتی، [n] اور اندراج کے درمیان دو طرفہ چھلانگ۔" },
         { b: "HTML معاونت", t: ": <code>.html</code> رینڈر کے لیے کھولیں؛ HTML ↔ Markdown تبدیلی (مینیو فائل → تبدیلی)۔" },
         { b: "تھیم / زبان", t: ": گہرا / ہلکا، 17 UI زبانیں؛ عربی و اردو خود دائیں-سے-بائیں۔" },
@@ -8838,9 +9234,10 @@ def fib(n):
         { b: "Хайх ба солих", t: ": хайх, нэгийг эсвэл бүгдийг солих, тааралтын тооны хамт; ⌘F / ⌘H." },
         { b: "Математик", t: ": шугаман <code>$...$</code> ба блок <code>$$...$$</code> (<code>\\(...\\)</code>, <code>\\[...\\]</code> бас), KaTeX-ээр; урт тэгшитгэл оператор дээр хугарах эсвэл автоматаар жижигрэнэ." },
         { b: "Кодоор өнгөлөх", t: ": хэл автоматаар танигдана; том баримт дэлгэцийн бүсээр удаашралтай өнгөлнө." },
-        { b: "Зураг", t: ": буулгах / чирэх / сонгох — автоматаар base64; харьцангуй орон нутгийн зам ч ажиллана; зураг анхдагчаар төвд." },
+        { b: "Зураг", t: ": буулгах / чирэх / сонгох - <code>&lt;filename&gt;_images/</code> хавтсанд (base64 биш); ноорог түр->хадгалах үед шилжүүлнэ; төвлөрсөн." },
+        { b: "Фонтын масштаб", t: ": засварлагч / урьдчилан харах тус тус (−/%/+ эсвэл ⌘=/−/0); хадгалагдана." },
         { b: "Хүснэгт", t: ": GFM хүснэгт; нарийн хүснэгт агуулгаар төвдөг, өргөн нь хэвтээгээр гүйлгэхэд таслагдахгүй." },
-        { b: "Mermaid диаграмм", t: ": <code>```mermaid</code> блок урсгалын / дарааллын / ангийн / төлөвийн / Ганттын / бөөрөнхий диаграмм болно; цэс Тусламж → Mermaid жишээ бүрэн дээжийг ачаална." },
+        { b: "Mermaid диаграмм", t: ": <code>```mermaid</code> блок урсгалын / дарааллын / ангийн / төлөвийн / Ганттын / бөөрөнхий диаграмм болно; цэс Тусламж → Mermaid жишээ бүрэн дээжийг ачаална. ; диаграмм дээр дарж бие даасан zoom/pan/бүтэн дэлгэц цонх нээх, шууд шинэчлэгдэнэ" },
         { b: "Эшлэл", t: ": BibTeX тоон хэв маяг; төгсгөлд Эх сурвалжийн жагсаалт үүсэх бөгөөд [n] болон бичлэг хооронд хоёр чиглэлийн үсрэлт." },
         { b: "HTML дэмжлэг", t: ": <code>.html</code> файлыг хөрвүүлж нээ; HTML ↔ Markdown хооронд хөрвүүлэх (цэс Файл → Хөрвүүлэх)." },
         { b: "Загвар / хэл", t: ": бараан / цайвар, 17 UI хэл; Араб, Урдү автоматаар баруунаас зүүн." },
@@ -8900,6 +9297,297 @@ def fib(n):
   $("help-close").onclick = closeHelp;
   $("help-mask").addEventListener("click", (e) => { if (e.target === $("help-mask")) closeHelp(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("help-mask").hidden) closeHelp(); });
+
+  /* ---------- 图查看器（mermaid 矢量图 / markdown 普通图片，独立 OS 窗口或页内弹窗）----------
+     点击预览区的 mermaid 图或 <img> → 新建独立窗口（Tauri）或页内弹窗（浏览器）显示，支持缩放/平移/居中/全屏。
+     缩放走【改元素 width/height】（SVG 矢量重绘不糊；IMG 位图放大仍糊，故初始 fit 封顶 1× 不放大）。
+     平移用 transform:translate。mermaid 图支持 live update：编辑区重渲后按 data-src-offset 匹配块，经后端
+     emit_viewer_update 定向推新 SVG，本窗口监听 viewer-update 热替换（保留缩放、居中）。全屏走 Tauri setFullscreen。 */
+  let openViewer = null; // 由下方 IIFE 赋值；preview click 委托调用（点击发生在初始化之后，无 TDZ 风险）
+  (function () {
+    const mask = $("mermaid-viewer");
+    if (!mask) return;
+    const card = mask.querySelector(".mv-card");
+    const stage = $("mv-stage");
+    const content = $("mv-content");
+    const zoomLabel = $("mv-zoom");
+    const fsBtn = $("mv-fullscreen");
+    if (!stage || !content || !card) return;
+
+    let scale = 1, tx = 0, ty = 0;   // 缩放倍率 + 平移偏移
+    let cw = 0, ch = 0;              // 内容自然尺寸（px，未缩放）
+    let curEl = null;                // 当前内容元素（svg 或 img，缩放改其 width/height）
+    let contentIsImg = false;        // 位图：初始 fit 封顶 1（放大糊）
+    let fitScale = 1;
+    let drag = null;                 // {x,y,tx,ty}
+    const titleEl = $("mv-title");
+
+    const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+    const setTitle = (s) => { if (titleEl) titleEl.textContent = s; };
+
+    // 仅平移：拖拽高频调用，只改 transform（compositor，不触发布局回流）
+    function applyPan() {
+      content.style.transform = "translate(" + tx + "px," + ty + "px)";
+    }
+    // 缩放：改元素的 width/height → SVG 矢量重绘（放大不糊）；IMG 位图放大仍糊（固有）
+    function applySize() {
+      const w = cw * scale, h = ch * scale;
+      if (curEl) { curEl.setAttribute("width", w); curEl.setAttribute("height", h); }
+      content.style.width = w + "px";
+      content.style.height = h + "px";
+      zoomLabel.textContent = Math.round(scale * 100) + "%";
+    }
+    function renderView() { applySize(); applyPan(); }
+    function computeFit() {
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      if (!cw || !ch || !sw || !sh) { fitScale = 1; return; }
+      // contain：整图可见且尽量填满舞台。矢量不封顶；位图封顶 1× 避免放大糊。
+      fitScale = Math.min(sw / cw, sh / ch);
+      if (contentIsImg && fitScale > 1) fitScale = 1;
+      if (fitScale < 0.05) fitScale = 0.05;
+    }
+    function recenter() {                  // 重置缩放到 fit 并居中（打开/重置用）
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      scale = fitScale;
+      tx = Math.max(0, (sw - cw * scale) / 2);
+      ty = Math.max(0, (sh - ch * scale) / 2);
+      renderView();
+    }
+    function centerView() {                // 保持当前缩放、仅重新居中（居中按钮 / live update 用）
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      tx = Math.max(0, (sw - cw * scale) / 2);
+      ty = Math.max(0, (sh - ch * scale) / 2);
+      renderView();
+    }
+    function zoomAt(factor, cx, cy) {
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      if (cx == null) { cx = sw / 2; cy = sh / 2; }
+      const ns = clamp(scale * factor, 0.1, 16);
+      if (ns === scale) return;
+      // 光标锚点：保持屏幕点 (cx,cy) 下的内容点不动。p=((cx-tx)/scale,(cy-ty)/scale)；新平移=cx-p*ns
+      // （width/height 缩放下内容点 screen = tx + p*scale，与 transform:scale 同构，故公式不变）
+      const px = (cx - tx) / scale, py = (cy - ty) / scale;
+      tx = cx - px * ns; ty = cy - py * ns;
+      scale = ns;
+      renderView();
+    }
+    // 设置内容：svg 立即测尺寸（viewBox）；img 等 load 测 naturalWidth/Height。onReady 在 cw/ch 就绪后回调。
+    function setupContent(el, onReady) {
+      content.innerHTML = "";
+      curEl = null;
+      if (!el) { if (onReady) onReady(); return; }
+      const tag = el.tagName.toLowerCase();
+      if (tag === "svg") {
+        contentIsImg = false;
+        const clone = el.cloneNode(true);
+        // 求自然尺寸：仅认纯数字像素的 width/height。mermaid 的 svg 常写 width="100%"+viewBox，
+        // parseFloat("100%")=100 会误判且不回退 viewBox → 宽高比错乱、图被缩很小。故非像素值当 0 回退 viewBox。
+        const pxAttr = (name) => {
+          const v = (clone.getAttribute(name) || "").trim();
+          return /^\d+(\.\d+)?$/.test(v) ? parseFloat(v) : 0;
+        };
+        let nw = pxAttr("width"), nh = pxAttr("height");
+        const vb = (clone.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+        if (vb.length === 4) { if (!nw) nw = vb[2]; if (!nh) nh = vb[3]; }
+        if (!nw || nw < 1) nw = 800;
+        if (!nh || nh < 1) nh = 600;
+        cw = nw; ch = nh;
+        clone.removeAttribute("style");
+        clone.setAttribute("width", nw); clone.setAttribute("height", nh);
+        content.appendChild(clone);
+        curEl = clone;
+        setTitle(mermaidI18n().title);
+        if (onReady) onReady();
+      } else if (tag === "img") {
+        contentIsImg = true;
+        const img = document.createElement("img");
+        const src = el.getAttribute("src") || el.src || "";
+        const ready = (nw, nh) => {
+          cw = nw || 800; ch = nh || 600;
+          img.setAttribute("width", cw); img.setAttribute("height", ch);
+          img.style.maxWidth = "none"; img.style.maxHeight = "none";
+          content.appendChild(img);
+          curEl = img;
+          setTitle(mermaidI18n().imageTitle);
+          if (onReady) onReady();
+        };
+        img.onload = () => ready(img.naturalWidth, img.naturalHeight);
+        img.onerror = () => ready(800, 600);
+        img.src = src;
+      } else {
+        if (onReady) onReady();
+      }
+    }
+    openViewer = function (el) {
+      if (!el) return;
+      mask.hidden = false;   // 先显示舞台，确保 rAF 时 clientWidth 有值
+      setupContent(el, () => { requestAnimationFrame(() => { computeFit(); recenter(); }); });
+    };
+    // live update：交换内容，保留当前缩放、仅居中（避免编辑时缩放跳动）
+    function updateContent(el) {
+      const keep = scale;
+      setupContent(el, () => { scale = keep; centerView(); });
+    }
+    function closeViewer() {
+      exitFs();
+      // 独立窗口模式：关闭窗口（而非仅隐藏遮罩）
+      if (document.documentElement.classList.contains("mv-win")) {
+        const w = getWin();
+        if (w && w.close) { try { w.close(); } catch (_) {} }
+        return;
+      }
+      mask.hidden = true;
+      content.innerHTML = ""; content.style.transform = "";
+      curEl = null; scale = 1; tx = 0; ty = 0;
+    }
+
+    // ---- 全屏：优先 Tauri 窗口 setFullscreen（系统级；WKWebView 下 Element.requestFullscreen 不可靠）----
+    // isFullscreen 读权限在 core:default 内（默认允许）；setFullscreen 需 capabilities 另加 allow-set-fullscreen。
+    let fsActive = false, fsPrior = false, fsUsingDom = false;
+    function getWin() {
+      if (!isTauri || !T) return null;
+      try {
+        const m = T.window || (T.webviewWindow || {});
+        if (m.getCurrentWindow) return m.getCurrentWindow();
+        if (m.getCurrentWebviewWindow) return m.getCurrentWebviewWindow();
+      } catch (_) {}
+      return null;
+    }
+    function syncFsTitle() { if (typeof refreshDynamicLabels === "function") refreshDynamicLabels(); }
+    async function enterFs() {
+      fsActive = true; mask.classList.add("mv-fs"); syncFsTitle();
+      const w = getWin();
+      if (w && w.setFullscreen) {
+        try { fsPrior = w.isFullscreen ? await w.isFullscreen() : false; } catch (_) { fsPrior = false; }
+        if (!fsPrior) {
+          try { await w.setFullscreen(true); }
+          catch (_) { fsActive = false; mask.classList.remove("mv-fs"); syncFsTitle(); } // 调用失败回滚状态
+        }
+        return;
+      }
+      // 回退：DOM Fullscreen API（浏览器/dev 环境）
+      const req = card.requestFullscreen || card.webkitRequestFullscreen;
+      if (req) { fsUsingDom = true; try { await req.call(card); } catch (_) { fsUsingDom = false; } }
+    }
+    async function exitFs() {
+      if (!fsActive) return;
+      fsActive = false; mask.classList.remove("mv-fs"); syncFsTitle();
+      const w = getWin();
+      if (w && w.setFullscreen && !fsPrior) { try { await w.setFullscreen(false); } catch (_) {} }
+      if (fsUsingDom && document.exitFullscreen) { try { await document.exitFullscreen(); } catch (_) {} }
+      fsUsingDom = false;
+    }
+
+    // 工具栏按钮
+    $("mv-in").onclick = () => zoomAt(1.2);
+    $("mv-out").onclick = () => zoomAt(1 / 1.2);
+    $("mv-reset").onclick = () => { computeFit(); recenter(); };
+    $("mv-center").onclick = centerView;          // 保持缩放、仅居中
+    $("mv-close").onclick = closeViewer;
+    fsBtn.onclick = () => { if (fsActive) exitFs(); else enterFs(); };
+    // 点遮罩空白处关闭
+    mask.addEventListener("click", (e) => { if (e.target === mask) closeViewer(); });
+    // DOM 全屏状态变化联动标题（回退路径）
+    document.addEventListener("fullscreenchange", syncFsTitle);
+    document.addEventListener("webkitfullscreenchange", syncFsTitle);
+
+    // 滚轮缩放（光标锚点）
+    stage.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const r = stage.getBoundingClientRect();
+      zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+
+    // 指针拖拽平移（鼠标/触摸通用）
+    stage.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      drag = { x: e.clientX, y: e.clientY, tx, ty };
+      try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+      stage.classList.add("mv-dragging");
+    });
+    stage.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      tx = drag.tx + (e.clientX - drag.x);
+      ty = drag.ty + (e.clientY - drag.y);
+      applyPan();
+    });
+    const endDrag = (e) => {
+      if (!drag) return;
+      drag = null; stage.classList.remove("mv-dragging");
+      try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
+    };
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+    stage.addEventListener("pointerleave", endDrag);
+    // 阻止查看器内 svg 节点链接冒泡到全局 opener 处理（mermaid 节点可能含 <a>）
+    stage.addEventListener("click", (e) => e.stopPropagation(), true);
+
+    // Escape 关闭（同时退出全屏；macOS 原生全屏下首次 Escape 可能被系统拦截退全屏，再按一次关闭）
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || mask.hidden) return;
+      e.preventDefault();
+      closeViewer();
+    });
+    // 窗口尺寸变化时重算 fit 上限（不强制重置，保留用户当前视图）
+    window.addEventListener("resize", () => { if (!mask.hidden) computeFit(); });
+    // live update：接收主窗口定向推送的新内容（emit_to 仅投递给本查看器窗口，主窗口收不到）
+    if (isTauri && T && T.event && T.event.listen) {
+      T.event.listen("viewer-update", (e) => {
+        const html = e && e.payload;
+        if (typeof html !== "string" || !html) return;
+        const tpl = document.createElement("template");
+        tpl.innerHTML = html.trim();
+        const el = tpl.content.firstElementChild;
+        if (el) updateContent(el);
+      });
+    }
+  })();
+
+  /* ---------- 编辑区/预览区字体缩放（各自独立，持久化）----------
+     编辑器 #editor 基准 14px、预览 #preview 基准 16px，各以倍率缩放。
+     编辑器侧必须同步 #editor-hl 覆盖层字号（bug_history BUG-056：覆盖层须与 textarea 逐项对齐），
+     并重测 measureEditorFont+computeEditorMap（BUG-060：折行映射依赖字体尺寸，ResizeObserver 不监听字号）。
+     预览侧刷 buildPreviewBlockY 缓存（BUG-062：块顶 Y 在渲染时测一次缓存，字号变需重测；虚拟化靠 vprefix 自校正）。
+     内部变量与外层可能冲突，整体包 IIFE 内仅暴露 initFontZoom（由 init() 调用）。 */
+  let initFontZoom = null;
+  (function () {
+    const EZ_BASE = 14, PZ_BASE = 16;   // 基准字号（px），与 #editor/#preview CSS 一致
+    const STEP = 0.1, ZMIN = 0.5, ZMAX = 2.5;
+    let ez = 1, pz = 1;                 // 编辑器/预览 倍率
+    const clampZ = (v) => (v < ZMIN ? ZMIN : v > ZMAX ? ZMAX : v);
+
+    function applyEditor() {
+      const px = EZ_BASE * ez;
+      editor.style.fontSize = px + "px";
+      if (editorHl) editorHl.style.fontSize = px + "px";   // BUG-056：覆盖层同步
+      const lvl = $("ez-lvl"); if (lvl) lvl.textContent = Math.round(ez * 100) + "%";
+      measureEditorFont();           // 重测单字符宽/行高（measureEditorFont 已改为读 #editor 实际字号）
+      computeEditorMap();            // 重算每行字符数/视觉行映射，否则滚动同步偏
+      try { localStorage.setItem("md-editor-zoom", String(ez)); } catch (_) {}
+    }
+    function applyPreview() {
+      preview.style.fontSize = (PZ_BASE * pz) + "px";
+      const lvl = $("pz-lvl"); if (lvl) lvl.textContent = Math.round(pz * 100) + "%";
+      buildPreviewBlockY();          // 非虚拟化：重测块顶 Y 缓存；虚拟化由 scheduleRenderVisible 刷新
+      if (vblocks.length) scheduleRenderVisible();
+      try { localStorage.setItem("md-preview-zoom", String(pz)); } catch (_) {}
+    }
+    initFontZoom = function () {
+      try { ez = clampZ(parseFloat(localStorage.getItem("md-editor-zoom")) || 1); } catch (_) { ez = 1; }
+      try { pz = clampZ(parseFloat(localStorage.getItem("md-preview-zoom")) || 1); } catch (_) { pz = 1; }
+      applyEditor(); applyPreview();
+    };
+
+    // 按钮事件
+    const ezIn = $("ez-in"), ezOut = $("ez-out"), ezLvl = $("ez-lvl");
+    const pzIn = $("pz-in"), pzOut = $("pz-out"), pzLvl = $("pz-lvl");
+    if (ezIn) ezIn.onclick = () => { ez = clampZ(+(ez + STEP).toFixed(2)); applyEditor(); };
+    if (ezOut) ezOut.onclick = () => { ez = clampZ(+(ez - STEP).toFixed(2)); applyEditor(); };
+    if (ezLvl) ezLvl.onclick = () => { ez = 1; applyEditor(); };          // 点百分比标签 → 重置
+    if (pzIn) pzIn.onclick = () => { pz = clampZ(+(pz + STEP).toFixed(2)); applyPreview(); };
+    if (pzOut) pzOut.onclick = () => { pz = clampZ(+(pz - STEP).toFixed(2)); applyPreview(); };
+    if (pzLvl) pzLvl.onclick = () => { pz = 1; applyPreview(); };
+  })();
   // Tauri webview 不会自动用系统浏览器打开外部 http(s) 链接（且 CSP 禁止 webview 内导航）。
   // 拦截 http(s) 链接点击 → 走 opener 插件交给系统浏览器（应用本体仍离线）。mailto 由 webview 原生处理。
   document.addEventListener("click", (e) => {
@@ -8917,6 +9605,20 @@ def fib(n):
     return el ? el.textContent.trim() : "";
   }
   /* ---------- 初始化 ---------- */
+  // 图查看器独立窗口模式：隐藏编辑器 UI，取后端暂存内容（svg/img）渲染查看器（铺满整个窗口）
+  function initViewerWindow(contentHtml) {
+    document.documentElement.classList.add("mv-win");
+    const mv = mermaidI18n();
+    const setT = (id, v) => { const el = $(id); if (el) el.title = v; };
+    setT("mv-in", mv.zoomIn); setT("mv-out", mv.zoomOut); setT("mv-reset", mv.reset);
+    setT("mv-center", mv.center); setT("mv-fullscreen", mv.fullscreen); setT("mv-close", mv.close);
+    const h = $("mv-hint"); if (h) h.textContent = mv.hint;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = String(contentHtml).trim();
+    const el = tpl.content.firstElementChild;   // svg 或 img
+    if (el && openViewer) openViewer(el);
+  }
+
   async function init() {
     let theme = "light";
     try { theme = localStorage.getItem("md-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); } catch (_) {}
@@ -8928,6 +9630,9 @@ def fib(n):
 
     // 多窗口：询问后端本窗口是否为某个 OS 双击文件而开。是→只开这一个文件（不恢复会话/欢迎文档）。
     if (isTauri) invoke("app_version").then((v) => { if (v) appVersion = String(v); }).catch(() => {});
+    // 多窗口：本窗口是否为图查看器窗口（后端 open_viewer_window 已存内容）→ 是则只渲染查看器
+    const vc = isTauri ? await invoke("take_viewer_content").catch(() => null) : null;
+    if (vc) { initViewerWindow(vc); return; }
     const wf = isTauri ? await invoke("take_window_file").catch(() => null) : null;
     if (wf) {
       isFileWindow = true;
@@ -8953,6 +9658,7 @@ def fib(n):
             dir: x.dir || "", content, type: x.type || fileTypeOf(x.name) || "md",
             bibText: x.bibText || "",
             sample,
+            imgDir: x.imgDir || null, imgSub: x.imgSub || null,
             dirty: false,
             scrollTop: x.scrollTop || 0, selStart: x.selStart || 0, selEnd: x.selEnd || 0,
           };
@@ -8982,6 +9688,7 @@ def fib(n):
       if (cur.selStart || cur.selEnd) editor.setSelectionRange(cur.selStart, cur.selEnd);
     }
     applyLang();            // 应用界面语言（含工具栏/状态栏/占位符/主题按钮文字）
+    if (initFontZoom) initFontZoom(); // 应用编辑区/预览区字体缩放（须在首帧 render 前，否则首测字号错）
     initMermaid();          // 初始化 mermaid（主题跟随当前深浅）
     if (cur && cur.scrollTop) editor.scrollTop = cur.scrollTop;
     renderTabs();

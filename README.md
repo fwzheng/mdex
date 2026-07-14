@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.2.0 (macOS · Windows · Linux · Fully Offline · Tauri v2)
+# MDeX v1.3.0 (macOS · Windows · Linux · Fully Offline · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
@@ -38,8 +38,9 @@ The interface ships in **17 languages**: English, 简体中文, Français, Deuts
 - **Search & replace**: find, replace one or all, with match count.
 - **Math**: inline `$…$` and block `$$…$$` (also `\(...\)`, `\[...\]`), rendered by KaTeX; long equations wrap at operators or auto-shrink.
 - **Code highlighting**: language auto-detected; large docs lazy-highlight by viewport to stay smooth.
-- **Mermaid diagrams**: a ` ```mermaid ` block renders as flowchart / sequence / class / state / Gantt / pie, etc.
-- **Images**: paste / drop / pick — auto-embedded as base64; relative local paths also work; images are centered by default.
+- **Mermaid diagrams**: a ` ```mermaid ` block renders as flowchart / sequence / class / state / Gantt / pie, etc.; click a diagram to open a standalone zoom / pan / fullscreen viewer window that updates live as you edit.
+- **Images**: paste / drop / pick — saved to a `<filename>_images/` folder next to the doc with a clean relative reference (no inline base64); drafts use a temp folder migrated on save; Save As flattens images into the target; centered by default.
+- **Font zoom**: zoom the editor and preview fonts independently (−/percentage/+ controls, or `⌘/Ctrl + =/−/0`); persists across restarts.
 - **Tables**: GFM tables; narrow tables are centered to content, wide ones scroll horizontally without clipping.
 - **Citations (BibTeX)**: `[@key]` / `\cite{key}` syntax, numeric style; a References list is generated at the end, with two-way jumps between in-text `[n]` and the entry; supports an embedded ` ```bibtex ` block or a separately loaded `.bib`.
 - **HTML support**: open `.html` files for rendering; convert between HTML and Markdown.
@@ -74,8 +75,9 @@ Use `⌘` on macOS, `Ctrl` on Windows / Linux.
 | `Alt/Option + drag` | Rectangular (column) select |
 | `Alt/Option + Shift + ←↑↓→` | Extend column select |
 | `Esc` | Cancel column select |
+| `⌘/Ctrl + =/−/0` | Zoom the last-clicked pane (editor or preview) in / out / reset |
 
-> With multiple windows open, shortcuts only affect the focused window.
+> With multiple windows open, shortcuts only affect the focused window. When the image viewer window is open, `⌘/Ctrl + =/−/0` zooms the image instead.
 
 ---
 

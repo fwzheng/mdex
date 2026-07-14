@@ -34,6 +34,8 @@ struct LoadedFile {
 struct WindowState {
     open: Mutex<HashMap<String, String>>,
     pending: Mutex<HashMap<String, String>>,
+    /// 查看器窗口待取的内容（SVG/<img>，key=窗口 label "mermaid-<N>"，前端 take_viewer_content 取走）
+    viewer_content: Mutex<HashMap<String, String>>,
     main_taken: AtomicBool,
     next_id: Mutex<u64>,
     lang: Mutex<String>,
@@ -70,6 +72,58 @@ fn take_window_file(window: WebviewWindow, state: tauri::State<WindowState>) -> 
         state.main_taken.store(true, Ordering::SeqCst);
     }
     state.pending.lock().unwrap().remove(&label)
+}
+
+/// 点击预览区的 mermaid 图或普通图片：新建独立 OS 窗口显示该内容（SVG 或 <img>，可移动/缩放/全屏）。
+/// 内容经 viewer_content 暂存，新窗口启动后用 take_viewer_content 取走（避开冷启动 emit 丢失）。
+#[tauri::command]
+fn open_viewer_window(
+    content: String,
+    app: tauri::AppHandle,
+    state: tauri::State<WindowState>,
+) -> Result<String, String> {
+    let label = {
+        let mut idg = state.next_id.lock().unwrap();
+        *idg += 1;
+        format!("mermaid-{}", *idg)
+    };
+    state
+        .viewer_content
+        .lock()
+        .unwrap()
+        .insert(label.clone(), content);
+    tauri::webview::WebviewWindowBuilder::new(
+        &app,
+        &label,
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("MDeX Viewer")
+    .inner_size(960.0, 720.0)
+    .min_inner_size(360.0, 280.0)
+    .center()
+    .focused(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+    Ok(label)
+}
+
+/// 查看器窗口启动后取走其内容（SVG/<img>，取后清空）。返回 None 表示本窗口是普通编辑器窗口。
+#[tauri::command]
+fn take_viewer_content(window: WebviewWindow, state: tauri::State<WindowState>) -> Option<String> {
+    let label = window.label().to_string();
+    state.viewer_content.lock().unwrap().remove(&label)
+}
+
+/// 编辑区重渲后：把某 mermaid 块的最新 SVG 定向推给已打开的查看器窗口（live update）。
+/// 返回 false 表示目标窗口已关闭，前端据此清跟踪。emit_to 仅投递给目标 label，不广播。
+#[tauri::command]
+fn emit_viewer_update(target: String, content: String, app: tauri::AppHandle) -> bool {
+    if app.get_webview_window(&target).is_some() {
+        let _ = app.emit_to(&target, "viewer-update", content);
+        true
+    } else {
+        false
+    }
 }
 
 /// 返回应用版本号（编译期取自 Cargo.toml 的 CARGO_PKG_VERSION）。
@@ -311,13 +365,107 @@ async fn pick_save_path(
     }
 }
 
-/// 按完整路径写入二进制（用于 PDF 等非文本导出）。data 为 base64 编码的字节。
+/// 按完整路径写入二进制（用于 PDF、粘贴图片落盘等）。data 为 base64 编码的字节。
+/// 自动创建父目录（粘贴图片写到 markdown_images/ 时父目录可能不存在）。
 #[tauri::command]
 fn write_bytes_at(path: String, data: String) -> Result<(), String> {
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(data)
         .map_err(|e| format!("解码失败: {e}"))?;
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = fs::create_dir_all(parent); // 父目录已存在时为 no-op
+    }
     fs::write(&path, bytes).map_err(|e| format!("写入失败: {e}"))
+}
+
+/// 草稿（未保存文档）粘贴图片的临时目录基址：<app_cache_dir>/mdex_draft_images（自动创建）。
+/// 每个草稿在其下用 tab.id 子目录区分。保存时由 move_dir 迁移到文档目录下的 <文件名>_images。
+#[tauri::command]
+fn draft_images_base(app: tauri::AppHandle) -> Result<String, String> {
+    let base = app
+        .path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| std::env::temp_dir().join("mdex"))
+        .join("mdex_draft_images");
+    fs::create_dir_all(&base).map_err(|e| format!("创建目录失败: {e}"))?;
+    Ok(base.to_string_lossy().into_owned())
+}
+
+// 递归复制目录（move_dir 跨文件系统时用）。
+fn copy_dir_recursive(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let e = entry?;
+        let p = e.path();
+        let dest = to.join(e.file_name());
+        if p.is_dir() {
+            copy_dir_recursive(&p, &dest)?;
+        } else {
+            let _ = fs::copy(&p, &dest);
+        }
+    }
+    Ok(())
+}
+
+/// 移动目录：同文件系统 fs::rename（原子、快）；跨文件系统则递归复制后删源。
+/// 用于草稿保存时把临时图片目录迁移到文档目录下的 <文件名>_images。
+#[tauri::command]
+fn move_dir(from: String, to: String) -> Result<(), String> {
+    let from_p = std::path::Path::new(&from);
+    let to_p = std::path::Path::new(&to);
+    if !from_p.exists() {
+        return Ok(()); // 源不存在（无图片落盘）→ 视为成功
+    }
+    if fs::rename(from_p, to_p).is_ok() {
+        return Ok(()); // 同文件系统：直接重命名
+    }
+    // 跨文件系统：递归复制后删源
+    fs::create_dir_all(to_p).map_err(|e| format!("创建目录失败: {e}"))?;
+    copy_dir_recursive(from_p, to_p).map_err(|e| format!("复制失败: {e}"))?;
+    let _ = fs::remove_dir_all(from_p); // 删源失败不致命（目标已就绪）
+    Ok(())
+}
+
+/// 删除目录（递归）。用于关闭未保存草稿时清理其临时图片目录。
+#[tauri::command]
+fn remove_dir(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    if p.exists() {
+        fs::remove_dir_all(p).map_err(|e| format!("删除失败: {e}"))?;
+    }
+    Ok(())
+}
+
+/// 路径是否存在（文件或目录）。用于另存为时检测目标图片文件夹重名。
+#[tauri::command]
+fn path_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
+/// 递归复制目录（不删源）。用于「另存为」把图片文件夹拷一份到目标（保留原件）。
+#[tauri::command]
+fn copy_dir(from: String, to: String) -> Result<(), String> {
+    let from_p = std::path::Path::new(&from);
+    let to_p = std::path::Path::new(&to);
+    if !from_p.exists() {
+        return Ok(()); // 源不存在（无图片）→ 视为成功
+    }
+    copy_dir_recursive(from_p, to_p).map_err(|e| format!("复制失败: {e}"))
+}
+
+/// 复制单个文件（自动建父目录）。用于「另存为」拷贝文档目录下的散图。
+#[tauri::command]
+fn copy_file(from: String, to: String) -> Result<(), String> {
+    let from_p = std::path::Path::new(&from);
+    let to_p = std::path::Path::new(&to);
+    if !from_p.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = to_p.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    fs::copy(from_p, to_p).map_err(|e| format!("复制失败: {e}"))?;
+    Ok(())
 }
 
 /// 按完整路径读取（用于「最近打开」等场景）。
@@ -893,6 +1041,7 @@ pub fn run() {
         .manage(WindowState {
             open: Mutex::new(HashMap::new()),
             pending: Mutex::new(HashMap::new()),
+            viewer_content: Mutex::new(HashMap::new()),
             main_taken: AtomicBool::new(false),
             next_id: Mutex::new(0),
             lang: Mutex::new("zh".into()),
@@ -913,6 +1062,15 @@ pub fn run() {
             take_window_file,
             register_file,
             unregister_file,
+            open_viewer_window,
+            take_viewer_content,
+            emit_viewer_update,
+            draft_images_base,
+            move_dir,
+            remove_dir,
+            path_exists,
+            copy_dir,
+            copy_file,
             app_version
         ])
         .on_menu_event(|app, event| {
@@ -951,6 +1109,7 @@ pub fn run() {
                 let label = window.label().to_string();
                 if let Some(st) = window.app_handle().try_state::<WindowState>() {
                     st.pending.lock().unwrap().remove(&label);
+                    st.viewer_content.lock().unwrap().remove(&label);
                     st.open.lock().unwrap().retain(|_, v| *v != label);
                     // 若销毁的正是焦点窗口，清空焦点记录（回退到 is_focused/main）
                     let mut f = st.focused.lock().unwrap();

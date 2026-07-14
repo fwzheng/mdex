@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.2.0 (macOS · Windows · Linux · Sepenuhnya Luring · Tauri v2)
+# MDeX v1.3.0 (macOS · Windows · Linux · Sepenuhnya Luring · Tauri v2)
 
 > **MDeX** · diucapkan "em-dex" (/ˌemˈdɛks/) — huruf M diikuti "dex", dua suku kata.
 
@@ -38,8 +38,9 @@ Antarmuka tersedia dalam **17 bahasa**: English, 简体中文, Français, Deutsc
 - **Cari & ganti**: temukan, ganti satu atau semua, dengan jumlah cocok.
 - **Matematika**: inline `$…$` dan blok `$$…$$` (juga `\(...\)`, `\[...\]`), dirender oleh KaTeX; persamaan panjang berpindah baris pada operator atau menyusut otomatis.
 - **Penyorotan kode**: bahasa dideteksi otomatis; dokumen besar disorot malas berdasarkan viewport agar tetap mulus.
-- **Diagram Mermaid**: blok ` ```mermaid ` dirender sebagai flowchart / sequence / class / state / Gantt / pie, dll.
-- **Gambar**: tempel / jatuhkan / pilih — disematkan otomatis sebagai base64; path lokal relatif juga berfungsi; gambar dipusatkan secara default.
+- **Diagram Mermaid**: blok ` ```mermaid ` dirender sebagai flowchart / sequence / class / state / Gantt / pie, dll.; klik diagram untuk membuka jendela penampil mandiri (zoom / pan / layar penuh) yang diperbarui langsung saat Anda menyunting.
+- **Gambar**: tempel / jatuhkan / pilih — disimpan ke folder `<namaberkas>_images/` di samping dokumen dengan referensi relatif yang bersih (tanpa base64 inline); draf menggunakan folder temporer yang dimigrasi saat menyimpan; «Simpan Sebagai» meratakan gambar ke target; dipusatkan secara default.
+- **Zoom font**: zoom font editor dan pratinjau secara independen (kontrol −/persen/+, atau `⌘/Ctrl + =/−/0`); bertahan saat mulai ulang.
 - **Tabel**: tabel GFM; tabel sempit dipusatkan ke konten, tabel lebar digulir horizontal tanpa pemotongan.
 - **Kutipan (BibTeX)**: sintaks `[@key]` / `\cite{key}`, gaya numerik; daftar Referensi dibuat di akhir, dengan lompatan dua arah antara `[n]` dalam teks dan entri; mendukung blok ` ```bibtex ` yang disematkan atau `.bib` yang dimuat terpisah.
 - **Dukungan HTML**: buka file `.html` untuk rendering; konversi antara HTML dan Markdown.
@@ -74,8 +75,9 @@ Gunakan `⌘` di macOS, `Ctrl` di Windows / Linux.
 | `Alt/Option + drag` | Pilihan persegi (kolom) |
 | `Alt/Option + Shift + ←↑↓→` | Perluas pilihan kolom |
 | `Esc` | Batalkan pilihan kolom |
+| `⌘/Ctrl + =/−/0` | Zoom panel terakhir yang diklik (editor atau pratinjau): perbesar / perkecil / reset |
 
-> Dengan beberapa jendela terbuka, pintasan hanya memengaruhi jendela yang difokuskan.
+> Dengan beberapa jendela terbuka, pintasan hanya memengaruhi jendela yang difokuskan. Ketika jendela penampil gambar terbuka, `⌘/Ctrl + =/−/0` memperbesar gambar.
 
 ---
 

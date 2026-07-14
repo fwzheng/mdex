@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.2.0 (macOS · Windows · Linux · vollständig offline · Tauri v2)
+# MDeX v1.3.0 (macOS · Windows · Linux · vollständig offline · Tauri v2)
 
 > **MDeX** · ausgesprochen „em-dex" (/ˌemˈdɛks/) — der Buchstabe M gefolgt von „dex", zwei Silben.
 
@@ -38,8 +38,9 @@ Die Benutzeroberfläche wird in **17 Sprachen** ausgeliefert: English, 简体中
 - **Suchen & Ersetzen**: finden, einzelnes oder alle ersetzen, mit Trefferzähler.
 - **Formelsatz**: inline `$…$` und block `$$…$$` (auch `\(...\)`, `\[...\]`), gerendert durch KaTeX; lange Gleichungen brechen an Operatoren um oder schrumpfen automatisch.
 - **Code-Hervorhebung**: Sprache wird automatisch erkannt; große Dokumente werden lazily nach Viewport hervorgehoben, um flüssig zu bleiben.
-- **Mermaid-Diagramme**: ein ` ```mermaid `-Block wird als Flussdiagramm / Sequenz / Klasse / Zustand / Gantt / Tortendiagramm usw. gerendert.
-- **Bilder**: einfügen / hineinziehen / auswählen — automatisch als base64 eingebettet; relative lokale Pfade funktionieren ebenfalls; Bilder werden standardmäßig zentriert.
+- **Mermaid-Diagramme**: ein ` ```mermaid `-Block wird als Flussdiagramm / Sequenz / Klasse / Zustand / Gantt / Tortendiagramm usw. gerendert; klicken Sie auf ein Diagramm, um ein eigenständiges Zoom-/Pan-/Vollbild-Anzeigefenster zu öffnen, das sich beim Bearbeiten live aktualisiert.
+- **Bilder**: einfügen / hineinziehen / auswählen — gespeichert in einem `<Dateiname>_images/`-Ordner neben dem Dokument mit einer sauberen relativen Referenz (kein Inline-Base64); Entwürfe nutzen einen temporären Ordner, der beim Speichern migriert wird; «Speichern unter» flacht die Bilder ins Ziel ab; standardmäßig zentriert.
+- **Schrift-Zoom**: Editor- und Vorschau-Schriftarten unabhängig zoomen (−/Prozent/+ -Steuerung oder `⌘/Ctrl + =/−/0`); bleibt über Neustarts hinweg bestehen.
 - **Tabellen**: GFM-Tabellen; schmale Tabellen werden am Inhalt zentriert, breite scrollen horizontal ohne Abschneiden.
 - **Zitate (BibTeX)**: Syntax `[@key]` / `\cite{key}`, numerischer Stil; am Ende wird ein Literaturverzeichnis erstellt, mit bidirektionalen Sprüngen zwischen textinterner `[n]` und dem Eintrag; unterstützt einen eingebetteten ` ```bibtex `-Block oder eine separat geladene `.bib`.
 - **HTML-Unterstützung**: `.html`-Dateien zum Rendern öffnen; zwischen HTML und Markdown konvertieren.
@@ -74,8 +75,9 @@ Auf macOS `⌘`, auf Windows / Linux `Ctrl` verwenden.
 | `Alt/Option + Ziehen` | Rechteckige (Spalten-) Auswahl |
 | `Alt/Option + Shift + ←↑↓→` | Spaltenauswahl erweitern |
 | `Esc` | Spaltenauswahl abbrechen |
+| `⌘/Ctrl + =/−/0` | Den zuletzt geklickten Bereich (Editor oder Vorschau) zoomen: vergrößern / verkleinern / zurücksetzen |
 
-> Bei mehreren offenen Fenstern wirken sich Tastenkürzel nur auf das fokussierte Fenster aus.
+> Bei mehreren offenen Fenstern wirken sich Tastenkürzel nur auf das fokussierte Fenster aus. Wenn das Bildanzeige-Fenster geöffnet ist, zoomt `⌘/Ctrl + =/−/0` stattdessen das Bild.
 
 ---
 

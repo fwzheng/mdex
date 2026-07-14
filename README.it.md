@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.2.0 (macOS · Windows · Linux · Completamente offline · Tauri v2)
+# MDeX v1.3.0 (macOS · Windows · Linux · Completamente offline · Tauri v2)
 
 > **MDeX** · si pronuncia "em-dex" (/ˌemˈdɛks/) — la lettera M seguita da "dex", due sillabe.
 
@@ -38,8 +38,9 @@ L'interfaccia è disponibile in **17 lingue**: English, 简体中文, Français,
 - **Cerca e sostituisci**: trova, sostituisci uno o tutti, con conteggio delle corrispondenze.
 - **Matematica**: inline `$…$` e blocco `$$…$$` (anche `\(...\)`, `\[...\]`), resa da KaTeX; le equazioni lunghe vanno a capo in corrispondenza degli operatori o si riducono automaticamente.
 - **Evidenziazione del codice**: linguaggio rilevato automaticamente; i documenti grandi vengono evidenziati in modalità lazy in base all'area visibile per rimanere fluidi.
-- **Diagrammi Mermaid**: un blocco ` ```mermaid ` viene reso come flowchart / sequence / class / state / Gantt / pie, ecc.
-- **Immagini**: incolla / trascina / scegli — incorporati automaticamente in base64; funzionano anche i percorsi locali relativi; le immagini sono centrate per impostazione predefinita.
+- **Diagrammi Mermaid**: un blocco ` ```mermaid ` viene reso come flowchart / sequence / class / state / Gantt / pie, ecc.; clicca su un diagramma per aprire una finestra di visualizzazione autonoma (zoom / pan / schermo intero) che si aggiorna in tempo reale mentre modifichi.
+- **Immagini**: incolla / trascina / scegli — salvate in una cartella `<nomefile>_images/` accanto al documento con un riferimento relativo pulito (niente base64 in linea); le bozze usano una cartella temporanea migrata al salvataggio; «Salva come» appiattisce le immagini nella destinazione; centrate per impostazione predefinita.
+- **Zoom dei caratteri**: ingrandisci i caratteri dell'editor e dell'anteprima indipendentemente (controlli −/percentuale/+, o `⌘/Ctrl + =/−/0`); persiste tra i riavvii.
 - **Tabelle**: tabelle GFM; le tabelle strette sono centrate rispetto al contenuto, quelle larghe scorrono orizzontalmente senza tagli.
 - **Citazioni (BibTeX)**: sintassi `[@key]` / `\cite{key}`, stile numerico; in fondo viene generato un elenco Riferimenti, con salti bidirezionali tra `[n]` nel testo e la voce; supporta un blocco ` ```bibtex ` incorporato o un `.bib` caricato separatamente.
 - **Supporto HTML**: apri file `.html` per la resa; converti tra HTML e Markdown.
@@ -74,8 +75,9 @@ Usa `⌘` su macOS, `Ctrl` su Windows / Linux.
 | `Alt/Option + trascina` | Selezione rettangolare (colonna) |
 | `Alt/Option + Shift + ←↑↓→` | Estendi selezione colonna |
 | `Esc` | Annulla selezione colonna |
+| `⌘/Ctrl + =/−/0` | Zoom sull'ultimo riquadro cliccato (editor o anteprima): ingrandisci / riduci / ripristina |
 
-> Con più finestre aperte, le scorciatoie interessano solo la finestra in primo piano.
+> Con più finestre aperte, le scorciatoie interessano solo la finestra in primo piano. Quando la finestra del visualizzatore di immagini è aperta, `⌘/Ctrl + =/−/0` ingrandisce l'immagine.
 
 ---
 

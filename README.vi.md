@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.2.0 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
+# MDeX v1.3.0 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
@@ -38,8 +38,9 @@ Giao diện được cung cấp bằng **17 ngôn ngữ**: English, 简体中文
 - **Tìm & thay thế**: tìm, thay thế một hoặc tất cả, kèm số lượng khớp.
 - **Toán học**: inline `$…$` và khối `$$…$$` (cả `\(...\)`, `\[...\]`), được render bởi KaTeX; công thức dài sẽ xuống dòng tại toán tử hoặc tự thu nhỏ.
 - **Tô sáng mã**: ngôn ngữ được phát hiện tự động; tài liệu lớn được tô sáng lười theo vùng nhìn để giữ mượt mà.
-- **Sơ đồ Mermaid**: một khối ` ```mermaid ` được render thành flowchart / sequence / class / state / Gantt / pie, v.v.
-- **Hình ảnh**: dán / thả / chọn — tự nhúng dạng base64; đường dẫn cục bộ tương đối cũng hoạt động; hình ảnh được căn giữa theo mặc định.
+- **Sơ đồ Mermaid**: một khối ` ```mermaid ` được render thành flowchart / sequence / class / state / Gantt / pie, v.v.; nhấp vào sơ đồ để mở cửa sổ xem độc lập (zoom / pan / toàn màn hình) cập nhật trực tiếp khi bạn chỉnh sửa.
+- **Hình ảnh**: dán / thả / chọn — lưu vào thư mục `<têntệp>_images/` cạnh tài liệu với tham chiếu tương đối sạch (không base64 nội tuyến); bản nháp dùng thư mục tạm được di chuyển khi lưu; «Lưu thành» làm phẳng hình ảnh vào đích; căn giữa theo mặc định.
+- **Thu phóng font**: thu phóng font trình soạn thảo và xem trước độc lập (điều khiển −/phần trăm/+, hoặc `⌘/Ctrl + =/−/0`); giữ lại qua các lần khởi động lại.
 - **Bảng**: bảng GFM; bảng hẹp được căn giữa theo nội dung, bảng rộng cuộn ngang không bị cắt.
 - **Trích dẫn (BibTeX)**: cú pháp `[@key]` / `\cite{key}`, kiểu số; danh sách Tài liệu tham khảo được tạo ở cuối, với liên kết hai chiều giữa `[n]` trong văn bản và mục tương ứng; hỗ trợ khối ` ```bibtex ` nhúng hoặc một tệp `.bib` tải riêng.
 - **Hỗ trợ HTML**: mở tệp `.html` để render; chuyển đổi hai chiều giữa HTML và Markdown.
@@ -74,8 +75,9 @@ Dùng `⌘` trên macOS, `Ctrl` trên Windows / Linux.
 | `Alt/Option + kéo` | Chọn hình chữ nhật (cột) |
 | `Alt/Option + Shift + ←↑↓→` | Mở rộng chọn cột |
 | `Esc` | Hủy chọn cột |
+| `⌘/Ctrl + =/−/0` | Thu phóng khung cuối cùng được nhấp (trình soạn thảo hoặc xem trước): phóng to / thu nhỏ / đặt lại |
 
-> Khi có nhiều cửa sổ đang mở, phím tắt chỉ tác động lên cửa sổ đang được tiêu điểm.
+> Khi có nhiều cửa sổ đang mở, phím tắt chỉ tác động lên cửa sổ đang được tiêu điểm. Khi cửa sổ trình xem hình ảnh đang mở, `⌘/Ctrl + =/−/0` thu phóng hình ảnh.
 
 ---
 
