@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.0 (macOS · Windows · Linux · Бүрэн офлайн · Tauri v2)
+# MDeX v1.3.1 (macOS · Windows · Linux · Бүрэн офлайн · Tauri v2)
 
 > **MDeX** · "em-dex" (/ˌemˈdɛks/) гэж дуудна — M үсгийн дараа "dex" гэж бичигдсэн, хоёр үе бүхий үг.
 
@@ -16,7 +16,6 @@
 - **Ажиллах үеийн сүлжээний хүсэлт байхгүй**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` болон бүх KaTeX woff2 фонт нь нэг `index.html` дотор шингээгдсэн / base64-д суулгасан.
 - `.md` / `.markdown` / `.html` дэмждэг; үндсэн `.md` нээгчээр тохируулж болно — давхар дарж нээдэг.
 
-> Зохистой: **судалгаа / интранет / нууцлалын хамгаалалт**. Реклам байхгүй, телеметри байхгүй, өгөгдөл байршуулдаггүй.
 
 ---
 

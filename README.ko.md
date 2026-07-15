@@ -6,17 +6,16 @@
 </details>
 
 
-# MDeX v1.3.0 (macOS · Windows · Linux · 완전 오프라인 · Tauri v2)
+# MDeX v1.3.1 (macOS · Windows · Linux · 완전 오프라인 · Tauri v2)
 
 > **MDeX** · "em-dex"(/ˌemˈdɛks/)로 발음 — 글자 M 뒤에 "dex"가 오는 2음절 단어입니다.
 
-**폐쇄망 / 인트라넷 / 연결 끊김** 환경을 위한 오프라인 우선 Markdown 리더 및 에디터입니다. 모든 파일은 로컬에서 처리됩니다 — **네트워크 없음, 업로드 없음, 클라우드 동기화 없음**.
+**폐쇄망 / 인트라넷 / 연결 끊김** 환경을 위한 오프라인 우선 Markdown 리더 및 에디터입니다. 모든 파일은 로컬에서 처리됩니다 — **네트워크 없음, 업로드 없음, 클라우드 동기화, 광고 없음, 원격 측정 없음, 데이터 업로드 없음 없음**.
 
 - 단일 자체 포함형 HTML 프론트엔드(Vue / React 없음); Tauri v2는 네이티브 셸(창, 메뉴, 파일 대화상자)만 제공합니다.
 - **런타임 네트워크 요청 제로**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` 와 모든 KaTeX woff2 폰트가 단일 `index.html` 에 인라인 / base64 임베드됩니다.
 - `.md` / `.markdown` / `.html` 지원; 기본 `.md` 처리기로 설정 가능 — 더블클릭으로 엽니다.
 
-> 적합한 사용 사례: **연구 / 인트라넷 / 개인정보 보호** 시나리오. 광고 없음, 원격 측정 없음, 데이터 업로드 없음.
 
 ---
 

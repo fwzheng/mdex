@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v1.3.0 (macOS · Windows · Linux · مکمل آف لائن · Tauri v2)
+# MDeX v1.3.1 (macOS · Windows · Linux · مکمل آف لائن · Tauri v2)
 
 > **MDeX** · تلفظ "em-dex" (/ˌemˈdɛks/) — حرف M کے بعد "dex"، دو حصے۔
 
-ایک آف لائن اول Markdown ریڈر اور ایڈیٹر، **air-gapped / intranet / disconnected** استعمال کے لیے۔ ہر فائل مقامی طور پر پروسیس ہوتی ہے — **کوئی نیٹ ورک نہیں، کوئی اپ لوڈ نہیں، کوئی کلاؤڈ سنک نہیں**۔
+ایک آف لائن اول Markdown ریڈر اور ایڈیٹر، **air-gapped / intranet / disconnected** استعمال کے لیے۔ ہر فائل مقامی طور پر پروسیس ہوتی ہے — **کوئی نیٹ ورک نہیں، کوئی اپ لوڈ نہیں، کوئی کلاؤڈ سنک، بغیر اشتہارات، بغیر ٹیلی میٹری، بغیر ڈیٹا اپ لوڈ نہیں**۔
 
 - ایک واحد خود کفیل HTML فرنٹ اینڈ (کوئی Vue / React نہیں)؛ Tauri v2 صرف نیٹو شیلی فراہم کرتا ہے (ونڈوز، مینیوز، فائل ڈائیلاگز)۔
 - **زیرو رن ٹائم نیٹ ورک درخواستیں**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` اور تمام KaTeX woff2 فونٹس ایک واحد `index.html` میں اِن لائن / base64-ایمبیڈڈ ہیں۔

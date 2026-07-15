@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.0 (macOS · Windows · Linux · vollständig offline · Tauri v2)
+# MDeX v1.3.1 (macOS · Windows · Linux · vollständig offline · Tauri v2)
 
 > **MDeX** · ausgesprochen „em-dex" (/ˌemˈdɛks/) — der Buchstabe M gefolgt von „dex", zwei Silben.
 
@@ -16,7 +16,6 @@ Ein offline-orientierter Markdown-Reader & Editor für den **Air-Gap-/Intranet-/
 - **Keine einzigen Netzwerk-Anfragen zur Laufzeit**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` sowie sämtliche KaTeX-woff2-Fonts sind inline / base64-eingebettet in einer einzigen `index.html`.
 - Unterstützt `.md` / `.markdown` / `.html`; kann als Standard-Handler für `.md` eingerichtet werden — per Doppelklick öffnen.
 
-> Geeignet für: Szenarien in **Forschung / Intranets / Datenschutz**. Keine Werbung, keine Telemetrie, kein Daten-Upload.
 
 ---
 

@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.0 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
+# MDeX v1.3.1 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
@@ -16,7 +16,6 @@ Một trình đọc & soạn thảo Markdown ưu tiên ngoại tuyến, dành ch
 - **Không có yêu cầu mạng khi chạy**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` và toàn bộ font woff2 của KaTeX đều được nhúng / base64-nhúng vào một `index.html` duy nhất.
 - Hỗ trợ `.md` / `.markdown` / `.html`; có thể đặt làm trình mở mặc định cho `.md` — nhấp đúp để mở.
 
-> Phù hợp cho: các kịch bản **nghiên cứu / mạng nội bộ / bảo vệ quyền riêng tư**. Không quảng cáo, không đo lường từ xa, không tải dữ liệu lên.
 
 ---
 

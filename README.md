@@ -6,17 +6,16 @@
 </details>
 
 
-# MDeX v1.3.0 (macOS · Windows · Linux · Fully Offline · Tauri v2)
+# MDeX v1.3.1 (macOS · Windows · Linux · Fully Offline · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
-An offline-first Markdown reader & editor for **air-gapped / intranet / disconnected** use. Every file is processed locally — **no network, no uploads, no cloud sync**.
+An offline-first Markdown reader & editor for **air-gapped / intranet / disconnected** use. Every file is processed locally — **no network, no uploads, no cloud sync, no ads, no telemetry, no data uploads**.
 
 - A single self-contained HTML frontend (no Vue / React); Tauri v2 provides only the native shell (windows, menus, file dialogs).
 - **Zero runtime network requests**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` and all KaTeX woff2 fonts are inlined / base64-embedded into a single `index.html`.
 - Supports `.md` / `.markdown` / `.html`; can be set as the default `.md` handler — double-click to open.
 
-> Suited for: **research / intranets / privacy protection** scenarios. No ads, no telemetry, no data upload.
 
 ---
 

@@ -391,6 +391,24 @@ fn draft_images_base(app: tauri::AppHandle) -> Result<String, String> {
     Ok(base.to_string_lossy().into_owned())
 }
 
+/// 把内置应用图标(32x32 PNG)写到缓存目录 mdex_icon.png 并返回绝对路径。
+/// MDeX 示例文档的图片引用占位 @ICON@ 会解析到此路径——草稿无目录、相对路径不渲染(见前端 resolveImages)，
+/// 故示例图标须用绝对路径。已存在则跳过，避免每次启动重写。
+#[tauri::command]
+fn app_icon_path(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app
+        .path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| std::env::temp_dir().join("mdex"));
+    let _ = fs::create_dir_all(&dir);
+    let p = dir.join("mdex_icon.png");
+    if !p.exists() {
+        fs::write(&p, include_bytes!("../icons/32x32.png"))
+            .map_err(|e| format!("写入图标失败: {e}"))?;
+    }
+    Ok(p.to_string_lossy().into_owned())
+}
+
 // 递归复制目录（move_dir 跨文件系统时用）。
 fn copy_dir_recursive(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
     fs::create_dir_all(to)?;
@@ -1071,7 +1089,8 @@ pub fn run() {
             path_exists,
             copy_dir,
             copy_file,
-            app_version
+            app_version,
+            app_icon_path
         ])
         .on_menu_event(|app, event| {
             // 转发到【当前活动窗口】（emit 广播会让每个窗口都响应，多窗口下必须定向）。

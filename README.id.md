@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.0 (macOS · Windows · Linux · Sepenuhnya Luring · Tauri v2)
+# MDeX v1.3.1 (macOS · Windows · Linux · Sepenuhnya Luring · Tauri v2)
 
 > **MDeX** · diucapkan "em-dex" (/ˌemˈdɛks/) — huruf M diikuti "dex", dua suku kata.
 
@@ -16,7 +16,6 @@ Pembaca & editor Markdown yang mengutamakan mode luring untuk penggunaan **air-g
 - **Nol permintaan jaringan saat runtime**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` dan semua font woff2 KaTeX di-inline / disematkan sebagai base64 ke dalam satu `index.html`.
 - Mendukung `.md` / `.markdown` / `.html`; dapat dijadikan penangan default `.md` — klik ganda untuk membuka.
 
-> Cocok untuk: skenario **riset / intranet / perlindungan privasi**. Tanpa iklan, tanpa telemetri, tanpa unggahan data.
 
 ---
 

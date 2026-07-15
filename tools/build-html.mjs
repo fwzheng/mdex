@@ -89,6 +89,7 @@ async function build() {
   // 用 html2canvas-pro（支持 oklch/color-mix/color() 等现代 CSS 颜色），
   // 原版 html2canvas 1.4.1 在 WKWebView 下遇 color(srgb…) 计算色会抛 "unsupported color function"。
   const jspdfJs = await read("jspdf.umd.min.js");
+  const svg2pdfJs = await read("svg2pdf.umd.min.js");
   const html2canvasJs = await read("html2canvas-pro.min.js");
   // HTML→Markdown 转换（档位二）。turndown + GFM 插件（表格/任务列表/删除线）。
   const turndownJs = await read("turndown.js");
@@ -103,6 +104,7 @@ async function build() {
     `<script id="katex-autorender-src">${autoRender}</script>\n` +
     `<script>${hljsJs}</script>\n` +
     `<script>${jspdfJs}</script>\n` +
+    `<script>${svg2pdfJs}</script>\n` +
     `<script>${html2canvasJs}</script>\n` +
     `<script>${turndownJs}</script>\n` +
     `<script>${turndownGfmJs}</script>\n` +

@@ -19,6 +19,7 @@ const VERSIONS = {
   highlightjs: "11.9.0",
   dompurify: "3.1.6",
   jspdf: "2.5.2",
+  "svg2pdf.js": "2.7.0",
   "html2canvas-pro": "1.5.3",
   turndown: "7.2.0",
   "turndown-plugin-gfm": "1.0.2",
@@ -99,6 +100,7 @@ await saveText(`${HLJS}/styles/github-dark.min.css`, "highlight.js/github-dark.c
 // 5) jsPDF + html2canvas-pro：仅用于「另存为 → PDF」离线导出（预览 DOM → 图片 → 多页 PDF）
 //    用 html2canvas-pro 而非原版：原版 1.4.1 在 WKWebView 遇 color(srgb…) 计算色会抛错。
 await saveText(`${CDN}/jspdf@${VERSIONS.jspdf}/dist/jspdf.umd.min.js`, "jspdf.umd.min.js");
+await saveText(`${CDN}/svg2pdf.js@${VERSIONS["svg2pdf.js"]}/dist/svg2pdf.umd.min.js`, "svg2pdf.umd.min.js");
 await saveText(`${CDN}/html2canvas-pro@${VERSIONS["html2canvas-pro"]}/dist/html2canvas-pro.min.js`, "html2canvas-pro.min.js");
 
 // 6) turndown + GFM 插件：HTML→Markdown 转换（档位二）
