@@ -191,7 +191,7 @@
     overflow-x: auto; margin: 0 0 1em; border: 1px solid var(--border); }
   #preview pre code { background: none; padding: 0; font-size: .85em; line-height: 1.5; }
   /* RTL（<html dir="rtl">，如阿拉伯语）：代码块 / 行内代码 / LaTeX 公式始终保持 LTR，
-     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.3.1)等由 Unicode 双向算法
+     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.3.2)等由 Unicode 双向算法
      天然在 RTL 段落内保持 LTR，无需额外处理。
      选择器含 #preview/.katex，buildStandaloneHtml 导出时会随样式一并收集，故导出文档同样生效。 */
   html[dir="rtl"] #preview pre,
@@ -248,14 +248,6 @@
     box-shadow: var(--shadow); }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  /* ---------- PDF 导出进度（非阻塞浮标）---------- */
-  #pdf-progress { position: fixed; inset-inline-end: 18px; bottom: 56px; background: var(--fg); color: var(--bg);
-    padding: 9px 16px; border-radius: 8px; font-size: 13px; box-shadow: var(--shadow); z-index: 150;
-    display: none; align-items: center; gap: 9px; pointer-events: none; }
-  #pdf-progress.show { display: flex; }
-  #pdf-progress .spin { width: 12px; height: 12px; border: 2px solid var(--bg);
-    border-top-color: transparent; border-radius: 50%; animation: pdf-spin 0.8s linear infinite; }
-  @keyframes pdf-spin { to { transform: rotate(360deg); } }
 
   /* ---------- 矢量 PDF：通过 Tauri 的 WebviewWindow::print() 触发系统打印对话框 ---------- */
   /* 调用 print_webview 前已把完整内容挂回预览；@media print 仅显示预览，文字/公式矢量输出。 */
@@ -263,7 +255,7 @@
   @page { margin: 10mm 12mm; }
   @media print {
     html, body { height: auto !important; background: #fff !important; }
-    .toolbar, .statusbar, .pane-head, #pane-editor, .gutter, #pdf-progress,
+    .toolbar, .statusbar, .pane-head, #pane-editor, .gutter,
     .dropmask, .modal-mask { display: none !important; }
     .main { display: block !important; grid-template-columns: none !important; }
     #pane-preview { display: block !important; }
@@ -293,7 +285,13 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .modal-actions .btn { padding: 6px 14px; }
   /* 格式/分辨率选择：按钮多，需换行居中、卡片加宽，避免首项被挤出可视区 */
-  .choice-card { max-width: 600px; }
+  .choice-card { max-width: 600px; position: relative; }
+  /* 右上角 × 关闭（替代另存为弹窗底部的"取消"按钮，见 #format-mask）。
+     inset-inline-end 兼容 RTL（阿拉伯/乌尔都等）：LTR 在右上、RTL 在左上。 */
+  .choice-close { position: absolute; top: 8px; inset-inline-end: 10px; appearance: none;
+    border: 0; background: transparent; color: var(--fg-muted); font-size: 22px; line-height: 1;
+    cursor: default; padding: 2px 7px; border-radius: 6px; }
+  .choice-close:hover { background: var(--border); color: var(--fg); }
   .choice-actions { flex-wrap: wrap; justify-content: center; gap: 8px 10px; }
   .choice-actions .btn { padding: 7px 14px; }
 
@@ -568,7 +566,6 @@
 
 <div class="dropmask" data-i18n="dropHint">松开以打开文件 / 插入图片</div>
 <div id="toast"></div>
-<div id="pdf-progress"><span class="spin"></span><span id="pdf-progress-msg">正在导出 PDF…</span></div>
 <input type="file" id="file-input" hidden>
 
 <!-- 关闭未保存文件时的确认弹窗 -->
@@ -586,30 +583,17 @@
 <!-- 另存为：先选导出格式（macOS 原生存盘对话框不显示格式下拉，故自绘） -->
 <div class="modal-mask" id="format-mask" hidden>
   <div class="modal-card choice-card">
+    <button class="choice-close" id="format-close" title="关闭">×</button>
     <div class="modal-msg" id="format-msg"></div>
     <div class="modal-actions choice-actions" id="format-actions">
       <button class="btn" data-fmt="md">Markdown</button>
       <button class="btn" data-fmt="html">HTML</button>
       <button class="btn" data-fmt="pdf-vector" data-i18n="pdfVector">PDF（矢量打印）</button>
-      <button class="btn" data-fmt="pdf-raster" data-i18n="pdfRaster">PDF（高清位图）</button>
       <button class="btn" data-fmt="tex">LaTeX</button>
-      <button class="btn" data-fmt="cancel" data-i18n="cancel">取消</button>
     </div>
   </div>
 </div>
 
-<!-- 高清位图分辨率选择 -->
-<div class="modal-mask" id="res-mask" hidden>
-  <div class="modal-card choice-card">
-    <div class="modal-msg" id="res-msg"></div>
-    <div class="modal-actions choice-actions" id="res-actions">
-      <button class="btn" data-res="1" data-i18n="resLow">低（96 DPI，快）</button>
-      <button class="btn" data-res="2" data-i18n="resMid">中（192 DPI）</button>
-      <button class="btn" data-res="3" data-i18n="resHigh">高（288 DPI，慢）</button>
-      <button class="btn" data-res="cancel" data-i18n="cancel">取消</button>
-    </div>
-  </div>
-</div>
 
 <!-- 引用回跳选择器（同一文献被多处引用时，选择跳转到哪一处） -->
 <div class="modal-mask" id="cite-jump-mask" hidden>
@@ -4771,7 +4755,7 @@ def fib(n):
       sync: "同步", on: "开", off: "关", themeDark: "🌙 深色", themeLight: "☀️ 浅色",
       opened: "已打开 ", saved: "已保存", downloaded: "已下载 ", closedFile: "已关闭标签页",
       cancel: "取消", dontSave: "不保存", exported: "已导出 ",
-      pickFormat: "选择导出格式", help: "帮助", helpIntro: "MDeX简介", exportingPdf: "正在导出 PDF…", pdfVector: "PDF（矢量打印）", pdfRaster: "PDF（高清位图）", resTitle: "选择分辨率", resLow: "低（96 DPI，快）", resMid: "中（192 DPI）", resHigh: "高（288 DPI，慢）", convertedMd: "已转为 Markdown", convertedHtml: "已转为 HTML", searchPh: "搜索…", replacePh: "替换…", replace: "替换", replaceAll: "全部替换", references: "参考文献", loadBib: "文献库", bibBtn: "文献", bibLoaded: "已加载 {n} 条文献", bibLoadFail: "加载文献库失败: ", bibEmpty: "当前标签未加载文献库", bibUnloaded: "已卸载文献库", bibReplace: "更换文献库…", bibUnloadBtn: "卸载文献库", citeJumpTip: "点击跳回引用处", citeJumpTitle: "该文献有 {n} 处引用，选择跳转：", citeJumpNone: "未找到该文献的引用处",
+      pickFormat: "选择导出格式", help: "帮助", helpIntro: "MDeX简介", pdfVector: "PDF（矢量打印）", convertedMd: "已转为 Markdown", convertedHtml: "已转为 HTML", searchPh: "搜索…", replacePh: "替换…", replace: "替换", replaceAll: "全部替换", references: "参考文献", loadBib: "文献库", bibBtn: "文献", bibLoaded: "已加载 {n} 条文献", bibLoadFail: "加载文献库失败: ", bibEmpty: "当前标签未加载文献库", bibUnloaded: "已卸载文献库", bibReplace: "更换文献库…", bibUnloadBtn: "卸载文献库", citeJumpTip: "点击跳回引用处", citeJumpTitle: "该文献有 {n} 处引用，选择跳转：", citeJumpNone: "未找到该文献的引用处",
       insImgPre: "插入 ", insImgSuf: " 张图片", openFail: "打开失败: ", saveFail: "保存失败: ",
       confirmNew: "放弃当前内容并新建？", confirmClose: "关闭当前标签页？未保存的更改将丢失",
       untitled: "未命名.md",
@@ -4793,7 +4777,7 @@ def fib(n):
       sync: "Sync", on: "On", off: "Off", themeDark: "🌙 Dark", themeLight: "☀️ Light",
       opened: "Opened ", saved: "Saved", downloaded: "Downloaded ", closedFile: "File closed",
       cancel: "Cancel", dontSave: "Don't Save", exported: "Exported ",
-      pickFormat: "Choose export format", help: "Help", helpIntro: "MDeX Introduction", exportingPdf: "Exporting PDF…", pdfVector: "PDF (Vector)", pdfRaster: "PDF (Raster)", resTitle: "Choose resolution", resLow: "Low (96 DPI, fast)", resMid: "Medium (192 DPI)", resHigh: "High (288 DPI, slow)", convertedMd: "Converted to Markdown", convertedHtml: "Converted to HTML", searchPh: "Search…", replacePh: "Replace…", replace: "Replace", replaceAll: "Replace All", references: "References", loadBib: "Library", bibBtn: "Refs", bibLoaded: "Loaded {n} references", bibLoadFail: "Failed to load library: ", bibEmpty: "No bibliography loaded for this tab", bibUnloaded: "Bibliography unloaded", bibReplace: "Replace Bibliography…", bibUnloadBtn: "Unload Bibliography", citeJumpTip: "Jump back to citation", citeJumpTitle: "Cited in {n} places — choose:", citeJumpNone: "No citation found for this reference",
+      pickFormat: "Choose export format", help: "Help", helpIntro: "MDeX Introduction", pdfVector: "PDF (Vector)", convertedMd: "Converted to Markdown", convertedHtml: "Converted to HTML", searchPh: "Search…", replacePh: "Replace…", replace: "Replace", replaceAll: "Replace All", references: "References", loadBib: "Library", bibBtn: "Refs", bibLoaded: "Loaded {n} references", bibLoadFail: "Failed to load library: ", bibEmpty: "No bibliography loaded for this tab", bibUnloaded: "Bibliography unloaded", bibReplace: "Replace Bibliography…", bibUnloadBtn: "Unload Bibliography", citeJumpTip: "Jump back to citation", citeJumpTitle: "Cited in {n} places — choose:", citeJumpNone: "No citation found for this reference",
       insImgPre: "Inserted ", insImgSuf: " image(s)", openFail: "Open failed: ", saveFail: "Save failed: ",
       confirmNew: "Discard current content and create new?", confirmClose: "Close the current tab? Unsaved changes will be lost.",
       untitled: "Untitled.md",
@@ -4811,7 +4795,7 @@ def fib(n):
       split: "Scindé", editorOnly: "Éditeur", previewOnly: "Aperçu", sync: "Sync", on: "Oui", off: "Non", themeDark: "🌙 Sombre", themeLight: "☀️ Clair",
       opened: "Ouvert ", saved: "Enregistré", downloaded: "Téléchargé ", closedFile: "Fichier fermé",
       cancel: "Annuler", dontSave: "Ne pas enregistrer", exported: "Exporté ",
-      pickFormat: "Choisir le format d'export", help: "Aide", helpIntro: "Introduction à MDeX", exportingPdf: "Export PDF…", pdfVector: "PDF (Vectoriel)", pdfRaster: "PDF (Matriciel)", resTitle: "Choisir la résolution", resLow: "Basse (96 DPI, rapide)", resMid: "Moyenne (192 DPI)", resHigh: "Haute (288 DPI, lent)", convertedMd: "Converti en Markdown", convertedHtml: "Converti en HTML", searchPh: "Rechercher…", replacePh: "Remplacer…", replace: "Remplacer", replaceAll: "Tout remplacer", references: "Références", loadBib: "Bibliographie", bibBtn: "Réf.", bibLoaded: "{n} références chargées", bibLoadFail: "Échec du chargement: ", bibEmpty: "Aucune bibliographie chargée pour cet onglet", bibUnloaded: "Bibliographie déchargée", bibReplace: "Remplacer la bibliographie…", bibUnloadBtn: "Décharger la bibliographie", citeJumpTip: "Revenir à la citation", citeJumpTitle: "Cité dans {n} endroits — choisir :", citeJumpNone: "Aucune citation trouvée pour cette référence",
+      pickFormat: "Choisir le format d'export", help: "Aide", helpIntro: "Introduction à MDeX", pdfVector: "PDF (Vectoriel)", convertedMd: "Converti en Markdown", convertedHtml: "Converti en HTML", searchPh: "Rechercher…", replacePh: "Remplacer…", replace: "Remplacer", replaceAll: "Tout remplacer", references: "Références", loadBib: "Bibliographie", bibBtn: "Réf.", bibLoaded: "{n} références chargées", bibLoadFail: "Échec du chargement: ", bibEmpty: "Aucune bibliographie chargée pour cet onglet", bibUnloaded: "Bibliographie déchargée", bibReplace: "Remplacer la bibliographie…", bibUnloadBtn: "Décharger la bibliographie", citeJumpTip: "Revenir à la citation", citeJumpTitle: "Cité dans {n} endroits — choisir :", citeJumpNone: "Aucune citation trouvée pour cette référence",
       insImgPre: "Inséré ", insImgSuf: " image(s)", openFail: "Échec ouverture : ", saveFail: "Échec enregistrement : ",
       confirmNew: "Abandonner le contenu et créer un nouveau ?", confirmClose: "Fermer l'onglet ? Les modifications non enregistrées seront perdues.",
       untitled: "Sans titre.md", ph: "Saisissez le Markdown ici…", dropHint: "Déposer pour ouvrir / insérer une image", emptyHint: "Ouvrez ou créez un fichier Markdown",
@@ -4826,7 +4810,7 @@ def fib(n):
       split: "Geteilt", editorOnly: "Editor", previewOnly: "Vorschau", sync: "Sync", on: "An", off: "Aus", themeDark: "🌙 Dunkel", themeLight: "☀️ Hell",
       opened: "Geöffnet ", saved: "Gespeichert", downloaded: "Heruntergeladen ", closedFile: "Datei geschlossen",
       cancel: "Abbrechen", dontSave: "Nicht speichern", exported: "Exportiert ",
-      pickFormat: "Exportformat wählen", help: "Hilfe", helpIntro: "MDeX-Einführung", exportingPdf: "PDF wird exportiert…", pdfVector: "PDF (Vektor)", pdfRaster: "PDF (Raster)", resTitle: "Auflösung wählen", resLow: "Niedrig (96 DPI, schnell)", resMid: "Mittel (192 DPI)", resHigh: "Hoch (288 DPI, langsam)", convertedMd: "In Markdown umgewandelt", convertedHtml: "In HTML umgewandelt", searchPh: "Suchen…", replacePh: "Ersetzen…", replace: "Ersetzen", replaceAll: "Alle ersetzen", references: "Literaturverzeichnis", loadBib: "Bibliothek", bibBtn: "Lit.", bibLoaded: "{n} Referenzen geladen", bibLoadFail: "Bibliothek laden fehlgeschlagen: ", bibEmpty: "Keine Bibliothek für diesen Tab geladen", bibUnloaded: "Bibliothek entladen", bibReplace: "Bibliothek ersetzen…", bibUnloadBtn: "Bibliothek entladen", citeJumpTip: "Zur Zitierung springen", citeJumpTitle: "An {n} Stellen zitiert — wählen:", citeJumpNone: "Keine Zitierung gefunden",
+      pickFormat: "Exportformat wählen", help: "Hilfe", helpIntro: "MDeX-Einführung", pdfVector: "PDF (Vektor)", convertedMd: "In Markdown umgewandelt", convertedHtml: "In HTML umgewandelt", searchPh: "Suchen…", replacePh: "Ersetzen…", replace: "Ersetzen", replaceAll: "Alle ersetzen", references: "Literaturverzeichnis", loadBib: "Bibliothek", bibBtn: "Lit.", bibLoaded: "{n} Referenzen geladen", bibLoadFail: "Bibliothek laden fehlgeschlagen: ", bibEmpty: "Keine Bibliothek für diesen Tab geladen", bibUnloaded: "Bibliothek entladen", bibReplace: "Bibliothek ersetzen…", bibUnloadBtn: "Bibliothek entladen", citeJumpTip: "Zur Zitierung springen", citeJumpTitle: "An {n} Stellen zitiert — wählen:", citeJumpNone: "Keine Zitierung gefunden",
       insImgPre: "Eingefügt ", insImgSuf: " Bild(er)", openFail: "Öffnen fehlgeschlagen: ", saveFail: "Speichern fehlgeschlagen: ",
       confirmNew: "Aktuellen Inhalt verwerfen und neu erstellen?", confirmClose: "Tab schließen? Ungespeicherte Änderungen gehen verloren.",
       untitled: "Unbenannt.md", ph: "Markdown hier eingeben…", dropHint: "Ablegen zum Öffnen / Bild einfügen", emptyHint: "Markdown-Datei öffnen oder neu erstellen",
@@ -4841,7 +4825,7 @@ def fib(n):
       split: "Разделено", editorOnly: "Редактор", previewOnly: "Предпросмотр", sync: "Синхр.", on: "Вкл", off: "Выкл", themeDark: "🌙 Тёмная", themeLight: "☀️ Светлая",
       opened: "Открыто ", saved: "Сохранено", downloaded: "Скачано ", closedFile: "Файл закрыт",
       cancel: "Отмена", dontSave: "Не сохранять", exported: "Экспортировано ",
-      pickFormat: "Выберите формат экспорта", help: "Справка", helpIntro: "Введение в MDeX", exportingPdf: "Экспорт PDF…", pdfVector: "PDF (Вектор)", pdfRaster: "PDF (Растр)", resTitle: "Выберите разрешение", resLow: "Низкое (96 DPI, быстро)", resMid: "Среднее (192 DPI)", resHigh: "Высокое (288 DPI, медленно)", convertedMd: "Преобразовано в Markdown", convertedHtml: "Преобразовано в HTML", searchPh: "Поиск…", replacePh: "Замена…", replace: "Заменить", replaceAll: "Заменить все", references: "Список литературы", loadBib: "Библиотека", bibBtn: "Ссыл.", bibLoaded: "Загружено: {n}", bibLoadFail: "Ошибка загрузки: ", bibEmpty: "Для этой вкладки библиотека не загружена", bibUnloaded: "Библиотека выгружена", bibReplace: "Заменить библиографию…", bibUnloadBtn: "Выгрузить библиографию", citeJumpTip: "Перейти к цитированию", citeJumpTitle: "Цитируется в {n} местах — выберите:", citeJumpNone: "Цитирование не найдено",
+      pickFormat: "Выберите формат экспорта", help: "Справка", helpIntro: "Введение в MDeX", pdfVector: "PDF (Вектор)", convertedMd: "Преобразовано в Markdown", convertedHtml: "Преобразовано в HTML", searchPh: "Поиск…", replacePh: "Замена…", replace: "Заменить", replaceAll: "Заменить все", references: "Список литературы", loadBib: "Библиотека", bibBtn: "Ссыл.", bibLoaded: "Загружено: {n}", bibLoadFail: "Ошибка загрузки: ", bibEmpty: "Для этой вкладки библиотека не загружена", bibUnloaded: "Библиотека выгружена", bibReplace: "Заменить библиографию…", bibUnloadBtn: "Выгрузить библиографию", citeJumpTip: "Перейти к цитированию", citeJumpTitle: "Цитируется в {n} местах — выберите:", citeJumpNone: "Цитирование не найдено",
       insImgPre: "Вставлено ", insImgSuf: " изображ.", openFail: "Ошибка открытия: ", saveFail: "Ошибка сохранения: ",
       confirmNew: "Отменить текущий текст и создать новый?", confirmClose: "Закрыть вкладку? Несохранённые изменения будут потеряны.",
       untitled: "Безымянный.md", ph: "Введите Markdown здесь…", dropHint: "Отпустите, чтобы открыть / вставить изображение", emptyHint: "Откройте или создайте файл Markdown",
@@ -4856,7 +4840,7 @@ def fib(n):
       split: "Diviso", editorOnly: "Editor", previewOnly: "Anteprima", sync: "Sync", on: "Sì", off: "No", themeDark: "🌙 Scuro", themeLight: "☀️ Chiaro",
       opened: "Aperto ", saved: "Salvato", downloaded: "Scaricato ", closedFile: "File chiuso",
       cancel: "Annulla", dontSave: "Non salvare", exported: "Esportato ",
-      pickFormat: "Scegli formato di esportazione", help: "Aiuto", helpIntro: "Introduzione a MDeX", exportingPdf: "Esportazione PDF…", pdfVector: "PDF (Vettoriale)", pdfRaster: "PDF (Raster)", resTitle: "Scegli risoluzione", resLow: "Bassa (96 DPI, veloce)", resMid: "Media (192 DPI)", resHigh: "Alta (288 DPI, lento)", convertedMd: "Convertito in Markdown", convertedHtml: "Convertito in HTML", searchPh: "Cerca…", replacePh: "Sostituisci…", replace: "Sostituisci", replaceAll: "Sostituisci tutto", references: "Riferimenti", loadBib: "Bibliografia", bibBtn: "Rif.", bibLoaded: "Caricate {n} referenze", bibLoadFail: "Caricamento fallito: ", bibEmpty: "Nessuna bibliografia caricata per questa scheda", bibUnloaded: "Bibliografia scaricata", bibReplace: "Sostituisci bibliografia…", bibUnloadBtn: "Scarica bibliografia", citeJumpTip: "Torna alla citazione", citeJumpTitle: "Citato in {n} punti — scegli:", citeJumpNone: "Nessuna citazione trovata",
+      pickFormat: "Scegli formato di esportazione", help: "Aiuto", helpIntro: "Introduzione a MDeX", pdfVector: "PDF (Vettoriale)", convertedMd: "Convertito in Markdown", convertedHtml: "Convertito in HTML", searchPh: "Cerca…", replacePh: "Sostituisci…", replace: "Sostituisci", replaceAll: "Sostituisci tutto", references: "Riferimenti", loadBib: "Bibliografia", bibBtn: "Rif.", bibLoaded: "Caricate {n} referenze", bibLoadFail: "Caricamento fallito: ", bibEmpty: "Nessuna bibliografia caricata per questa scheda", bibUnloaded: "Bibliografia scaricata", bibReplace: "Sostituisci bibliografia…", bibUnloadBtn: "Scarica bibliografia", citeJumpTip: "Torna alla citazione", citeJumpTitle: "Citato in {n} punti — scegli:", citeJumpNone: "Nessuna citazione trovata",
       insImgPre: "Inserite ", insImgSuf: " immagini", openFail: "Apertura fallita: ", saveFail: "Salvataggio fallito: ",
       confirmNew: "Scartare il contenuto e crearne uno nuovo?", confirmClose: "Chiudere la scheda? Le modifiche non salvate andranno perse.",
       untitled: "Senza titolo.md", ph: "Scrivi Markdown qui…", dropHint: "Rilascia per aprire / inserire immagine", emptyHint: "Apri o crea un file Markdown",
@@ -4871,7 +4855,7 @@ def fib(n):
       split: "分割", editorOnly: "エディタ", previewOnly: "プレビュー", sync: "同期", on: "オン", off: "オフ", themeDark: "🌙 ダーク", themeLight: "☀️ ライト",
       opened: "開きました ", saved: "保存しました", downloaded: "ダウンロードしました ", closedFile: "ファイルを閉じました",
       cancel: "キャンセル", dontSave: "保存しない", exported: "書き出しました ",
-      pickFormat: "エクスポート形式を選択", help: "ヘルプ", helpIntro: "MDeXの紹介", exportingPdf: "PDF を書き出し中…", pdfVector: "PDF（ベクタ）", pdfRaster: "PDF（ラスタ）", resTitle: "解像度を選択", resLow: "低（96 DPI、速）", resMid: "中（192 DPI）", resHigh: "高（288 DPI、遅）", convertedMd: "Markdown に変換しました", convertedHtml: "HTML に変換しました", searchPh: "検索…", replacePh: "置換…", replace: "置換", replaceAll: "すべて置換", references: "参考文献", loadBib: "文献ライブラリ", bibBtn: "文献", bibLoaded: "{n} 件の文献を追加", bibLoadFail: "読み込み失敗: ", bibEmpty: "このタブに文献ライブラリはありません", bibUnloaded: "文献ライブラリを解除しました", bibReplace: "文献ライブラリを変更…", bibUnloadBtn: "文献ライブラリを解除", citeJumpTip: "引用元へ戻る", citeJumpTitle: "{n} 箇所で引用 — 選択:", citeJumpNone: "引用箇所が見つかりません",
+      pickFormat: "エクスポート形式を選択", help: "ヘルプ", helpIntro: "MDeXの紹介", pdfVector: "PDF（ベクタ）", convertedMd: "Markdown に変換しました", convertedHtml: "HTML に変換しました", searchPh: "検索…", replacePh: "置換…", replace: "置換", replaceAll: "すべて置換", references: "参考文献", loadBib: "文献ライブラリ", bibBtn: "文献", bibLoaded: "{n} 件の文献を追加", bibLoadFail: "読み込み失敗: ", bibEmpty: "このタブに文献ライブラリはありません", bibUnloaded: "文献ライブラリを解除しました", bibReplace: "文献ライブラリを変更…", bibUnloadBtn: "文献ライブラリを解除", citeJumpTip: "引用元へ戻る", citeJumpTitle: "{n} 箇所で引用 — 選択:", citeJumpNone: "引用箇所が見つかりません",
       insImgPre: "", insImgSuf: " 枚の画像を挿入", openFail: "開けませんでした: ", saveFail: "保存できませんでした: ",
       confirmNew: "現在の内容を破棄して新規作成しますか？", confirmClose: "タブを閉じますか？未保存の変更は失われます。",
       untitled: "無題.md", ph: "ここにMarkdownを入力…", dropHint: "ドロップしてファイルを開く / 画像を挿入", emptyHint: "Markdown ファイルを開くか新規作成してください",
@@ -4886,7 +4870,7 @@ def fib(n):
       split: "분할", editorOnly: "편집기", previewOnly: "미리보기", sync: "동기화", on: "켬", off: "끔", themeDark: "🌙 다크", themeLight: "☀️ 라이트",
       opened: "열림 ", saved: "저장됨", downloaded: "다운로드됨 ", closedFile: "파일 닫힘",
       cancel: "취소", dontSave: "저장 안 함", exported: "내보냄 ",
-      pickFormat: "내보낼 형식 선택", help: "도움말", helpIntro: "MDeX 소개", exportingPdf: "PDF 내보내는 중…", pdfVector: "PDF (벡터)", pdfRaster: "PDF (래스터)", resTitle: "해상도 선택", resLow: "낮음(96 DPI, 빠름)", resMid: "중간(192 DPI)", resHigh: "높음(288 DPI, 느림)", convertedMd: "Markdown으로 변환됨", convertedHtml: "HTML로 변환됨", searchPh: "검색…", replacePh: "바꾸기…", replace: "바꾸기", replaceAll: "모두 바꾸기", references: "참고문헌", loadBib: "문헌고", bibBtn: "문헌", bibLoaded: "{n}개 불러옴", bibLoadFail: "불러오기 실패: ", bibEmpty: "이 탭에 불러온 문헌고가 없습니다", bibUnloaded: "문헌고를 해제했습니다", bibReplace: "문헌고 바꾸기…", bibUnloadBtn: "문헌고 해제", citeJumpTip: "인용 위치로 이동", citeJumpTitle: "{n}곳에 인용됨 — 선택:", citeJumpNone: "인용 위치를 찾을 수 없음",
+      pickFormat: "내보낼 형식 선택", help: "도움말", helpIntro: "MDeX 소개", pdfVector: "PDF (벡터)", convertedMd: "Markdown으로 변환됨", convertedHtml: "HTML로 변환됨", searchPh: "검색…", replacePh: "바꾸기…", replace: "바꾸기", replaceAll: "모두 바꾸기", references: "참고문헌", loadBib: "문헌고", bibBtn: "문헌", bibLoaded: "{n}개 불러옴", bibLoadFail: "불러오기 실패: ", bibEmpty: "이 탭에 불러온 문헌고가 없습니다", bibUnloaded: "문헌고를 해제했습니다", bibReplace: "문헌고 바꾸기…", bibUnloadBtn: "문헌고 해제", citeJumpTip: "인용 위치로 이동", citeJumpTitle: "{n}곳에 인용됨 — 선택:", citeJumpNone: "인용 위치를 찾을 수 없음",
       insImgPre: "", insImgSuf: "개 이미지 삽입", openFail: "열기 실패: ", saveFail: "저장 실패: ",
       confirmNew: "현재 내용을 버리고 새로 만드시겠습니까?", confirmClose: "탭을 닫으시겠습니까? 저장하지 않은 변경사항이 손실됩니다.",
       untitled: "제목 없음.md", ph: "여기에 Markdown 입력…", dropHint: "드롭하여 파일 열기 / 이미지 삽입", emptyHint: "Markdown 파일을 열거나 새로 만드세요",
@@ -4901,7 +4885,7 @@ def fib(n):
       split: "Dividido", editorOnly: "Editor", previewOnly: "Vista previa", sync: "Sync", on: "Sí", off: "No", themeDark: "🌙 Oscuro", themeLight: "☀️ Claro",
       opened: "Abierto ", saved: "Guardado", downloaded: "Descargado ", closedFile: "Archivo cerrado",
       cancel: "Cancelar", dontSave: "No guardar", exported: "Exportado ",
-      pickFormat: "Elegir formato de exportación", help: "Ayuda", helpIntro: "Introducción a MDeX", exportingPdf: "Exportando PDF…", pdfVector: "PDF (Vectorial)", pdfRaster: "PDF (Ráster)", resTitle: "Elegir resolución", resLow: "Baja (96 DPI, rápido)", resMid: "Media (192 DPI)", resHigh: "Alta (288 DPI, lento)", convertedMd: "Convertido a Markdown", convertedHtml: "Convertido a HTML", searchPh: "Buscar…", replacePh: "Reemplazar…", replace: "Reemplazar", replaceAll: "Reemplazar todo", references: "Referencias", loadBib: "Bibliografía", bibBtn: "Refs", bibLoaded: "Cargadas {n} referencias", bibLoadFail: "Error al cargar: ", bibEmpty: "No hay bibliografía cargada para esta pestaña", bibUnloaded: "Bibliografía descargada", bibReplace: "Reemplazar bibliografía…", bibUnloadBtn: "Descargar bibliografía", citeJumpTip: "Volver a la cita", citeJumpTitle: "Citado en {n} lugares — elige:", citeJumpNone: "No se encontró ninguna cita",
+      pickFormat: "Elegir formato de exportación", help: "Ayuda", helpIntro: "Introducción a MDeX", pdfVector: "PDF (Vectorial)", convertedMd: "Convertido a Markdown", convertedHtml: "Convertido a HTML", searchPh: "Buscar…", replacePh: "Reemplazar…", replace: "Reemplazar", replaceAll: "Reemplazar todo", references: "Referencias", loadBib: "Bibliografía", bibBtn: "Refs", bibLoaded: "Cargadas {n} referencias", bibLoadFail: "Error al cargar: ", bibEmpty: "No hay bibliografía cargada para esta pestaña", bibUnloaded: "Bibliografía descargada", bibReplace: "Reemplazar bibliografía…", bibUnloadBtn: "Descargar bibliografía", citeJumpTip: "Volver a la cita", citeJumpTitle: "Citado en {n} lugares — elige:", citeJumpNone: "No se encontró ninguna cita",
       insImgPre: "Insertada(s) ", insImgSuf: " imagen(es)", openFail: "Error al abrir: ", saveFail: "Error al guardar: ",
       confirmNew: "¿Descartar el contenido y crear uno nuevo?", confirmClose: "¿Cerrar la pestaña? Se perderán los cambios no guardados.",
       untitled: "Sin título.md", ph: "Escribe Markdown aquí…", dropHint: "Suelta para abrir / insertar imagen", emptyHint: "Abre o crea un archivo Markdown",
@@ -4916,7 +4900,7 @@ def fib(n):
       split: "Dividido", editorOnly: "Editor", previewOnly: "Pré-visualização", sync: "Sync", on: "Sim", off: "Não", themeDark: "🌙 Escuro", themeLight: "☀️ Claro",
       opened: "Aberto ", saved: "Salvo", downloaded: "Baixado ", closedFile: "Arquivo fechado",
       cancel: "Cancelar", dontSave: "Não salvar", exported: "Exportado ",
-      pickFormat: "Escolher formato de exportação", help: "Ajuda", helpIntro: "Introdução ao MDeX", exportingPdf: "Exportando PDF…", pdfVector: "PDF (Vetorial)", pdfRaster: "PDF (Matricial)", resTitle: "Escolher resolução", resLow: "Baixa (96 DPI, rápido)", resMid: "Média (192 DPI)", resHigh: "Alta (288 DPI, lento)", convertedMd: "Convertido para Markdown", convertedHtml: "Convertido para HTML", searchPh: "Buscar…", replacePh: "Substituir…", replace: "Substituir", replaceAll: "Substituir tudo", references: "Referências", loadBib: "Bibliografia", bibBtn: "Refs", bibLoaded: "Carregadas {n} referências", bibLoadFail: "Falha ao carregar: ", bibEmpty: "Nenhuma bibliografia carregada para esta aba", bibUnloaded: "Bibliografia descarregada", bibReplace: "Substituir bibliografia…", bibUnloadBtn: "Descarregar bibliografia", citeJumpTip: "Voltar à citação", citeJumpTitle: "Citado em {n} lugares — escolha:", citeJumpNone: "Nenhuma citação encontrada",
+      pickFormat: "Escolher formato de exportação", help: "Ajuda", helpIntro: "Introdução ao MDeX", pdfVector: "PDF (Vetorial)", convertedMd: "Convertido para Markdown", convertedHtml: "Convertido para HTML", searchPh: "Buscar…", replacePh: "Substituir…", replace: "Substituir", replaceAll: "Substituir tudo", references: "Referências", loadBib: "Bibliografia", bibBtn: "Refs", bibLoaded: "Carregadas {n} referências", bibLoadFail: "Falha ao carregar: ", bibEmpty: "Nenhuma bibliografia carregada para esta aba", bibUnloaded: "Bibliografia descarregada", bibReplace: "Substituir bibliografia…", bibUnloadBtn: "Descarregar bibliografia", citeJumpTip: "Voltar à citação", citeJumpTitle: "Citado em {n} lugares — escolha:", citeJumpNone: "Nenhuma citação encontrada",
       insImgPre: "Inserida(s) ", insImgSuf: " imagem(ns)", openFail: "Erro ao abrir: ", saveFail: "Erro ao salvar: ",
       confirmNew: "Descartar o conteúdo e criar um novo?", confirmClose: "Fechar a guia? As alterações não salvas serão perdidas.",
       untitled: "Sem título.md", ph: "Escreva Markdown aqui…", dropHint: "Solte para abrir / inserir imagem", emptyHint: "Abra ou crie um arquivo Markdown",
@@ -4931,7 +4915,7 @@ def fib(n):
       split: "مقسم", editorOnly: "المحرر", previewOnly: "المعاينة", sync: "مزامنة", on: "نعم", off: "لا", themeDark: "🌙 داكن", themeLight: "☀️ فاتح",
       opened: "تم الفتح ", saved: "تم الحفظ", downloaded: "تم التنزيل ", closedFile: "تم إغلاق التبويب",
       cancel: "إلغاء", dontSave: "عدم الحفظ", exported: "تم التصدير ",
-      pickFormat: "اختر تنسيق التصدير", help: "مساعدة", helpIntro: "مقدمة عن MDeX", exportingPdf: "تصدير PDF…", pdfVector: "PDF (متجه)", pdfRaster: "PDF (نقطي)", resTitle: "اختر الدقة", resLow: "منخفضة (96 DPI، سريع)", resMid: "متوسطة (192 DPI)", resHigh: "عالية (288 DPI، بطيء)", convertedMd: "تم التحويل إلى Markdown", convertedHtml: "تم التحويل إلى HTML", searchPh: "بحث…", replacePh: "استبدال…", replace: "استبدال", replaceAll: "استبدال الكل", references: "المراجع", loadBib: "المراجع", bibBtn: "مراجع", bibLoaded: "تم تحميل {n} مرجعًا", bibLoadFail: "فشل التحميل: ", bibEmpty: "لا توجد مراجع محملة لهذه التبويبة", bibUnloaded: "تم إلغاء تحميل المراجع", bibReplace: "استبدال المراجع…", bibUnloadBtn: "إلغاء تحميل المراجع", citeJumpTip: "العودة إلى الاستشهاد", citeJumpTitle: "مُستشهد به في {n} مواضع — اختر:", citeJumpNone: "لم يُعثر على الاستشهاد",
+      pickFormat: "اختر تنسيق التصدير", help: "مساعدة", helpIntro: "مقدمة عن MDeX", pdfVector: "PDF (متجه)", convertedMd: "تم التحويل إلى Markdown", convertedHtml: "تم التحويل إلى HTML", searchPh: "بحث…", replacePh: "استبدال…", replace: "استبدال", replaceAll: "استبدال الكل", references: "المراجع", loadBib: "المراجع", bibBtn: "مراجع", bibLoaded: "تم تحميل {n} مرجعًا", bibLoadFail: "فشل التحميل: ", bibEmpty: "لا توجد مراجع محملة لهذه التبويبة", bibUnloaded: "تم إلغاء تحميل المراجع", bibReplace: "استبدال المراجع…", bibUnloadBtn: "إلغاء تحميل المراجع", citeJumpTip: "العودة إلى الاستشهاد", citeJumpTitle: "مُستشهد به في {n} مواضع — اختر:", citeJumpNone: "لم يُعثر على الاستشهاد",
       insImgPre: "تم إدراج ", insImgSuf: " صورة", openFail: "فشل الفتح: ", saveFail: "فشل الحفظ: ",
       confirmNew: "هل تريد تجاهل المحتوى الحالي وإنشاء ملف جديد؟", confirmClose: "إغلاق التبويب؟ ستُفقد التغييرات غير المحفوظة.",
       untitled: "بدون عنوان.md", ph: "اكتب Markdown هنا…", dropHint: "أفلت لفتح ملف / إدراج صورة", emptyHint: "افتح أو أنشئ ملف Markdown",
@@ -4948,7 +4932,7 @@ def fib(n):
       sync: "सिंक", on: "चालू", off: "बंद", themeDark: "🌙 गहरा", themeLight: "☀️ हल्का",
       opened: "खोला ", saved: "सहेजा", downloaded: "डाउनलोड किया ", closedFile: "टैब बंद किया",
       cancel: "रद्द करें", dontSave: "न सहेजें", exported: "निर्यात किया ",
-      pickFormat: "निर्यात प्रारूप चुनें", help: "सहायता", helpIntro: "MDeX परिचय", exportingPdf: "PDF निर्यात हो रहा है…", pdfVector: "PDF (वेक्टर)", pdfRaster: "PDF (रास्टर)", resTitle: "रिज़ॉल्यूशन चुनें", resLow: "निम्न (96 DPI, तेज़)", resMid: "मध्यम (192 DPI)", resHigh: "उच्च (288 DPI, धीमा)", convertedMd: "Markdown में बदला", convertedHtml: "HTML में बदला", searchPh: "खोजें…", replacePh: "बदलें…", replace: "बदलें", replaceAll: "सभी बदलें", references: "संदर्भ", loadBib: "पुस्तकालय", bibBtn: "संदर्भ", bibLoaded: "{n} संदर्भ लोड हुए", bibLoadFail: "लोड विफल: ", bibEmpty: "इस टैब के लिए कोई ग्रंथसूची लोड नहीं है", bibUnloaded: "ग्रंथसूची अनलोड की गई", bibReplace: "ग्रंथसूची बदलें…", bibUnloadBtn: "ग्रंथसूची अनलोड करें", citeJumpTip: "उद्धरण पर वापस जाएँ", citeJumpTitle: "{n} स्थानों में उद्धृत — चुनें:", citeJumpNone: "इस संदर्भ के लिए कोई उद्धरण नहीं मिला",
+      pickFormat: "निर्यात प्रारूप चुनें", help: "सहायता", helpIntro: "MDeX परिचय", pdfVector: "PDF (वेक्टर)", convertedMd: "Markdown में बदला", convertedHtml: "HTML में बदला", searchPh: "खोजें…", replacePh: "बदलें…", replace: "बदलें", replaceAll: "सभी बदलें", references: "संदर्भ", loadBib: "पुस्तकालय", bibBtn: "संदर्भ", bibLoaded: "{n} संदर्भ लोड हुए", bibLoadFail: "लोड विफल: ", bibEmpty: "इस टैब के लिए कोई ग्रंथसूची लोड नहीं है", bibUnloaded: "ग्रंथसूची अनलोड की गई", bibReplace: "ग्रंथसूची बदलें…", bibUnloadBtn: "ग्रंथसूची अनलोड करें", citeJumpTip: "उद्धरण पर वापस जाएँ", citeJumpTitle: "{n} स्थानों में उद्धृत — चुनें:", citeJumpNone: "इस संदर्भ के लिए कोई उद्धरण नहीं मिला",
       insImgPre: "डाली गई ", insImgSuf: " चित्र", openFail: "खोलना विफल: ", saveFail: "सहेजना विफल: ",
       confirmNew: "वर्तमान सामग्री त्यागकर नया बनाएँ?", confirmClose: "मौजूदा टैब बंद करें? असहेजे परिवर्तन खो जाएँगे।",
       untitled: "बिना_शीर्षक.md", ph: "यहाँ Markdown लिखें…\nशीर्षक/सूची/तालिका/कोड हाइलाइट/$$ LaTeX सूत्र $$/चित्र समर्थित।\n.md फ़ाइल या चित्र को विंडो पर खींचें।", dropHint: "फ़ाइल खोलने / चित्र डालने के लिए छोड़ें", emptyHint: "कोई Markdown फ़ाइल खोलें या बनाएँ",
@@ -4965,7 +4949,7 @@ def fib(n):
       sync: "ਸਿੰਕ", on: "ਚਾਲੂ", off: "ਬੰਦ", themeDark: "🌙 ਗੂੜ੍ਹਾ", themeLight: "☀️ ਹਲਕਾ",
       opened: "ਖੋਲ੍ਹਿਆ ", saved: "ਸੰਭਾਲਿਆ", downloaded: "ਡਾਊਨਲੋਡ ਕੀਤਾ ", closedFile: "ਟੈਬ ਬੰਦ ਕੀਤੀ",
       cancel: "ਰੱਦ ਕਰੋ", dontSave: "ਨਾ ਸੰਭਾਲੋ", exported: "ਨਿਰਯਾਤ ਕੀਤਾ ",
-      pickFormat: "ਨਿਰਯਾਤ ਫਾਰਮੈਟ ਚੁਣੋ", help: "ਮਦਦ", helpIntro: "MDeX ਜਾਣ-ਪਛਾਣ", exportingPdf: "PDF ਨਿਰਯਾਤ ਹੋ ਰਿਹਾ ਹੈ…", pdfVector: "PDF (ਵੈਕਟਰ)", pdfRaster: "PDF (ਰਾਸਟਰ)", resTitle: "ਰੈਜ਼ੋਲਿਊਸ਼ਨ ਚੁਣੋ", resLow: "ਘੱਟ (96 DPI, ਤੇਜ਼)", resMid: "ਮੱਧਮ (192 DPI)", resHigh: "ਉੱਚ (288 DPI, ਹੌਲੀ)", convertedMd: "Markdown ਵਿੱਚ ਬਦਲਿਆ", convertedHtml: "HTML ਵਿੱਚ ਬਦਲਿਆ", searchPh: "ਖੋਜੋ…", replacePh: "ਬਦਲੋ…", replace: "ਬਦਲੋ", replaceAll: "ਸਭ ਬਦਲੋ", references: "ਹਵਾਲੇ", loadBib: "ਲਾਇਬ੍ਰੇਰੀ", bibBtn: "ਹਵਾਲੇ", bibLoaded: "{n} ਹਵਾਲੇ ਲੋਡ ਹੋਏ", bibLoadFail: "ਲੋਡ ਅਸਫ਼ਲ: ", bibEmpty: "ਇਸ ਟੈਬ ਲਈ ਕੋਈ ਗ੍ਰੰਥ-ਸੂਚੀ ਲੋਡ ਨਹੀਂ ਹੈ", bibUnloaded: "ਗ੍ਰੰਥ-ਸੂਚੀ ਅਨਲੋਡ ਕੀਤੀ", bibReplace: "ਗ੍ਰੰਥ-ਸੂਚੀ ਬਦਲੋ…", bibUnloadBtn: "ਗ੍ਰੰਥ-ਸੂਚੀ ਅਨਲੋਡ ਕਰੋ", citeJumpTip: "ਹਵਾਲੇ ਉੱਤੇ ਵਾਪਸ ਜਾਓ", citeJumpTitle: "{n} ਥਾਵਾਂ ਉੱਤੇ ਹਵਾਲਾ ਦਿੱਤਾ — ਚੁਣੋ:", citeJumpNone: "ਇਸ ਹਵਾਲੇ ਲਈ ਕੋਈ ਹਵਾਲਾ ਨਹੀਂ ਲੱਭਿਆ",
+      pickFormat: "ਨਿਰਯਾਤ ਫਾਰਮੈਟ ਚੁਣੋ", help: "ਮਦਦ", helpIntro: "MDeX ਜਾਣ-ਪਛਾਣ", pdfVector: "PDF (ਵੈਕਟਰ)", convertedMd: "Markdown ਵਿੱਚ ਬਦਲਿਆ", convertedHtml: "HTML ਵਿੱਚ ਬਦਲਿਆ", searchPh: "ਖੋਜੋ…", replacePh: "ਬਦਲੋ…", replace: "ਬਦਲੋ", replaceAll: "ਸਭ ਬਦਲੋ", references: "ਹਵਾਲੇ", loadBib: "ਲਾਇਬ੍ਰੇਰੀ", bibBtn: "ਹਵਾਲੇ", bibLoaded: "{n} ਹਵਾਲੇ ਲੋਡ ਹੋਏ", bibLoadFail: "ਲੋਡ ਅਸਫ਼ਲ: ", bibEmpty: "ਇਸ ਟੈਬ ਲਈ ਕੋਈ ਗ੍ਰੰਥ-ਸੂਚੀ ਲੋਡ ਨਹੀਂ ਹੈ", bibUnloaded: "ਗ੍ਰੰਥ-ਸੂਚੀ ਅਨਲੋਡ ਕੀਤੀ", bibReplace: "ਗ੍ਰੰਥ-ਸੂਚੀ ਬਦਲੋ…", bibUnloadBtn: "ਗ੍ਰੰਥ-ਸੂਚੀ ਅਨਲੋਡ ਕਰੋ", citeJumpTip: "ਹਵਾਲੇ ਉੱਤੇ ਵਾਪਸ ਜਾਓ", citeJumpTitle: "{n} ਥਾਵਾਂ ਉੱਤੇ ਹਵਾਲਾ ਦਿੱਤਾ — ਚੁਣੋ:", citeJumpNone: "ਇਸ ਹਵਾਲੇ ਲਈ ਕੋਈ ਹਵਾਲਾ ਨਹੀਂ ਲੱਭਿਆ",
       insImgPre: "ਪਾਈਆਂ ", insImgSuf: " ਚਿੱਤਰ", openFail: "ਖੋਲ੍ਹਣਾ ਅਸਫ਼ਲ: ", saveFail: "ਸੰਭਾਲਣਾ ਅਸਫ਼ਲ: ",
       confirmNew: "ਮੌਜੂਦਾ ਸਮੱਗਰੀ ਛੱਡ ਕੇ ਨਵਾਂ ਬਣਾਉਣਾ?", confirmClose: "ਮੌਜੂਦਾ ਟੈਬ ਬੰਦ ਕਰਨੀ? ਨਾ-ਸੰਭਾਲੀਆਂ ਤਬਦੀਲੀਆਂ ਖਤਮ ਹੋ ਜਾਣਗੀਆਂ।",
       untitled: "ਬਿਨਾਂ_ਸਿਰਲੇਖ.md", ph: "ਇੱਥੇ Markdown ਲਿਖੋ…\nਸਿਰਲੇਖ/ਸੂਚੀ/ਸਾਰਣੀ/ਕੋਡ ਹਾਈਲਾਈਟ/$$ LaTeX ਫਾਰਮੂਲੇ $$/ਚਿੱਤਰ ਸਮਰਥਿਤ।\n.md ਫਾਈਲ ਜਾਂ ਚਿੱਤਰ ਵਿੰਡੋ ਉੱਤੇ ਸੁੱਟੋ।", dropHint: "ਫਾਈਲ ਖੋਲ੍ਹਣ / ਚਿੱਤਰ ਪਾਉਣ ਲਈ ਛੱਡੋ", emptyHint: "ਕੋਈ Markdown ਫਾਈਲ ਖੋਲ੍ਹੋ ਜਾਂ ਬਣਾਓ",
@@ -4982,7 +4966,7 @@ def fib(n):
       sync: "Đồng bộ", on: "Bật", off: "Tắt", themeDark: "🌙 Tối", themeLight: "☀️ Sáng",
       opened: "Đã mở ", saved: "Đã lưu", downloaded: "Đã tải xuống ", closedFile: "Đã đóng thẻ",
       cancel: "Hủy", dontSave: "Không lưu", exported: "Đã xuất ",
-      pickFormat: "Chọn định dạng xuất", help: "Trợ giúp", helpIntro: "Giới thiệu MDeX", exportingPdf: "Đang xuất PDF…", pdfVector: "PDF (Vector)", pdfRaster: "PDF (Raster)", resTitle: "Chọn độ phân giải", resLow: "Thấp (96 DPI, nhanh)", resMid: "Trung bình (192 DPI)", resHigh: "Cao (288 DPI, chậm)", convertedMd: "Đã chuyển sang Markdown", convertedHtml: "Đã chuyển sang HTML", searchPh: "Tìm…", replacePh: "Thay thế…", replace: "Thay thế", replaceAll: "Thay tất cả", references: "Tài liệu tham khảo", loadBib: "Thư viện", bibBtn: "Tham chiếu", bibLoaded: "Đã nạp {n} tham chiếu", bibLoadFail: "Nạp thất bại: ", bibEmpty: "Chưa nạp tài liệu tham khảo cho thẻ này", bibUnloaded: "Đã bỏ nạp tài liệu tham khảo", bibReplace: "Thay tài liệu tham khảo…", bibUnloadBtn: "Bỏ nạp tài liệu tham khảo", citeJumpTip: "Quay lại chỗ trích dẫn", citeJumpTitle: "Được trích dẫn ở {n} chỗ — chọn:", citeJumpNone: "Không tìm thấy chỗ trích dẫn cho tham chiếu này",
+      pickFormat: "Chọn định dạng xuất", help: "Trợ giúp", helpIntro: "Giới thiệu MDeX", pdfVector: "PDF (Vector)", convertedMd: "Đã chuyển sang Markdown", convertedHtml: "Đã chuyển sang HTML", searchPh: "Tìm…", replacePh: "Thay thế…", replace: "Thay thế", replaceAll: "Thay tất cả", references: "Tài liệu tham khảo", loadBib: "Thư viện", bibBtn: "Tham chiếu", bibLoaded: "Đã nạp {n} tham chiếu", bibLoadFail: "Nạp thất bại: ", bibEmpty: "Chưa nạp tài liệu tham khảo cho thẻ này", bibUnloaded: "Đã bỏ nạp tài liệu tham khảo", bibReplace: "Thay tài liệu tham khảo…", bibUnloadBtn: "Bỏ nạp tài liệu tham khảo", citeJumpTip: "Quay lại chỗ trích dẫn", citeJumpTitle: "Được trích dẫn ở {n} chỗ — chọn:", citeJumpNone: "Không tìm thấy chỗ trích dẫn cho tham chiếu này",
       insImgPre: "Đã chèn ", insImgSuf: " ảnh", openFail: "Mở thất bại: ", saveFail: "Lưu thất bại: ",
       confirmNew: "Bỏ nội dung hiện tại và tạo mới?", confirmClose: "Đóng thẻ này? Các thay đổi chưa lưu sẽ mất.",
       untitled: "Không_tên.md", ph: "Nhập Markdown tại đây…\nHỗ trợ tiêu đề/danh sách/bảng/tô sáng mã/$$ công thức LaTeX $$/ảnh.\nKéo thả tệp .md hoặc ảnh vào cửa sổ.", dropHint: "Thả để mở tệp / chèn ảnh", emptyHint: "Mở hoặc tạo một tệp Markdown",
@@ -4999,7 +4983,7 @@ def fib(n):
       sync: "Sinkron", on: "Nyala", off: "Mati", themeDark: "🌙 Gelap", themeLight: "☀️ Terang",
       opened: "Dibuka ", saved: "Tersimpan", downloaded: "Terunduh ", closedFile: "Tab ditutup",
       cancel: "Batal", dontSave: "Jangan Simpan", exported: "Diekspor ",
-      pickFormat: "Pilih format ekspor", help: "Bantuan", helpIntro: "Pengenalan MDeX", exportingPdf: "Mengekspor PDF…", pdfVector: "PDF (Vektor)", pdfRaster: "PDF (Raster)", resTitle: "Pilih resolusi", resLow: "Rendah (96 DPI, cepat)", resMid: "Sedang (192 DPI)", resHigh: "Tinggi (288 DPI, lambat)", convertedMd: "Dikonversi ke Markdown", convertedHtml: "Dikonversi ke HTML", searchPh: "Cari…", replacePh: "Ganti…", replace: "Ganti", replaceAll: "Ganti Semua", references: "Referensi", loadBib: "Pustaka", bibBtn: "Ref", bibLoaded: "Memuat {n} referensi", bibLoadFail: "Gagal memuat: ", bibEmpty: "Tidak ada pustaka untuk tab ini", bibUnloaded: "Pustaka dilepas", bibReplace: "Ganti Pustaka…", bibUnloadBtn: "Lepas Pustaka", citeJumpTip: "Lompat ke kutipan", citeJumpTitle: "Dikutip di {n} tempat — pilih:", citeJumpNone: "Tidak ada kutipan untuk referensi ini",
+      pickFormat: "Pilih format ekspor", help: "Bantuan", helpIntro: "Pengenalan MDeX", pdfVector: "PDF (Vektor)", convertedMd: "Dikonversi ke Markdown", convertedHtml: "Dikonversi ke HTML", searchPh: "Cari…", replacePh: "Ganti…", replace: "Ganti", replaceAll: "Ganti Semua", references: "Referensi", loadBib: "Pustaka", bibBtn: "Ref", bibLoaded: "Memuat {n} referensi", bibLoadFail: "Gagal memuat: ", bibEmpty: "Tidak ada pustaka untuk tab ini", bibUnloaded: "Pustaka dilepas", bibReplace: "Ganti Pustaka…", bibUnloadBtn: "Lepas Pustaka", citeJumpTip: "Lompat ke kutipan", citeJumpTitle: "Dikutip di {n} tempat — pilih:", citeJumpNone: "Tidak ada kutipan untuk referensi ini",
       insImgPre: "Disisipkan ", insImgSuf: " gambar", openFail: "Gagal membuka: ", saveFail: "Gagal menyimpan: ",
       confirmNew: "Buang isi saat ini dan buat baru?", confirmClose: "Tutup tab ini? Perubahan yang belum disimpan akan hilang.",
       untitled: "Tanpa_Judul.md", ph: "Ketik Markdown di sini…\nMendukung judul/daftar/tabel/penyorotan kode/$$ rumus LaTeX $$/gambar.\nSeret berkas .md atau gambar ke jendela.", dropHint: "Jatuhkan untuk membuka berkas / menyisipkan gambar", emptyHint: "Buka atau buat sebuah berkas Markdown",
@@ -5016,7 +5000,7 @@ def fib(n):
       sync: "مطابقت", on: "آن", off: "آف", themeDark: "🌙 گہرا", themeLight: "☀️ ہلکا",
       opened: "کھولا ", saved: "محفوظ ہوا", downloaded: "ڈاؤن لوڈ ہوا ", closedFile: "ٹیب بند ہوا",
       cancel: "منسوخ", dontSave: "محفوظ نہ کریں", exported: "برآمد ہوا ",
-      pickFormat: "برآمد صورتحال منتخب کریں", help: "مدد", helpIntro: "MDeX تعارف", exportingPdf: "PDF برآمد ہو رہا ہے…", pdfVector: "PDF (ویکٹر)", pdfRaster: "PDF (راسٹر)", resTitle: "ریزولوشن منتخب کریں", resLow: "کم (96 DPI، تیز)", resMid: "درمیانی (192 DPI)", resHigh: "زیادہ (288 DPI، سست)", convertedMd: "Markdown میں تبدیل ہوا", convertedHtml: "HTML میں تبدیل ہوا", searchPh: "تلاش…", replacePh: "تبدیل…", replace: "تبدیل", replaceAll: "سب تبدیل کریں", references: "حوالہ جات", loadBib: "لائبریری", bibBtn: "حوالے", bibLoaded: "{n} حوالے لوڈ ہوئے", bibLoadFail: "لوڈ ناکام: ", bibEmpty: "اس ٹیب کے لیے کوئی کتابیات لوڈ نہیں", bibUnloaded: "کتابیات ان لوڈ کی گئی", bibReplace: "کتابیات تبدیل کریں…", bibUnloadBtn: "کتابيات ان لوڈ کریں", citeJumpTip: "حوالے پر واپس جائیں", citeJumpTitle: "{n} مقامات پر حوالہ دیا گیا — منتخب کریں:", citeJumpNone: "اس حوالے کے لیے کوئی اقتباس نہیں ملا",
+      pickFormat: "برآمد صورتحال منتخب کریں", help: "مدد", helpIntro: "MDeX تعارف", pdfVector: "PDF (ویکٹر)", convertedMd: "Markdown میں تبدیل ہوا", convertedHtml: "HTML میں تبدیل ہوا", searchPh: "تلاش…", replacePh: "تبدیل…", replace: "تبدیل", replaceAll: "سب تبدیل کریں", references: "حوالہ جات", loadBib: "لائبریری", bibBtn: "حوالے", bibLoaded: "{n} حوالے لوڈ ہوئے", bibLoadFail: "لوڈ ناکام: ", bibEmpty: "اس ٹیب کے لیے کوئی کتابیات لوڈ نہیں", bibUnloaded: "کتابیات ان لوڈ کی گئی", bibReplace: "کتابیات تبدیل کریں…", bibUnloadBtn: "کتابيات ان لوڈ کریں", citeJumpTip: "حوالے پر واپس جائیں", citeJumpTitle: "{n} مقامات پر حوالہ دیا گیا — منتخب کریں:", citeJumpNone: "اس حوالے کے لیے کوئی اقتباس نہیں ملا",
       insImgPre: "داخل کی گئیں ", insImgSuf: " تصاویر", openFail: "کھولنا ناکام: ", saveFail: "محفوظ کرنا ناکام: ",
       confirmNew: "موجودہ مواد چھوڑ کر نیا بنائیں؟", confirmClose: "موجودہ ٹیب بند کریں؟ غیر محفوظ تبدیلیاں ضائع ہوں گی۔",
       untitled: "بے_نام.md", ph: "یہاں Markdown لکھیں…\nسرخیاں/فہرستیں/جداول/کوڈ ہائی لائٹ/$$ LaTeX صیغے $$/تصاویر معاون ہیں۔\n.md فائل یا تصویر کو ونڈو پر گھسیٹیں۔", dropHint: "فائل کھولنے / تصویر داخل کرنے کے لیے چھوڑیں", emptyHint: "کوئی Markdown فائل کھولیں یا بنائیں",
@@ -5033,7 +5017,7 @@ def fib(n):
       sync: "Синх", on: "Асаалт", off: "Унтраалт", themeDark: "🌙 Бараан", themeLight: "☀️ Цайвар",
       opened: "Нээгдсэн ", saved: "Хадгалсан", downloaded: "Татаж авсан ", closedFile: "Таб хаагдсан",
       cancel: "Цуцлах", dontSave: "Битгий хадгал", exported: "Экспортлосон ",
-      pickFormat: "Экспортын форматыг сонго", help: "Тусламж", helpIntro: "MDeX-ийн танилцуулга", exportingPdf: "PDF экспортолж байна…", pdfVector: "PDF (Вектор)", pdfRaster: "PDF (Растр)", resTitle: "Нягтарлыг сонго", resLow: "Бага (96 DPI, хурдан)", resMid: "Дунд (192 DPI)", resHigh: "Өндөр (288 DPI, удаан)", convertedMd: "Markdown болгон хөрвүүлсэн", convertedHtml: "HTML болгон хөрвүүлсэн", searchPh: "Хайх…", replacePh: "Солих…", replace: "Солих", replaceAll: "Бүгдийг солих", references: "Эх сурвалж", loadBib: "Сан", bibBtn: "Эх сурвалж", bibLoaded: "{n} эх сурвалж ачааллаа", bibLoadFail: "Ачаалах амжилтгүй: ", bibEmpty: "Энэ табанд номын сан ачаалаагүй байна", bibUnloaded: "Номын сан ачаалаагүй болгосон", bibReplace: "Номын сан солих…", bibUnloadBtn: "Номын сан ачаалахгүй болгох", citeJumpTip: "Ишлэл рүү буцах", citeJumpTitle: "{n} газарт иш татсан — сонго:", citeJumpNone: "Энэ эх сурвалжид ишлэл олдсонгүй",
+      pickFormat: "Экспортын форматыг сонго", help: "Тусламж", helpIntro: "MDeX-ийн танилцуулга", pdfVector: "PDF (Вектор)", convertedMd: "Markdown болгон хөрвүүлсэн", convertedHtml: "HTML болгон хөрвүүлсэн", searchPh: "Хайх…", replacePh: "Солих…", replace: "Солих", replaceAll: "Бүгдийг солих", references: "Эх сурвалж", loadBib: "Сан", bibBtn: "Эх сурвалж", bibLoaded: "{n} эх сурвалж ачааллаа", bibLoadFail: "Ачаалах амжилтгүй: ", bibEmpty: "Энэ табанд номын сан ачаалаагүй байна", bibUnloaded: "Номын сан ачаалаагүй болгосон", bibReplace: "Номын сан солих…", bibUnloadBtn: "Номын сан ачаалахгүй болгох", citeJumpTip: "Ишлэл рүү буцах", citeJumpTitle: "{n} газарт иш татсан — сонго:", citeJumpNone: "Энэ эх сурвалжид ишлэл олдсонгүй",
       insImgPre: "Оруулсан ", insImgSuf: " зураг", openFail: "Нээж чадсангүй: ", saveFail: "Хадгалж чадсангүй: ",
       confirmNew: "Одоогийн агуулгыг устгаад шинээр үүсгэх үү?", confirmClose: "Одоогийн табыг хаах уу? Хадгалаагүй өөрчлөлтүүд алдагдана.",
       untitled: "Гарчиггүй.md", ph: "Энд Markdown оруулна уу…\nГарчиг/Жагсаалт/Хүснэгт/Кодоор өнгөлөх/$$ LaTeX томьёо $$/Зураг дэмжигдсэн.\n.md файл эсвэл зургийг цонх руу чирнэ үү.", dropHint: "Файл нээх / зураг оруулахын тулд буулга", emptyHint: "Markdown файл нээ эсвэл үүсгэ",
@@ -5993,8 +5977,10 @@ def fib(n):
   });
 
   /* ---------- 文件操作 ---------- */
-  function dirOf(p) { const i = p.lastIndexOf("/"); return i >= 0 ? p.slice(0, i) : ""; }
-  function baseName(p) { const i = p.lastIndexOf("/"); return i >= 0 ? p.slice(i + 1) : p; }
+  // 同时认 / 与 \：Windows 下 Rust 返回的是反斜杠绝对路径（C:\Users\...），仅按 / 切会得到空目录
+  // → tab.dir 为空 → resolveImages 的 !dir 守卫跳过所有相对路径图（BUG-080）。
+  function dirOf(p) { const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\")); return i >= 0 ? p.slice(0, i) : ""; }
+  function baseName(p) { const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\")); return i >= 0 ? p.slice(i + 1) : p; }
 
   /* ---------- 多标签页 ---------- */
   // 示例文档版本：模板内容有实质改动时 bump。启动恢复会话时，自动把过期的示例标签
@@ -6501,33 +6487,14 @@ def fib(n):
       const onKey = (e) => { if (e.key === "Escape") done(null); };
       function cleanup() {
         $("format-actions").querySelectorAll("button").forEach((b) => { b.onclick = null; });
+        $("format-close").onclick = null;
         mask.removeEventListener("click", onMask);
         document.removeEventListener("keydown", onKey);
       }
       $("format-actions").querySelectorAll("button").forEach((b) => {
-        b.onclick = () => done(b.dataset.fmt === "cancel" ? null : b.dataset.fmt);
+        b.onclick = () => done(b.dataset.fmt);
       });
-      mask.addEventListener("click", onMask);
-      document.addEventListener("keydown", onKey);
-    });
-  }
-  // 高清位图分辨率选择。返回 1|2|3（scale）| null(取消)。
-  function pickResolution() {
-    return new Promise((resolve) => {
-      const mask = $("res-mask");
-      $("res-msg").textContent = t("resTitle");
-      mask.hidden = false;
-      const done = (v) => { mask.hidden = true; cleanup(); resolve(v); };
-      const onMask = (e) => { if (e.target === mask) done(null); };
-      const onKey = (e) => { if (e.key === "Escape") done(null); };
-      function cleanup() {
-        $("res-actions").querySelectorAll("button").forEach((b) => { b.onclick = null; });
-        mask.removeEventListener("click", onMask);
-        document.removeEventListener("keydown", onKey);
-      }
-      $("res-actions").querySelectorAll("button").forEach((b) => {
-        b.onclick = () => done(b.dataset.res === "cancel" ? null : parseInt(b.dataset.res, 10));
-      });
+      $("format-close").onclick = () => done(null); // 右上角 × = 取消（与点遮罩/Esc 同效）
       mask.addEventListener("click", onMask);
       document.addEventListener("keydown", onKey);
     });
@@ -6547,32 +6514,15 @@ def fib(n):
         exportPdfVector();
         return;
       }
-      // 高清位图：先选分辨率（低/中/高 = scale 1/2/3），再弹存盘对话框
-      let rasterScale = 2;
-      if (fmt === "pdf-raster") {
-        const res = await pickResolution();
-        if (!res) return; // 用户在分辨率弹窗取消
-        rasterScale = res;
-      }
       let path;
       try {
         // 默认文件名去掉旧扩展名，由后端按所选格式补扩展名
         const base = (tab.name || t("untitled")).replace(/\.(md|markdown|tex|pdf|html?|txt)$/i, "");
-        const rustFmt = fmt === "pdf-raster" ? "pdf" : fmt;
-        path = await invoke("pick_save_path", { defaultName: base, format: rustFmt });
+        path = await invoke("pick_save_path", { defaultName: base, format: fmt });
       } catch (e) { toast(t("saveFail") + e); return; }
       if (!path) return; // 用户在存盘对话框取消
       try {
-        if (fmt === "pdf-raster") {
-          showPdfProgress();
-          try {
-            const bytes = await generatePdfBytes(rasterScale);
-            await invoke("write_bytes_at", { path, data: uint8ToBase64(bytes) });
-            toast(t("exported") + baseName(path));
-          } finally {
-            hidePdfProgress();
-          }
-        } else if (fmt === "tex") {
+        if (fmt === "tex") {
           // HTML 标签导出 LaTeX：先转 Markdown，再走 mdToLatex
           let src = tab.type === "html" ? htmlToMd(editor.value) : editor.value;
           const dir = path.replace(/[/\\][^/\\]*$/, "");
@@ -6861,7 +6811,8 @@ def fib(n):
   const DROP_IMG_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif|tiff?)$/i;
   function relPath(fromDir, toAbs) {
     if (!fromDir) return toAbs;
-    const a = fromDir.split("/"), b = toAbs.split("/");
+    // 按 [\\/] 切：同时认 Unix / 与 Windows \（fromDir/toAbs 可能混用分隔符，BUG-080）
+    const a = fromDir.split(/[\\/]/), b = toAbs.split(/[\\/]/);
     let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++;
     let rel = b.slice(i).join("/"); let up = a.length - i; while (up-- > 0) rel = "../" + rel;
     return rel || ".";
@@ -6928,31 +6879,6 @@ def fib(n):
   // 采集「安全分页断点」= 顶层块顶部坐标；列表/表格/引用再下钻一层取子项顶部。
   // 这样分页线只落在块间空白，不会切断任何块（公式块、代码块、表格行、li 等保持整体）。
   // 必须在 inner 未做 transform 时调用（坐标基于布局，与 transform 无关）。
-  function collectBreakCandidates(inner) {
-    const base = inner.getBoundingClientRect().top;
-    const cands = [0];
-    const push = (el) => {
-      const y = Math.round(el.getBoundingClientRect().top - base);
-      if (y > 0) cands.push(y);
-    };
-    for (const child of inner.children) {
-      push(child);
-      const tag = child.tagName.toLowerCase();
-      if (tag === "ul" || tag === "ol" || tag === "blockquote" || tag === "table") {
-        for (const sub of child.children) push(sub);
-      }
-    }
-    return [...new Set(cands)].sort((a, b) => a - b);
-  }
-  // 让出主线程一帧，便于 UI 绘制进度/响应输入。PDF 生成的 DOM 截图(html2canvas)必须
-  // 在主线程（worker 无 DOM），但切片/编码/写入阶段可通过 yield 不连续阻塞。
-  const yieldUI = () => new Promise((r) => setTimeout(r, 0));
-  function showPdfProgress(msg) {
-    $("pdf-progress-msg").textContent = msg || t("exportingPdf");
-    $("pdf-progress").classList.add("show");
-  }
-  function setPdfProgress(msg) { $("pdf-progress-msg").textContent = msg; }
-  function hidePdfProgress() { $("pdf-progress").classList.remove("show"); }
   // 矢量 PDF：用浏览器原生打印引擎。临时把完整内容挂回预览（虚拟化时只挂了可见块），
   // 加 printing 类（@media print 仅显示预览），调 window.print()，在系统打印对话框
   // 选「存储为 PDF」即得矢量 PDF（文字/公式任意放大清晰）。afterprint 后恢复渲染。
@@ -6964,131 +6890,54 @@ def fib(n):
     vClear();
     preview.innerHTML = lastFullHtml || preview.innerHTML;
     wrapDisplayMath(preview);
+    // lastFullHtml 快照里 <img> 仍是原始相对路径（resolveImages 只改 preview DOM、不回写字符串），
+    // 而上方 preview.innerHTML = lastFullHtml 又把 DOM 重置回相对路径 → @media print 仅渲染 #preview，
+    // 相对路径图按 base URL 解析不到 → 矢量 PDF 里图变问号(broken)。打印前复用 resolveImagesForExport
+    // 把图片 resolve 成 data URL 并等加载完成（BUG-078/BUG-079 家族：凡取用 lastFullHtml 的导出/打印
+    // 路径都必须先 resolve 相对路径图，否则图变问号）。
+    const at = activeTab();
+    await resolveImagesForExport(preview, at ? (at.dir || "") : "");
     invoke("print_webview").catch((e) => toast(t("saveFail") + (e && e.message ? e.message : e)));
   }
-  async function generatePdfBytes(scaleChoice) {
-    if (!window.jspdf || !window.html2canvas) {
-      throw new Error("PDF 库未加载");
-    }
-    await render(true); // 确保预览是最新渲染结果（await 等 mermaid 预渲染完成，否则 lastFullHtml 可能缺 SVG）
-    await yieldUI(); // 让进度浮标先绘制再进入耗时截图
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pageWmm = 210, pageHmm = 297;
-    const captureW = 794;                                  // A4 宽 @ 96dpi
-    // 页边距：上下 10mm、左右靠 inner 的 48px padding（≈12.7mm）。
-    // 每页内容高度 = A4 高减去上下边距，确保每页上下都有留白（不止首末页）。
-    const marginMm = 10;
-    const contentHPx = Math.round(captureW * (pageHmm - 2 * marginMm) / pageWmm); // ≈1047px/页
-
-    // 离屏容器：承载整篇预览内容，固定 A4 宽度
-    const cap = document.createElement("div");
-    cap.className = "pdf-capture";
-    cap.style.width = captureW + "px";
-    const inner = document.createElement("div");
-    inner.style.padding = "0 48px"; // 左右留白（≈12.7mm）；上下留白由每页 y=marginMm 放置实现
-    inner.style.boxSizing = "border-box";
-    // 预览可能虚拟化（只挂可见块），用最近一次完整渲染的 HTML 作为导出源
-    inner.innerHTML = lastFullHtml || preview.innerHTML;
-    cap.appendChild(inner);
-    document.body.appendChild(cap);
-    wrapDisplayMath(inner); // 导出前同样缩放超长公式，避免 PDF 中右侧被裁切
-    try {
-      const totalH = inner.offsetHeight;
-      // 用户在分辨率弹窗选的 scale（1=低/96DPI 快，2=中/192DPI，3=高/288DPI 慢）；默认 2。
-      const desired = scaleChoice || 2;
-      // 单张长图受 canvas 内存预算限制：basePx × desired² ≤ ~24M 时用单张，否则逐页回退（每页 canvas 小）。
-      const budgetPx = 24000000;
-      const basePx = totalH * captureW; // scale=1 时的像素数
-      const scale = basePx * desired * desired <= budgetPx ? desired : 0;
-      const singleOk = scale > 0;
-
-      if (singleOk) {
-        // 一次性截整篇，再按块边界切页（快：只一次 html2canvas）
-        cap.style.height = totalH + "px";
-        const full = await html2canvas(cap, {
-          scale, backgroundColor: "#ffffff", logging: false, useCORS: true,
-        });
-        const cands = collectBreakCandidates(inner);
-        const sliceAndAdd = (top, end) => {
-          const h = end - top;
-          const c = document.createElement("canvas");
-          c.width = Math.round(captureW * scale);
-          c.height = Math.round(h * scale);
-          c.getContext("2d").drawImage(full,
-            0, Math.round(top * scale), Math.round(captureW * scale), Math.round(h * scale),
-            0, 0, c.width, c.height);
-          const imgData = c.toDataURL("image/jpeg", 0.92);
-          const imgHmm = pageWmm * c.height / c.width;
-          // jsPDF 新建时已自带一页空页：第一张图直接放第 1 页，之后才 addPage，
-          // 否则第一张图会落到第 2 页、第 1 页留空。
-          if (firstSlice) firstSlice = false; else pdf.addPage();
-          // y = marginMm：每页上下留白（内容高 ≤ 页高-2*marginMm，故下边也有留白）
-          pdf.addImage(imgData, "JPEG", 0, marginMm, pageWmm, imgHmm);
-        };
-        let firstSlice = true;
-        let pageTop = 0;
-        let pageNum = 0;
-        while (pageTop < totalH - 1) {
-          const idealEnd = pageTop + contentHPx;
-          let pageEnd;
-          if (idealEnd >= totalH) {
-            pageEnd = totalH;
-          } else {
-            let best = -1;
-            for (const c of cands) {
-              if (c <= pageTop) continue;
-              if (c <= idealEnd) best = c; else break;
-            }
-            pageEnd = best > pageTop ? best : idealEnd;
-          }
-          pageNum++;
-          setPdfProgress(t("exportingPdf") + " (" + pageNum + ")");
-          sliceAndAdd(pageTop, pageEnd);
-          await yieldUI(); // 每页切片后让出，UI 可绘制进度/响应输入
-          pageTop = pageEnd;
-        }
-      } else {
-        // 超长文档回退：逐页截图（每页一张小 canvas），避免单张超长 canvas 内存溢出
-        cap.style.overflow = "hidden";
-        const cands = collectBreakCandidates(inner);
-        let pageTop = 0;
-        let first = true;
-        let guard = 0;
-        let guardPage = 0;
-        while (pageTop < totalH - 1 && guard++ < 5000) {
-          const idealEnd = pageTop + contentHPx;
-          let pageEnd;
-          if (idealEnd >= totalH) {
-            pageEnd = totalH;
-          } else {
-            let best = -1;
-            for (const c of cands) {
-              if (c <= pageTop) continue;
-              if (c <= idealEnd) best = c; else break;
-            }
-            pageEnd = best > pageTop ? best : idealEnd;
-          }
-          cap.style.height = (pageEnd - pageTop) + "px";
-          inner.style.transform = "translateY(" + (-pageTop) + "px)";
-          setPdfProgress(t("exportingPdf") + " (" + (++guardPage) + ")");
-          await yieldUI();
-          // eslint-disable-next-line no-await-in-loop
-          const canvas = await html2canvas(cap, {
-            scale: desired, backgroundColor: "#ffffff", logging: false, useCORS: true,
-          });
-          const imgData = canvas.toDataURL("image/jpeg", 0.92);
-          const imgHmm = pageWmm * canvas.height / canvas.width;
-          if (first) first = false; else pdf.addPage();
-          pdf.addImage(imgData, "JPEG", 0, marginMm, pageWmm, imgHmm);
-          pageTop = pageEnd;
-        }
+  // 打印/导出前：把容器内 <img> 的【相对路径 src】复用 imgCache resolve 成 data URL，并等待全部
+  // 加载完成。lastFullHtml 快照里 img 仍是原始相对路径（resolveImages 只改 preview DOM、不回写
+  // 字符串），而矢量打印会把 preview 重置回 lastFullHtml，相对路径图按 base URL 解析不到 → 图变
+  // 问号(broken)。打印前先 resolve 并等待，保证图正常渲染（BUG-078/BUG-079 家族）。
+  // 复用 imgCache：预览已读过的图片不重复读盘；与 resolveImages 同语义但返回 Promise 等全部就位。
+  async function resolveImagesForExport(root, dir) {
+    const tasks = [];
+    root.querySelectorAll("img").forEach((img) => {
+      let src = img.getAttribute("src") || "";
+      if (!src || /^(data:|https?:|blob:|asset:)/i.test(src)) return; // 已是可用源
+      try { src = decodeURIComponent(src); } catch (_) {} // 还原 marked 对非 ASCII 的 percent-encode
+      const isAbs = src.charAt(0) === "/" || /^[A-Za-z]:[\\/]/.test(src);
+      if (!isAbs && !dir) return; // 相对路径且无文档目录：无法解析，跳过
+      const abs = isAbs ? src : dir + "/" + src;
+      if (!(abs in imgCache)) {
+        imgCache[abs] = invoke("read_image_data_url", { path: abs })
+          .then((url) => {
+            if (typeof url === "string" && url.indexOf("data:") === 0) return url;
+            delete imgCache[abs]; return null; // 失败/非图片：清缓存允许下次重试
+          })
+          .catch(() => { delete imgCache[abs]; return null; });
       }
-      await yieldUI();
-      return new Uint8Array(pdf.output("arraybuffer"));
-    } finally {
-      cap.remove();
-    }
+      tasks.push(Promise.resolve(imgCache[abs]).then((url) => {
+        if (!url || !img.isConnected) return;
+        img.src = url; // 换成 data URL，离屏容器里浏览器可直接解码加载
+        if (img.complete && img.naturalWidth > 0) return;
+        return new Promise((res) => { // 等 data URL 解码完成，确保测高时图片已撑开
+          const settle = async () => {
+            // load 触发 ≠ 解码完成 ≠ 布局已更新。decode 等"可渲染"再放行，
+            // 避免 WKWebView 下测高偏小导致末尾被裁（BUG-078）。
+            try { await img.decode(); } catch (_) {}
+            res();
+          };
+          img.addEventListener("load", settle, { once: true });
+          img.addEventListener("error", () => res(), { once: true });
+        });
+      }));
+    });
+    await Promise.all(tasks);
   }
 
   /* ---------- 另存为 LaTeX（Markdown → .tex，尽力转换）---------- */
@@ -8577,7 +8426,7 @@ def fib(n):
     const rows = (arr) => arr.map((r) => "<tr><td><code>" + r.k + "</code></td><td>" + r.a + "</td></tr>").join("");
     return [
       "<p class=\"pron-line\"><strong>MDeX</strong> · " + s.pPron + "</p>",
-      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.3.1") + "</p>",
+      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.3.2") + "</p>",
       "<h2>" + s.hFeatures + "</h2>", pairs(s.features),
       "<h2>" + s.hShortcuts + "</h2>", "<p>" + s.pShortcut + "</p>",
       "<table><tr><th>" + s.thKey + "</th><th>" + s.thAction + "</th></tr>" + rows(s.shortcuts) + "</table>",
@@ -8697,7 +8546,6 @@ def fib(n):
         { b: "Markdown (.md)", t: "：保存源文件，并更新当前标签的文件名与路径。" },
         { b: "HTML (.html)", t: "：导出独立 HTML 文件，内联排版 CSS + 代码高亮；数学公式保留 <code>$...$</code> 字面量，由内联 KaTeX 自动渲染。" },
         { b: "PDF 矢量打印", t: "：调用系统打印对话框，文字与公式矢量输出，任意放大清晰。选「存储为 PDF」即可保存。" },
-        { b: "PDF 高清位图", t: "：直接生成 PDF 文件（无需对话框），可选低 / 中 / 高三种分辨率；按块边界分页，不切断公式 / 标题 / 代码块等。" },
         { b: "LaTeX (.tex)", t: "：转换为可编译的 <code>.tex</code> 源（含 documentclass 与宏包，数学公式原样保留），导出副本。" },
       ],
       hLicense: "开源许可",
@@ -8766,7 +8614,6 @@ def fib(n):
         { b: "Markdown (.md)", t: ": save the source and update the current tab's name / path." },
         { b: "HTML (.html)", t: ": self-contained HTML with inlined CSS + code highlighting; math kept as <code>$...$</code> literal, auto-rendered by inlined KaTeX." },
         { b: "PDF vector", t: ": system print dialog, vector output, crisp at any zoom. Choose Save as PDF." },
-        { b: "PDF raster", t: ": generates PDF file directly (no dialog), with low / medium / high resolution; paginated at block boundaries." },
         { b: "LaTeX (.tex)", t: ": converted to a compilable <code>.tex</code> source (with documentclass and packages; math kept as-is). Exports a copy." },
       ],
       hLicense: "License",

@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
@@ -47,7 +47,7 @@ Giao diện được cung cấp bằng **17 ngôn ngữ**: English, 简体中文
 - **Bản nháp tự động**: nội dung được lưu định kỳ và khôi phục sau khi đóng / sập đột ngột.
 - **Đếm từ**: thanh trạng thái hiển thị ký tự / dòng / từ trực tiếp, cùng hàng & cột hiện tại.
 - **Kéo-thả**: thả một tệp `.md` lên cửa sổ để mở; thả một hình ảnh để chèn.
-- **Xuất**: lưu dưới dạng Markdown / HTML / PDF (vector + raster) / LaTeX.
+- **Xuất**: lưu dưới dạng Markdown / HTML / PDF (vector) / LaTeX.
 - **Màu chữ**: bảng màu trên thanh công cụ bọc vùng chọn trong `<span style="color:…">`.
 - **Lùi / Tiến**: lịch sử thống nhất qua tài liệu và vị trí con trỏ; nút ◀ ▶, `Alt+←/→`.
 - **Mở liên kết**: nhấp liên kết trong xem trước sẽ mở đích trong tab mới (http trong trình duyệt hệ thống); tài liệu hiện tại không bị thay thế.
@@ -97,7 +97,6 @@ Nhấp "Lưu thành" và chọn định dạng:
 - **Markdown (.md)**: lưu mã nguồn và cập nhật tên / đường dẫn của thẻ hiện tại.
 - **HTML (.html)**: HTML khép kín kèm CSS nhúng + tô sáng mã; công thức toán được giữ dạng literal `$…$`, tự render bởi KaTeX nhúng sẵn.
 - **PDF vector**: hộp thoại in của hệ thống, xuất vector, sắc nét ở mọi mức thu phóng. Chọn "Lưu thành PDF".
-- **PDF raster**: tạo trực tiếp tệp PDF (không hộp thoại), với độ phân giải thấp / trung bình / cao; phân trang theo ranh giới khối (không cắt công thức / tiêu đề / mã).
 - **LaTeX (.tex)**: chuyển đổi thành mã nguồn `.tex` có thể biên dịch (kèm documentclass và các gói; công thức toán giữ nguyên). Xuất một bản sao.
 
 ---

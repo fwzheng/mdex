@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · Entièrement hors ligne · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · Entièrement hors ligne · Tauri v2)
 
 > **MDeX** · se prononce « em-dex » (/ˌemˈdɛks/) — la lettre M suivie de « dex », deux syllabes.
 
@@ -47,7 +47,7 @@ L'interface est disponible en **17 langues** : English, 简体中文, Français,
 - **Brouillon automatique** : le contenu est enregistré périodiquement et restauré après une fermeture inattendue / un plantage.
 - **Comptage des mots** : la barre d'état affiche en direct les caractères / lignes / mots, ainsi que la ligne et la colonne courantes.
 - **Glisser-déposer** : déposez un fichier `.md` sur la fenêtre pour l'ouvrir ; déposez une image pour l'insérer.
-- **Exportation** : enregistrer en Markdown / HTML / PDF (vectoriel + matriciel) / LaTeX.
+- **Exportation** : enregistrer en Markdown / HTML / PDF (vectoriel) / LaTeX.
 - **Couleur du texte** : la palette de la barre d'outils enveloppe la sélection dans `<span style="color:…">`.
 - **Précédent / Suivant** : historique unifié des documents et positions du curseur ; boutons ◀ ▶, `Alt+←/→`.
 - **Suivre les liens** : un clic sur un lien de l'aperçu ouvre la cible dans un nouvel onglet (http dans le navigateur) ; le document courant n'est pas remplacé.
@@ -97,7 +97,6 @@ Cliquez sur « Enregistrer sous » et choisissez un format :
 - **Markdown (.md)** : enregistre la source et met à jour le nom / chemin de l'onglet courant.
 - **HTML (.html)** : HTML autonome avec CSS et coloration syntaxique intégrés ; les formules sont conservées sous forme littérale `$…$`, rendues automatiquement par KaTeX intégré.
 - **PDF vectoriel** : boîte de dialogue d'impression système, sortie vectorielle, net à tout niveau de zoom. Choisissez « Enregistrer au format PDF ».
-- **PDF matriciel** : génère directement un fichier PDF (sans boîte de dialogue), en résolution basse / moyenne / haute ; paginé aux frontières de blocs (pas d'équations / titres / code coupés).
 - **LaTeX (.tex)** : converti en une source `.tex` compilable (avec documentclass et paquets ; les formules sont conservées telles quelles). Exporte une copie.
 
 ---

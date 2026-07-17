@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · Fully Offline · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · Fully Offline · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
@@ -47,7 +47,7 @@ The interface ships in **17 languages**: English, 简体中文, Français, Deuts
 - **Auto-draft**: content is saved periodically and restored after an unexpected close / crash.
 - **Word count**: the status bar shows characters / lines / words live, plus the current row & column.
 - **Drag-and-drop**: drop a `.md` file onto the window to open it; drop an image to insert it.
-- **Export**: save as Markdown / HTML / PDF (vector + raster) / LaTeX.
+- **Export**: save as Markdown / HTML / PDF (vector) / LaTeX.
 - **Text color**: toolbar palette wraps the selection in `<span style="color:…">`.
 - **Back / Forward**: unified history across documents and cursor positions; ◀ ▶ buttons, `Alt+←/→`.
 - **Follow links**: click a link in the preview to open the target in a new tab (http links in the system browser); the current document is never replaced.
@@ -97,7 +97,6 @@ Click "Save As" and pick a format:
 - **Markdown (.md)**: save the source and update the current tab's name / path.
 - **HTML (.html)**: self-contained HTML with inlined CSS + code highlighting; math kept as `$…$` literal, auto-rendered by inlined KaTeX.
 - **PDF vector**: system print dialog, vector output, crisp at any zoom. Choose "Save as PDF".
-- **PDF raster**: generates a PDF file directly (no dialog), with low / medium / high resolution; paginated at block boundaries (no broken equations / headings / code).
 - **LaTeX (.tex)**: converted to a compilable `.tex` source (with documentclass and packages; math kept as-is). Exports a copy.
 
 ---

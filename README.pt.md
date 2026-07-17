@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · Totalmente Offline · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · Totalmente Offline · Tauri v2)
 
 > **MDeX** · pronuncia-se "em-dex" (/ˌemˈdɛks/) — a letra M seguida de "dex", duas sílabas.
 
@@ -47,7 +47,7 @@ A interface é disponibilizada em **17 idiomas**: English, 简体中文, França
 - **Rascunho automático**: o conteúdo é salvo periodicamente e restaurado após um fechamento / travamento inesperado.
 - **Contagem de palavras**: a barra de status mostra caracteres / linhas / palavras ao vivo, além da linha e coluna atuais.
 - **Arrastar e soltar**: solte um arquivo `.md` sobre a janela para abri-lo; solte uma imagem para inseri-la.
-- **Exportação**: salvar como Markdown / HTML / PDF (vetorial + raster) / LaTeX.
+- **Exportação**: salvar como Markdown / HTML / PDF (vetorial) / LaTeX.
 - **Cor do texto**: a paleta da barra envolve a seleção em `<span style="color:…">`.
 - **Voltar / Avançar**: histórico unificado de documentos e posições do cursor; botões ◀ ▶, `Alt+←/→`.
 - **Seguir links**: clicar num link da pré-visualização abre o destino numa nova aba (http no navegador do sistema); o documento atual não é substituído.
@@ -97,7 +97,6 @@ Clique em "Salvar como" e escolha um formato:
 - **Markdown (.md)**: salva a fonte e atualiza o nome / caminho da aba atual.
 - **HTML (.html)**: HTML autossuficiente com CSS embutido + realce de código; a matemática é mantida como literal `$…$`, renderizada automaticamente pelo KaTeX embutido.
 - **PDF vetorial**: diálogo de impressão do sistema, saída vetorial, nítida em qualquer zoom. Escolha "Salvar como PDF".
-- **PDF raster**: gera um arquivo PDF diretamente (sem diálogo), com resolução baixa / média / alta; paginado em limites de bloco (sem quebrar equações / títulos / código).
 - **LaTeX (.tex)**: convertido para um fonte `.tex` compilável (com documentclass e pacotes; a matemática é mantida como está). Exporta uma cópia.
 
 ---

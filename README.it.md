@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · Completamente offline · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · Completamente offline · Tauri v2)
 
 > **MDeX** · si pronuncia "em-dex" (/ˌemˈdɛks/) — la lettera M seguita da "dex", due sillabe.
 
@@ -47,7 +47,7 @@ L'interfaccia è disponibile in **17 lingue**: English, 简体中文, Français,
 - **Bozza automatica**: il contenuto viene salvato periodicamente e ripristinato dopo una chiusura / crash imprevisto.
 - **Conteggio parole**: la barra di stato mostra caratteri / righe / parole in tempo reale, più riga e colonna correnti.
 - **Trascina e rilascia**: rilascia un file `.md` sulla finestra per aprirlo; rilascia un'immagine per inserirla.
-- **Esportazione**: salva come Markdown / HTML / PDF (vettoriale + raster) / LaTeX.
+- **Esportazione**: salva come Markdown / HTML / PDF (vettoriale) / LaTeX.
 - **Colore del testo**: la paletta della barra avvolge la selezione in `<span style="color:…">`.
 - **Indietro / Avanti**: cronologia unificata di documenti e posizioni del cursore; pulsanti ◀ ▶, `Alt+←/→`.
 - **Segui i link**: un clic su un link nell'anteprima apre la destinazione in una nuova scheda (http nel browser di sistema); il documento corrente non viene sostituito.
@@ -97,7 +97,6 @@ Fai clic su "Salva come" e scegli un formato:
 - **Markdown (.md)**: salva il sorgente e aggiorna il nome / percorso della scheda corrente.
 - **HTML (.html)**: HTML autonomo con CSS inline + evidenziazione del codice; la matematica viene mantenuta come letterale `$…$`, resa automaticamente dal KaTeX inline.
 - **PDF vettoriale**: finestra di stampa di sistema, output vettoriale, nitido a qualsiasi zoom. Scegli "Salva come PDF".
-- **PDF raster**: genera direttamente un file PDF (senza finestra di dialogo), con risoluzione bassa / media / alta; impaginato ai confini dei blocchi (nessuna equazione / intestazione / codice spezzato).
 - **LaTeX (.tex)**: convertito in sorgente `.tex` compilabile (con documentclass e pacchetti; matematica lasciata invariata). Esporta una copia.
 
 ---

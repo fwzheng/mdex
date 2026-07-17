@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · Sepenuhnya Luring · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · Sepenuhnya Luring · Tauri v2)
 
 > **MDeX** · diucapkan "em-dex" (/ˌemˈdɛks/) — huruf M diikuti "dex", dua suku kata.
 
@@ -47,7 +47,7 @@ Antarmuka tersedia dalam **17 bahasa**: English, 简体中文, Français, Deutsc
 - **Draf otomatis**: konten disimpan secara berkala dan dipulihkan setelah penutupan tak terduga / crash.
 - **Hitung kata**: status bar menampilkan karakter / baris / kata secara langsung, plus baris & kolom saat ini.
 - **Seret-dan-jatuhkan**: jatuhkan file `.md` ke jendela untuk membukanya; jatuhkan gambar untuk menyisipkannya.
-- **Ekspor**: simpan sebagai Markdown / HTML / PDF (vektor + raster) / LaTeX.
+- **Ekspor**: simpan sebagai Markdown / HTML / PDF (vektor) / LaTeX.
 - **Warna teks**: palet pada bilah alat membungkus seleksi dalam `<span style="color:…">`.
 - **Mundur / Maju**: riwayat terpadu lintas dokumen dan posisi kursor; tombol ◀ ▶, `Alt+←/→`.
 - **Ikuti tautan**: klik tautan di pratinjau membuka target di tab baru (http di peramban sistem); dokumen saat ini tidak diganti.
@@ -97,7 +97,6 @@ Klik "Save As" dan pilih format:
 - **Markdown (.md)**: simpan sumber dan perbarui nama / path tab saat ini.
 - **HTML (.html)**: HTML mandiri dengan CSS yang di-inline + penyorotan kode; matematika dipertahankan sebagai literal `$…$`, dirender otomatis oleh KaTeX yang di-inline.
 - **PDF vektor**: dialog cetak sistem, keluaran vektor, tajam pada zoom apa pun. Pilih "Save as PDF".
-- **PDF raster**: menghasilkan file PDF secara langsung (tanpa dialog), dengan resolusi rendah / sedang / tinggi; dipaginasi pada batas blok (tidak ada persamaan / heading / kode yang rusak).
 - **LaTeX (.tex)**: dikonversi ke sumber `.tex` yang dapat dikompilasi (dengan documentclass dan paket; matematika dipertahankan apa adanya). Mengekspor salinan.
 
 ---

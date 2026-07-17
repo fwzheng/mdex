@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · 완전 오프라인 · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · 완전 오프라인 · Tauri v2)
 
 > **MDeX** · "em-dex"(/ˌemˈdɛks/)로 발음 — 글자 M 뒤에 "dex"가 오는 2음절 단어입니다.
 
@@ -97,7 +97,6 @@ macOS에서는 `⌘`, Windows / Linux에서는 `Ctrl` 를 사용하세요.
 - **Markdown (.md)**: 소스를 저장하고 현재 탭의 이름 / 경로를 갱신합니다.
 - **HTML (.html)**: CSS와 코드 하이라이트가 인라인된 자체 포함형 HTML; 수식은 `$…$` 리터럴로 유지되며 인라인된 KaTeX로 자동 렌더링됩니다.
 - **PDF 벡터**: 시스템 인쇄 대화상자, 벡터 출력, 모든 확대에서 선명. "PDF로 저장"을 선택하세요.
-- **PDF 래스터**: PDF 파일을 직접 생성(대화상자 없음), 저해상도 / 중해상도 / 고해상도; 블록 경계에서 페이지 분할(수식 / 제목 / 코드가 끊어지지 않음).
 - **LaTeX (.tex)**: 컴파일 가능한 `.tex` 소스로 변환(documentclass와 패키지 포함; 수식은 그대로 유지). 사본을 내보냅니다.
 
 ---

@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · Totalmente Offline · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · Totalmente Offline · Tauri v2)
 
 > **MDeX** · se pronuncia "em-dex" (/ˌemˈdɛks/) — la letra M seguida de "dex", dos sílabas.
 
@@ -47,7 +47,7 @@ La interfaz está disponible en **17 idiomas**: English, 简体中文, Français
 - **Borrador automático**: el contenido se guarda periódicamente y se restaura tras un cierre / fallo inesperado.
 - **Conteo de palabras**: la barra de estado muestra caracteres / líneas / palabras en vivo, más la fila y columna actuales.
 - **Arrastrar y soltar**: suelta un archivo `.md` sobre la ventana para abrirlo; suelta una imagen para insertarla.
-- **Exportación**: guardar como Markdown / HTML / PDF (vectorial + ráster) / LaTeX.
+- **Exportación**: guardar como Markdown / HTML / PDF (vectorial) / LaTeX.
 - **Color del texto**: la paleta de la barra envuelve la selección en `<span style="color:…">`.
 - **Atrás / Adelante**: historial unificado de documentos y posiciones del cursor; botones ◀ ▶, `Alt+←/→`.
 - **Seguir enlaces**: un clic en un enlace de la vista previa abre el destino en una nueva pestaña (http en el navegador del sistema); el documento actual no se reemplaza.
@@ -97,7 +97,6 @@ Haz clic en "Guardar como" y elige un formato:
 - **Markdown (.md)**: guarda el código fuente y actualiza el nombre / ruta de la pestaña actual.
 - **HTML (.html)**: HTML autónomo con CSS incrustado + resaltado de código; las fórmulas se mantienen como literales `$…$`, auto-renderizadas por KaTeX incrustado.
 - **PDF vectorial**: diálogo de impresión del sistema, salida vectorial, nítido en cualquier nivel de zoom. Elige "Guardar como PDF".
-- **PDF ráster**: genera un archivo PDF directamente (sin diálogo), con resolución baja / media / alta; paginado en los límites de bloque (sin ecuaciones / encabezados / código partidos).
 - **LaTeX (.tex)**: convertido a un código fuente `.tex` compilable (con documentclass y paquetes; las fórmulas se mantienen tal cual). Exporta una copia.
 
 ---

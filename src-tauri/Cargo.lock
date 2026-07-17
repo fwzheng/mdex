@@ -1936,7 +1936,7 @@ dependencies = [
 
 [[package]]
 name = "mdex"
-version = "1.3.0"
+version = "1.3.3"
 dependencies = [
  "base64 0.22.1",
  "serde",

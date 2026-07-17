@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.1 (macOS · Windows · Linux · vollständig offline · Tauri v2)
+# MDeX v1.3.3 (macOS · Windows · Linux · vollständig offline · Tauri v2)
 
 > **MDeX** · ausgesprochen „em-dex" (/ˌemˈdɛks/) — der Buchstabe M gefolgt von „dex", zwei Silben.
 
@@ -47,7 +47,7 @@ Die Benutzeroberfläche wird in **17 Sprachen** ausgeliefert: English, 简体中
 - **Auto-Entwurf**: Inhalte werden regelmäßig gespeichert und nach einem unerwarteten Schließen / Absturz wiederhergestellt.
 - **Wortzahl**: die Statusleiste zeigt live Zeichen / Zeilen / Wörter sowie die aktuelle Zeile & Spalte.
 - **Drag-and-Drop**: eine `.md`-Datei auf das Fenster ziehen, um sie zu öffnen; ein Bild ziehen, um es einzufügen.
-- **Export**: speichern als Markdown / HTML / PDF (Vektor + Raster) / LaTeX.
+- **Export**: speichern als Markdown / HTML / PDF (Vektor) / LaTeX.
 - **Textfarbe**: Die Paletten-Schaltfläche schließt die Auswahl in `<span style="color:…">` ein.
 - **Zurück / Vor**: vereinigte History über Dokumente und Cursorpositionen; ◀ ▶-Buttons, `Alt+←/→`.
 - **Links folgen**: Ein Klick auf einen Link in der Vorschau öffnet das Ziel in einem neuen Tab (http im Systembrowser); das aktuelle Dokument bleibt erhalten.
@@ -97,7 +97,6 @@ Auf „Speichern unter" klicken und ein Format wählen:
 - **Markdown (.md)**: den Quelltext speichern und den Namen / Pfad des aktuellen Tabs aktualisieren.
 - **HTML (.html)**: in sich geschlossenes HTML mit inline CSS + Code-Hervorhebung; Formeln bleiben als `$…$`-Literal erhalten, automatisch durch inline KaTeX gerendert.
 - **PDF Vektor**: System-Druckdialog, Vektorausgabe, bei jeder Vergrößerung scharf. „Als PDF speichern" wählen.
-- **PDF Raster**: erzeugt eine PDF-Datei direkt (ohne Dialog), mit niedriger / mittlerer / hoher Auflösung; paginiert an Blockgrenzen (keine zerstückelten Formeln / Überschriften / Code).
 - **LaTeX (.tex)**: konvertiert in eine kompilierbare `.tex`-Quelle (mit documentclass und Paketen; Formeln bleiben unverändert). Exportiert eine Kopie.
 
 ---
