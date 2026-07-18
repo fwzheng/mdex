@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.3 (macOS · Windows · Linux · يعمل بالكامل دون اتصال · Tauri v2)
+# MDeX v1.3.4 (macOS · Windows · Linux · يعمل بالكامل دون اتصال · Tauri v2)
 
 > **MDeX** · يُنطق "em-dex" (/ˌemˈdɛks/) — الحرف M يتبعه "dex"، مقطعان لفظيان.
 

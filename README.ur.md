@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.3 (macOS · Windows · Linux · مکمل آف لائن · Tauri v2)
+# MDeX v1.3.4 (macOS · Windows · Linux · مکمل آف لائن · Tauri v2)
 
 > **MDeX** · تلفظ "em-dex" (/ˌemˈdɛks/) — حرف M کے بعد "dex"، دو حصے۔
 

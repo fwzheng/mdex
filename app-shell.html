@@ -191,7 +191,7 @@
     overflow-x: auto; margin: 0 0 1em; border: 1px solid var(--border); }
   #preview pre code { background: none; padding: 0; font-size: .85em; line-height: 1.5; }
   /* RTL（<html dir="rtl">，如阿拉伯语）：代码块 / 行内代码 / LaTeX 公式始终保持 LTR，
-     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.3.2)等由 Unicode 双向算法
+     作为独立双向"孤岛"不被整体镜像翻转——英文词、版本号(v1.3.4)等由 Unicode 双向算法
      天然在 RTL 段落内保持 LTR，无需额外处理。
      选择器含 #preview/.katex，buildStandaloneHtml 导出时会随样式一并收集，故导出文档同样生效。 */
   html[dir="rtl"] #preview pre,
@@ -523,7 +523,7 @@
 <!-- 主区域 -->
 <div class="main view-split" id="main">
   <div class="pane" id="pane-editor">
-    <div class="pane-head"><div class="tabs" id="tabs"></div><div class="pane-head-right"><div class="zoom-ctl" id="editor-zoom"><button class="btn" id="ez-out" title="缩小">−</button><span class="zlvl" id="ez-lvl" title="重置">100%</span><button class="btn" id="ez-in" title="放大">+</button></div><span id="wc">0 字</span></div></div>
+    <div class="pane-head"><div class="tabs" id="tabs"></div><div class="pane-head-right"><div class="zoom-ctl" id="editor-zoom"><button class="btn" id="ez-out" title="缩小">−</button><span class="zlvl" id="ez-lvl" title="重置">100%</span><button class="btn" id="ez-in" title="放大">+</button></div><span id="wc">0 词</span></div></div>
     <div id="search-bar" hidden>
       <div class="search-row">
         <input id="search-input" type="text" data-i18n-ph="searchPh" placeholder="搜索…">
@@ -545,7 +545,7 @@
   </div>
   <div class="gutter" id="gutter"></div>
   <div class="pane" id="pane-preview">
-    <div class="pane-head"><span data-i18n="preview">预览</span><div class="pane-head-right"><div class="zoom-ctl" id="preview-zoom"><button class="btn" id="pz-out" title="缩小">−</button><span class="zlvl" id="pz-lvl" title="重置">100%</span><button class="btn" id="pz-in" title="放大">+</button></div><span id="rs" data-i18n="ready">就绪</span></div></div>
+    <div class="pane-head"><span data-i18n="preview">预览</span><div class="pane-head-right"><div class="zoom-ctl" id="preview-zoom"><button class="btn" id="pz-out" title="缩小">−</button><span class="zlvl" id="pz-lvl" title="重置">100%</span><button class="btn" id="pz-in" title="放大">+</button></div></div></div>
     <article id="preview"></article>
   </div>
   <div class="empty-state" id="empty-state">
@@ -558,10 +558,8 @@
 
 <!-- 状态栏 -->
 <div class="statusbar">
-  <span id="s-lines">行 1</span>
-  <span id="s-words">0 词</span>
-  <span id="s-chars">0 字符</span>
-  <div class="right"><span id="s-cursor">Ln 1, Col 1</span><span data-i18n="meta">UTF-8 · Markdown</span></div>
+  <span id="s-path" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=""></span>
+  <div class="right"><span id="s-cursor">Ln 1, Col 1</span></div>
 </div>
 
 <div class="dropmask" data-i18n="dropHint">松开以打开文件 / 插入图片</div>
@@ -4745,7 +4743,7 @@ def fib(n):
       new: "新建", open: "打开", closeFile: "关闭", save: "保存", saveAs: "另存为", exportPdf: "导出PDF",
       editor: "编辑器", preview: "预览",
       rendered: "已渲染", rendering: "渲染中…", ready: "就绪",
-      wUnit: "字", lines: "行", words: "词", chars: "字符", meta: "UTF-8 · Markdown",
+      wUnit: "词", lines: "行", words: "词", chars: "字符", meta: "UTF-8 · Markdown",
       lnCol: "行 {l}, 列 {c}",
       bold: "加粗", italic: "斜体", strike: "删除线", code: "行内代码",
       h1: "标题 1", h2: "标题 2", h3: "标题 3",
@@ -5427,7 +5425,6 @@ def fib(n):
     if (!force && curViewMode === "editor") {
       previewDirty = true;
       updateStats();
-      $("rs").textContent = t("ready");
       return;
     }
     previewDirty = false;
@@ -5598,7 +5595,6 @@ def fib(n):
       if (isTauri && at) resolveImages(preview, at.dir || "");
     }
     updateStats();
-    $("rs").textContent = t("rendered");
     buildPreviewBlockY(); // 测预览块顶 Y（非虚拟化每次渲染测一次缓存；虚拟化用 vprefix，此处空操作）
     if (searchBar && !searchBar.hidden) highlightPreview();
     syncViewerWindows();   // mermaid 查看器 live update：推送对应块的新 SVG
@@ -5702,7 +5698,6 @@ def fib(n):
     // HTML 模式：渲染可见区的 $...$ 数学公式
     if (at && at.type === "html") renderMathAuto(vContent);
     if (isTauri && at) resolveImages(vContent, at.dir || "");
-    $("rs").textContent = t("rendered");
     buildPreviewBlockY(); // 测预览块顶 Y（非虚拟化每次渲染测一次缓存；虚拟化用 vprefix，此处空操作）
     if (searchBar && !searchBar.hidden) highlightPreview();
     syncViewerWindows();   // mermaid 查看器 live update：推送对应块的新 SVG
@@ -5744,7 +5739,6 @@ def fib(n):
 
   function scheduleRender() {
     markDirty();
-    $("rs").textContent = t("rendering");
     clearTimeout(renderTimer);
     // 大文档全量解析较重，用更长防抖避免连击卡顿；小文档保持 120ms 灵敏。
     const delay = editor.value.length > 60000 ? 450 : 120;
@@ -5755,13 +5749,12 @@ def fib(n):
   /* ---------- 统计 ---------- */
   function updateStats() {
     const v = editor.value;
-    const chars = v.length;
     const cn = (v.match(/[一-龥]/g) || []).length;
     const en = (v.replace(/[一-龥]/g, " ").match(/[A-Za-z0-9_]+/g) || []).length;
-    const lines = v.split("\n").length;
-    $("s-chars").textContent = chars + " " + t("chars");
-    $("s-words").textContent = (cn + en) + " " + t("words");
-    $("s-lines").textContent = t("lines") + " " + lines;
+    // 底部状态栏：显示当前文件的绝对路径（草稿未存盘时退化为文件名 / 未命名）
+    const at = activeTab();
+    const p = (at && (at.path || at.name)) || t("untitled");
+    const sp = $("s-path"); if (sp) { sp.textContent = p; sp.title = p; }
     $("wc").textContent = (cn + en) + " " + t("wUnit");
   }
   function updateCursor() {
@@ -6085,6 +6078,7 @@ def fib(n):
     requestAnimationFrame(() => render());
     if (tab.scrollTop) editor.scrollTop = tab.scrollTop;
     updateCursor();
+    updateStats(); // 立即刷新底部状态栏（文件绝对路径），不等 rAF 渲染
     // 切标签时同步文献库徽标条数
     {
       let n = 0;
@@ -6441,6 +6435,7 @@ def fib(n):
         tab.content = editor.value;
         tab.dirty = false;
         renderTabs();
+        updateStats();
         document.title = tab.name + " — MDeX";
         toast(t("saved"));
         return true;
@@ -6464,7 +6459,7 @@ def fib(n):
         await invoke("write_file_at", { path, content: editor.value });
         tab.path = path; tab.dir = dirOf(path); tab.name = baseName(path) || tab.name;
         tab.type = "html"; tab.content = editor.value; tab.dirty = false;
-        renderTabs(); document.title = tab.name + " — MDeX"; toast(t("saved"));
+        renderTabs(); updateStats(); document.title = tab.name + " — MDeX"; toast(t("saved"));
         return true;
       } catch (e) { toast(t("saveFail") + e); return false; }
     }
@@ -6590,6 +6585,7 @@ def fib(n):
           tab.content = editor.value;
           tab.dirty = false;
           renderTabs();
+          updateStats(); // 刷新底部状态栏（文件绝对路径随另存为更新）
           document.title = tab.name + " — MDeX";
           toast(t("saved"));
         }
@@ -8426,7 +8422,7 @@ def fib(n):
     const rows = (arr) => arr.map((r) => "<tr><td><code>" + r.k + "</code></td><td>" + r.a + "</td></tr>").join("");
     return [
       "<p class=\"pron-line\"><strong>MDeX</strong> · " + s.pPron + "</p>",
-      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.3.2") + "</p>",
+      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.3.4") + "</p>",
       "<h2>" + s.hFeatures + "</h2>", pairs(s.features),
       "<h2>" + s.hShortcuts + "</h2>", "<p>" + s.pShortcut + "</p>",
       "<table><tr><th>" + s.thKey + "</th><th>" + s.thAction + "</th></tr>" + rows(s.shortcuts) + "</table>",

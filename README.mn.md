@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.3 (macOS · Windows · Linux · Бүрэн офлайн · Tauri v2)
+# MDeX v1.3.4 (macOS · Windows · Linux · Бүрэн офлайн · Tauri v2)
 
 > **MDeX** · "em-dex" (/ˌemˈdɛks/) гэж дуудна — M үсгийн дараа "dex" гэж бичигдсэн, хоёр үе бүхий үг.
 
