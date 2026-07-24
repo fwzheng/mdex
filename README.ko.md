@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.4 (macOS · Windows · Linux · 완전 오프라인 · Tauri v2)
+# MDeX v1.4.0 (macOS · Windows · Linux · 완전 오프라인 · Tauri v2)
 
 > **MDeX** · "em-dex"(/ˌemˈdɛks/)로 발음 — 글자 M 뒤에 "dex"가 오는 2음절 단어입니다.
 
@@ -145,20 +145,25 @@ macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linu
 
 ```
 markdown/
-├── app-shell.html          # frontend source (HTML+CSS+JS, all app logic)
+├── app-shell.html          # frontend shell (HTML+CSS); app logic lives in src/app.js
+├── src/
+│   ├── app.js              # application logic (// @ts-check; inlined into dist by build-html.mjs)
+│   └── globals.d.ts        # vendor / Window type declarations for type-checking
+├── tsconfig.json           # type-check config (tsc --noEmit; no bundler)
 ├── tools/
-│   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ (online only here)
-│   └── build-html.mjs      # inline vendor into dist/index.html (KaTeX fonts → base64)
+│   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ + integrity lock (online only here)
+│   ├── build-html.mjs      # inline vendor + src/app.js into dist/index.html (KaTeX fonts → base64)
+│   └── test-pure.mjs       # frontend pure-function tests (npm test)
 ├── dist/index.html         # build output: fully offline single file (Tauri frontendDist)
-├── vendor/                 # download cache (.gitignore)
-├── package.json            # @tauri-apps/cli + scripts
+├── vendor/                 # download cache + integrity.json (.gitignore)
+├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/
-    ├── Cargo.toml          # tauri 2 + tauri-plugin-dialog / single-instance
+    ├── Cargo.toml          # tauri 2 + dialog / single-instance + encoding_rs
     ├── build.rs            # tauri_build::build()
     ├── tauri.conf.json     # 1200×750 window, strict CSP, icons, .md association, menu hooks
     ├── capabilities/default.json
     ├── icons/              # full icon set from `cargo tauri icon`
-    └── src/{main.rs, lib.rs}   # menus + file IO + multi-window routing
+    └── src/{main.rs, lib.rs}   # menus + file IO + multi-window routing + atomic write / file ownership
 ```
 
 ---
@@ -172,7 +177,7 @@ markdown/
 | 아이콘 | 소스 이미지를 교체한 뒤 `npm run icon` |
 | 테마 색상 / 글꼴 | `app-shell.html` 상단의 `:root` CSS 변수 |
 | 메뉴 항목 | `src-tauri/src/lib.rs`의 `build_menu()` |
-| UI 문자열 / 도움말 문서 | `app-shell.html`의 `I18N` / `HELP_STRINGS` |
+| UI 문자열 / 도움말 문서 | `src/app.js`의 `I18N` / `HELP_STRINGS` |
 | 의존성 버전 | `tools/fetch-vendor.mjs` 상단의 `VERSIONS`(이후 `npm run fetch -- --force`) |
 
 ---

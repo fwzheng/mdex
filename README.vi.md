@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.4 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
+# MDeX v1.4.0 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
@@ -145,20 +145,25 @@ Mã nguồn: <https://github.com/fwzheng/mdex>. Làm theo hướng dẫn build t
 
 ```
 markdown/
-├── app-shell.html          # mã nguồn giao diện (HTML+CSS+JS, toàn bộ logic ứng dụng)
+├── app-shell.html          # vỏ giao diện (HTML+CSS); logic ứng dụng nằm trong src/app.js
+├── src/
+│   ├── app.js              # logic ứng dụng (// @ts-check; được nhúng vào dist bởi build-html.mjs)
+│   └── globals.d.ts        # khai báo kiểu vendor / Window cho kiểm tra kiểu
+├── tsconfig.json           # cấu hình kiểm tra kiểu (tsc --noEmit; không bundler)
 ├── tools/
-│   ├── fetch-vendor.mjs    # một lần: tải deps vào vendor/ (chỉ bước này cần mạng)
-│   └── build-html.mjs      # nhúng vendor vào dist/index.html (font KaTeX → base64)
+│   ├── fetch-vendor.mjs    # một lần: tải deps vào vendor/ + khóa toàn vẹn (chỉ bước này cần mạng)
+│   ├── build-html.mjs      # nhúng vendor + src/app.js vào dist/index.html (font KaTeX → base64)
+│   └── test-pure.mjs       # kiểm thử hàm thuần giao diện (npm test)
 ├── dist/index.html         # đầu ra build: tệp đơn hoàn toàn ngoại tuyến (Tauri frontendDist)
-├── vendor/                 # bộ nhớ đệm tải về (.gitignore)
-├── package.json            # @tauri-apps/cli + scripts
+├── vendor/                 # bộ nhớ đệm tải về + integrity.json (.gitignore)
+├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/
-    ├── Cargo.toml          # tauri 2 + tauri-plugin-dialog / single-instance
+    ├── Cargo.toml          # tauri 2 + dialog / single-instance + encoding_rs
     ├── build.rs            # tauri_build::build()
     ├── tauri.conf.json     # cửa sổ 1200×750, CSP nghiêm ngặt, biểu tượng, liên kết .md, móc menu
     ├── capabilities/default.json
     ├── icons/              # bộ biểu tượng đầy đủ từ `cargo tauri icon`
-    └── src/{main.rs, lib.rs}   # menu + IO tệp + định tuyến đa cửa sổ
+    └── src/{main.rs, lib.rs}   # menu + IO tệp + định tuyến đa cửa sổ + ghi nguyên tử / sở hữu tệp
 ```
 
 ---
@@ -172,7 +177,7 @@ markdown/
 | Biểu tượng | thay ảnh nguồn, rồi `npm run icon` |
 | Màu giao diện / font | biến CSS `:root` ở đầu `app-shell.html` |
 | Mục menu | `build_menu()` trong `src-tauri/src/lib.rs` |
-| Chuỗi UI / tài liệu trợ giúp | `I18N` / `HELP_STRINGS` trong `app-shell.html` |
+| Chuỗi UI / tài liệu trợ giúp | `I18N` / `HELP_STRINGS` trong `src/app.js` |
 | Phiên bản dependency | `VERSIONS` ở đầu `tools/fetch-vendor.mjs` (rồi `npm run fetch -- --force`) |
 
 ---

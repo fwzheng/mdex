@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.4 (macOS · Windows · Linux · पूर्णतः ऑफ़लाइन · Tauri v2)
+# MDeX v1.4.0 (macOS · Windows · Linux · पूर्णतः ऑफ़लाइन · Tauri v2)
 
 > **MDeX** · उच्चारण "em-dex" (/ˌemˈdɛks/) — अक्षर M के बाद "dex", दो अक्षर।
 
@@ -145,20 +145,25 @@ macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linu
 
 ```
 markdown/
-├── app-shell.html          # frontend source (HTML+CSS+JS, all app logic)
+├── app-shell.html          # frontend shell (HTML+CSS); app logic lives in src/app.js
+├── src/
+│   ├── app.js              # application logic (// @ts-check; inlined into dist by build-html.mjs)
+│   └── globals.d.ts        # vendor / Window type declarations for type-checking
+├── tsconfig.json           # type-check config (tsc --noEmit; no bundler)
 ├── tools/
-│   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ (online only here)
-│   └── build-html.mjs      # inline vendor into dist/index.html (KaTeX fonts → base64)
+│   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ + integrity lock (online only here)
+│   ├── build-html.mjs      # inline vendor + src/app.js into dist/index.html (KaTeX fonts → base64)
+│   └── test-pure.mjs       # frontend pure-function tests (npm test)
 ├── dist/index.html         # build output: fully offline single file (Tauri frontendDist)
-├── vendor/                 # download cache (.gitignore)
-├── package.json            # @tauri-apps/cli + scripts
+├── vendor/                 # download cache + integrity.json (.gitignore)
+├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/
-    ├── Cargo.toml          # tauri 2 + tauri-plugin-dialog / single-instance
+    ├── Cargo.toml          # tauri 2 + dialog / single-instance + encoding_rs
     ├── build.rs            # tauri_build::build()
     ├── tauri.conf.json     # 1200×750 window, strict CSP, icons, .md association, menu hooks
     ├── capabilities/default.json
     ├── icons/              # full icon set from `cargo tauri icon`
-    └── src/{main.rs, lib.rs}   # menus + file IO + multi-window routing
+    └── src/{main.rs, lib.rs}   # menus + file IO + multi-window routing + atomic write / file ownership
 ```
 
 ---
@@ -172,7 +177,7 @@ markdown/
 | आइकन | स्रोत छवि बदलें, फिर `npm run icon` |
 | थीम रंग / फ़ॉन्ट | `app-shell.html` के शीर्ष पर `:root` CSS वेरिएबल |
 | मेन्यू आइटम | `src-tauri/src/lib.rs` में `build_menu()` |
-| UI स्ट्रिंग्स / हेल्प डॉक | `app-shell.html` में `I18N` / `HELP_STRINGS` |
+| UI स्ट्रिंग्स / हेल्प डॉक | `src/app.js` में `I18N` / `HELP_STRINGS` |
 | डिपेंडेंसी वर्श़न | `tools/fetch-vendor.mjs` के शीर्ष पर `VERSIONS` (फिर `npm run fetch -- --force`) |
 
 ---

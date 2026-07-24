@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.4 (macOS · Windows · Linux · Entièrement hors ligne · Tauri v2)
+# MDeX v1.4.0 (macOS · Windows · Linux · Entièrement hors ligne · Tauri v2)
 
 > **MDeX** · se prononce « em-dex » (/ˌemˈdɛks/) — la lettre M suivie de « dex », deux syllabes.
 
@@ -145,20 +145,25 @@ Code source: <https://github.com/fwzheng/mdex>. Veuillez suivre les instructions
 
 ```
 markdown/
-├── app-shell.html          # source frontend (HTML+CSS+JS, toute la logique de l'application)
+├── app-shell.html          # coquille frontend (HTML+CSS) ; la logique de l'application est dans src/app.js
+├── src/
+│   ├── app.js              # logique de l'application (// @ts-check ; intégrée dans dist par build-html.mjs)
+│   └── globals.d.ts        # déclarations de types vendor / Window pour la vérification de types
+├── tsconfig.json           # config de vérification de types (tsc --noEmit ; pas de bundler)
 ├── tools/
-│   ├── fetch-vendor.mjs    # une fois : télécharge les dépendances dans vendor/ (en ligne ici uniquement)
-│   └── build-html.mjs      # intègre vendor dans dist/index.html (polices KaTeX → base64)
+│   ├── fetch-vendor.mjs    # une fois : télécharge les dépendances dans vendor/ + verrou d'intégrité (en ligne ici uniquement)
+│   ├── build-html.mjs      # intègre vendor + src/app.js dans dist/index.html (polices KaTeX → base64)
+│   └── test-pure.mjs       # tests des fonctions pures du frontend (npm test)
 ├── dist/index.html         # sortie de build : fichier unique entièrement hors ligne (Tauri frontendDist)
-├── vendor/                 # cache de téléchargement (.gitignore)
-├── package.json            # @tauri-apps/cli + scripts
+├── vendor/                 # cache de téléchargement + integrity.json (.gitignore)
+├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/
-    ├── Cargo.toml          # tauri 2 + tauri-plugin-dialog / single-instance
+    ├── Cargo.toml          # tauri 2 + dialog / single-instance + encoding_rs
     ├── build.rs            # tauri_build::build()
     ├── tauri.conf.json     # fenêtre 1200×750, CSP stricte, icônes, association .md, hooks de menu
     ├── capabilities/default.json
     ├── icons/              # jeu d'icônes complet issu de `cargo tauri icon`
-    └── src/{main.rs, lib.rs}   # menus + E/S fichiers + routage multi-fenêtres
+    └── src/{main.rs, lib.rs}   # menus + E/S fichiers + routage multi-fenêtres + écriture atomique / propriété des fichiers
 ```
 
 ---
@@ -172,7 +177,7 @@ markdown/
 | Icônes | remplacer l'image source, puis `npm run icon` |
 | Couleurs du thème / polices | variables CSS `:root` en haut de `app-shell.html` |
 | Éléments de menu | `build_menu()` dans `src-tauri/src/lib.rs` |
-| Chaînes d'interface / doc d'aide | `I18N` / `HELP_STRINGS` dans `app-shell.html` |
+| Chaînes d'interface / doc d'aide | `I18N` / `HELP_STRINGS` dans `src/app.js` |
 | Versions des dépendances | `VERSIONS` en haut de `tools/fetch-vendor.mjs` (puis `npm run fetch -- --force`) |
 
 ---

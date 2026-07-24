@@ -1,0 +1,72 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MDeX",
+  "version": "1.4.0",
+  "identifier": "com.mdex.app",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeDevCommand": "node tools/build-html.mjs",
+    "beforeBuildCommand": "node tools/build-html.mjs"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self'; style-src-attr 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; media-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "MDeX",
+        "width": 1200,
+        "height": 750,
+        "minWidth": 720,
+        "minHeight": 450,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.ico",
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.png"
+    ],
+    "category": "Productivity",
+    "fileAssociations": [
+      { "ext": ["md", "markdown"], "name": "Markdown", "role": "Editor" }
+    ],
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../NOTICE": "NOTICE",
+      "../CHANGELOG.md": "CHANGELOG.md",
+      "../README.md": "README.md",
+      "../README.zh-CN.md": "README.zh-CN.md",
+      "../README.fr.md": "README.fr.md",
+      "../README.de.md": "README.de.md",
+      "../README.ru.md": "README.ru.md",
+      "../README.it.md": "README.it.md",
+      "../README.ja.md": "README.ja.md",
+      "../README.ko.md": "README.ko.md",
+      "../README.es.md": "README.es.md",
+      "../README.pt.md": "README.pt.md",
+      "../README.ar.md": "README.ar.md",
+      "../README.hi.md": "README.hi.md",
+      "../README.pa.md": "README.pa.md",
+      "../README.vi.md": "README.vi.md",
+      "../README.id.md": "README.id.md",
+      "../README.ur.md": "README.ur.md",
+      "../README.mn.md": "README.mn.md"
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

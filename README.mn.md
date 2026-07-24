@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.3.4 (macOS · Windows · Linux · Бүрэн офлайн · Tauri v2)
+# MDeX v1.4.0 (macOS · Windows · Linux · Бүрэн офлайн · Tauri v2)
 
 > **MDeX** · "em-dex" (/ˌemˈdɛks/) гэж дуудна — M үсгийн дараа "dex" гэж бичигдсэн, хоёр үе бүхий үг.
 
@@ -145,20 +145,25 @@ macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linu
 
 ```
 markdown/
-├── app-shell.html          # фронтэнд эх (HTML+CSS+JS, бүх аппын логик)
+├── app-shell.html          # фронтэнд бүрхүүл (HTML+CSS); аппын логик src/app.js-д байна
+├── src/
+│   ├── app.js              # аппын логик (// @ts-check; build-html.mjs-ээр dist рүү шингээгдсэн)
+│   └── globals.d.ts        # төрлийн шалгалтын vendor / Window төрлийн тунхаглалууд
+├── tsconfig.json           # төрлийн шалгалтын тохиргоо (tsc --noEmit; bundlerгүй)
 ├── tools/
-│   ├── fetch-vendor.mjs    # нэг удаа: deps-ийг vendor/ рүү татах (зөвхөн энд онлайн)
-│   └── build-html.mjs      # vendor-ийг dist/index.html рүү шингээх (KaTeX фонтууд → base64)
+│   ├── fetch-vendor.mjs    # нэг удаа: deps-ийг vendor/ рүү татах + бүрэн бүтэн байдлын түгжээ (зөвхөн энд онлайн)
+│   ├── build-html.mjs      # vendor + src/app.js-ийг dist/index.html рүү шингээх (KaTeX фонтууд → base64)
+│   └── test-pure.mjs       # фронтэндийн цэвэр функцын тестүүд (npm test)
 ├── dist/index.html         # бүтээгдэхүүний гаралт: бүрэн офлайн нэг файл (Tauri frontendDist)
-├── vendor/                 # татаж авах кэш (.gitignore)
-├── package.json            # @tauri-apps/cli + скриптүүд
+├── vendor/                 # татаж авах кэш + integrity.json (.gitignore)
+├── package.json            # @tauri-apps/cli + typescript(dev) + скриптүүд
 └── src-tauri/
-    ├── Cargo.toml          # tauri 2 + tauri-plugin-dialog / single-instance
+    ├── Cargo.toml          # tauri 2 + dialog / single-instance + encoding_rs
     ├── build.rs            # tauri_build::build()
     ├── tauri.conf.json     # 1200×750 цонх, хатуу CSP, icon-ууд, .md холбоо, цэсний hook
     ├── capabilities/default.json
     ├── icons/              # `cargo tauri icon`-оос бүрэн icon олонлог
-    └── src/{main.rs, lib.rs}   # цэс + файл IO + олон цонхны чиглүүлэлт
+    └── src/{main.rs, lib.rs}   # цэс + файл IO + олон цонхны чиглүүлэлт + атомыг бичих / файлын өмчлөл
 ```
 
 ---
@@ -172,7 +177,7 @@ markdown/
 | Icon-ууд | эх зургийг солиод, дараа нь `npm run icon` |
 | Загварын өнгө / фонт | `app-shell.html`-ийн дээрх `:root` CSS хувьсагчууд |
 | Цэсний зүйлс | `src-tauri/src/lib.rs` дахь `build_menu()` |
-| UI бичвэрүүд / тусламжийн баримт | `app-shell.html` дахь `I18N` / `HELP_STRINGS` |
+| UI бичвэрүүд / тусламжийн баримт | `src/app.js` дахь `I18N` / `HELP_STRINGS` |
 | Хамаатлагийн хувилбарууд | `tools/fetch-vendor.mjs`-ийн дээрх `VERSIONS` (дараа нь `npm run fetch -- --force`) |
 
 ---

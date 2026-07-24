@@ -5,7 +5,7 @@
 
 </details>
 
-# MDeX v1.3.4（macOS · Windows · Linux · 完全离线 · Tauri v2）
+# MDeX v1.4.0（macOS · Windows · Linux · 完全离线 · Tauri v2）
 
 > **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
 
@@ -136,7 +136,7 @@ macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linu
 
 ## 🛠️ 从源码构建
 
-源代码: <https://github.com/fwzheng/mdex>. 请按照仓库中的说明进行编译（初始环境、依赖与构建命令均在仓库文档中）。
+源代码: <https://github.com/fwzheng/mdex>. 一次性准备：`npm install` → `npm run fetch`（下载 vendor，带完整性锁）→ `npm run build:html`（把 vendor + `src/app.js` 内联进 `dist/index.html`）→ `cargo tauri dev` / `cargo tauri build`。测试：`npm test`（前端）· `npx tsc --noEmit`（类型）· `cd src-tauri && cargo test --lib`（后端）。
 
 ---
 
@@ -144,20 +144,25 @@ macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linu
 
 ```
 markdown/
-├── app-shell.html          # 前端源文件（HTML+CSS+JS，含全部应用逻辑）
+├── app-shell.html          # 前端外壳（HTML+CSS）；应用逻辑在 src/app.js
+├── src/
+│   ├── app.js              # 应用逻辑（// @ts-check；由 build-html.mjs 内联进 dist）
+│   └── globals.d.ts        # vendor / Window 类型声明（供类型检查）
+├── tsconfig.json           # 类型检查配置（tsc --noEmit；无打包器）
 ├── tools/
-│   ├── fetch-vendor.mjs    # 一次性下载依赖到 vendor/（仅准备阶段联网）
-│   └── build-html.mjs      # 把 vendor 内联进 dist/index.html（KaTeX 字体→base64）
+│   ├── fetch-vendor.mjs    # 一次性下载依赖到 vendor/ + 完整性锁（仅准备阶段联网）
+│   ├── build-html.mjs      # 把 vendor + src/app.js 内联进 dist/index.html（KaTeX 字体→base64）
+│   └── test-pure.mjs       # 前端纯函数测试（npm test）
 ├── dist/index.html         # 构建产物：完全离线的单文件（Tauri 的 frontendDist）
-├── vendor/                 # 下载缓存（.gitignore）
-├── package.json            # @tauri-apps/cli + 脚本
+├── vendor/                 # 下载缓存 + integrity.json（.gitignore）
+├── package.json            # @tauri-apps/cli + typescript(dev) + 脚本
 └── src-tauri/
-    ├── Cargo.toml          # tauri 2 + tauri-plugin-dialog / single-instance
+    ├── Cargo.toml          # tauri 2 + dialog / single-instance + encoding_rs
     ├── build.rs            # tauri_build::build()
     ├── tauri.conf.json     # 窗口 1200×750、严格 CSP、图标、.md 关联、菜单钩子
     ├── capabilities/default.json
     ├── icons/              # cargo tauri icon 生成的全套图标
-    └── src/{main.rs, lib.rs}   # 菜单 + 文件读写 + 多窗口路由
+    └── src/{main.rs, lib.rs}   # 菜单 + 文件读写 + 多窗口路由 + 原子写 / 文件所有权
 ```
 
 ---
@@ -171,8 +176,9 @@ markdown/
 | 图标 | 替换源图后 `npm run icon` |
 | 主题色 / 字体 | `app-shell.html` 顶部 `:root` CSS 变量 |
 | 菜单项 | `src-tauri/src/lib.rs` 的 `build_menu()` |
-| 界面文案 / 帮助文档 | `app-shell.html` 的 `I18N` / `HELP_STRINGS` |
+| 界面文案 / 帮助文档 | `src/app.js` 的 `I18N` / `HELP_STRINGS` |
 | 依赖版本 | `tools/fetch-vendor.mjs` 顶部 `VERSIONS`（改完 `npm run fetch -- --force`） |
+| 测试 / 类型检查 | `npm test`（前端）· `tsc --noEmit`（类型）· `cargo test --lib`（后端） |
 
 ---
 
