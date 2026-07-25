@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.4.0 (macOS · Windows · Linux · Sepenuhnya Luring · Tauri v2)
+# MDeX v1.4.1 (macOS · Windows · Linux · Sepenuhnya Luring · Tauri v2)
 
 > **MDeX** · diucapkan "em-dex" (/ˌemˈdɛks/) — huruf M diikuti "dex", dua suku kata.
 

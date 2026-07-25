@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v1.4.0 (macOS · Windows · Linux · 完全オフライン · Tauri v2)
+# MDeX v1.4.1 (macOS · Windows · Linux · 完全オフライン · Tauri v2)
 
 > **MDeX** · 「エム・デックス」と発音します（/ˌemˈdɛks/）— アルファベットの M に続けて「dex」、2音節です。
 

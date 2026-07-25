@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.1
+
+> 窗口关闭热修（hotfix）：点窗口关闭按钮（红×）完全无反应，仅 ⌘Q 能退出。
+
+### 修复 / Fixes
+
+- **修复点窗口关闭按钮（红× / 关闭）完全无反应**：主窗口注册了 `onCloseRequested` 拦截器（用于关窗前确认未保存标签）后，Tauri 会无条件挡掉原生关闭、改由 JS 默认动作 `destroy()` 落实关闭；而 `destroy()` 需要 `core:window:allow-destroy` 权限，原 `capabilities/default.json` 只配了 `allow-close`、漏配 `allow-destroy`，导致"放行关闭"被权限系统拒绝、窗口关不掉（⌘W 关标签、⌘Q 退出不经此路径，故不受影响）。补上 `core:window:allow-destroy`。
+  **Fix: clicking the window close button (red ×) did nothing.** With an `onCloseRequested` interceptor registered, Tauri blocks the native close and defers to the JS default action `destroy()`, which requires the `core:window:allow-destroy` capability — missing from `default.json` (only `allow-close` was granted). Closing via the button (and the post-save-confirm path) now works; ⌘W / ⌘Q were unaffected.
+
 ## v1.4.0
 
 > 本版为"硬化 + 架构升级"大版本：集中修复代码审查报告中的数据完整性 / 并发 / 安全 / 性能缺陷，

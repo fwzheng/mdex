@@ -4109,7 +4109,7 @@
     const rows = (arr) => arr.map((r) => "<tr><td><code>" + r.k + "</code></td><td>" + r.a + "</td></tr>").join("");
     return [
       "<p class=\"pron-line\"><strong>MDeX</strong> · " + s.pPron + "</p>",
-      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.4.0") + "</p>",
+      "<p>" + s.pIntro.replace("{ver}", appVersion || "1.4.1") + "</p>",
       "<h2>" + s.hFeatures + "</h2>", pairs(s.features),
       "<h2>" + s.hShortcuts + "</h2>", "<p>" + s.pShortcut + "</p>",
       "<table><tr><th>" + s.thKey + "</th><th>" + s.thAction + "</th></tr>" + rows(s.shortcuts) + "</table>",
