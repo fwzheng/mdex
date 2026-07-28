@@ -1,0 +1,38 @@
+{
+  "versions": {
+    "marked": "12.0.2",
+    "katex": "0.16.11",
+    "highlightjs": "11.9.0",
+    "dompurify": "3.1.6",
+    "jspdf": "2.5.2",
+    "svg2pdf.js": "2.7.0",
+    "html2canvas-pro": "1.5.3",
+    "turndown": "7.2.0",
+    "turndown-plugin-gfm": "1.0.2",
+    "@retorquere/bibtex-parser": "10.0.0",
+    "mermaid": "10.9.3"
+  },
+  "generated": "2026-07-19T04:16:55.303Z",
+  "fonts": [
+    "KaTeX_AMS-Regular.woff2",
+    "KaTeX_Caligraphic-Bold.woff2",
+    "KaTeX_Caligraphic-Regular.woff2",
+    "KaTeX_Fraktur-Bold.woff2",
+    "KaTeX_Fraktur-Regular.woff2",
+    "KaTeX_Main-Bold.woff2",
+    "KaTeX_Main-BoldItalic.woff2",
+    "KaTeX_Main-Italic.woff2",
+    "KaTeX_Main-Regular.woff2",
+    "KaTeX_Math-BoldItalic.woff2",
+    "KaTeX_Math-Italic.woff2",
+    "KaTeX_SansSerif-Bold.woff2",
+    "KaTeX_SansSerif-Italic.woff2",
+    "KaTeX_SansSerif-Regular.woff2",
+    "KaTeX_Script-Regular.woff2",
+    "KaTeX_Size1-Regular.woff2",
+    "KaTeX_Size2-Regular.woff2",
+    "KaTeX_Size3-Regular.woff2",
+    "KaTeX_Size4-Regular.woff2",
+    "KaTeX_Typewriter-Regular.woff2"
+  ]
+}
