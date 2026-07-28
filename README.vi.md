@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v1.4.1 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
-Một trình đọc & soạn thảo Markdown ưu tiên ngoại tuyến, dành cho môi trường **không mạng / nội bộ / mất kết nối**. Mọi tệp đều được xử lý cục bộ — **không mạng, không tải lên, không đồng bộ đám mây**.
+Một trình đọc & soạn thảo Markdown ưu tiên ngoại tuyến, dành cho môi trường **không mạng / nội bộ / mất kết nối**. Mọi tệp đều được xử lý cục bộ — **không mạng, không tải lên, không đồng bộ đám mây**. Kể từ v2.0, MDeX cũng cung cấp tính năng viết lại hỗ trợ AI tùy chọn — và có thể vẫn hoàn toàn ngoại tuyến: một mô hình cục bộ (ví dụ Ollama) không cần internet; chỉ dịch vụ AI trực tuyến (OpenAI / Anthropic) mới tạo yêu cầu mạng, và chỉ khi bạn cấu hình và kích hoạt nó.
 
 - Một giao diện diện HTML khép kín đơn lẻ (không dùng Vue / React); Tauri v2 chỉ cung cấp lớp vỏ gốc (cửa sổ, menu, hộp thoại tệp).
 - **Không có yêu cầu mạng khi chạy**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` và toàn bộ font woff2 của KaTeX đều được nhúng / base64-nhúng vào một `index.html` duy nhất.
@@ -75,6 +75,7 @@ Dùng `⌘` trên macOS, `Ctrl` trên Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Mở rộng chọn cột |
 | `Esc` | Hủy chọn cột |
 | `⌘/Ctrl + =/−/0` | Thu phóng khung cuối cùng được nhấp (trình soạn thảo hoặc xem trước): phóng to / thu nhỏ / đặt lại |
+| `⌘/Ctrl + J` | Viết lại AI |
 
 > Khi có nhiều cửa sổ đang mở, phím tắt chỉ tác động lên cửa sổ đang được tiêu điểm. Khi cửa sổ trình xem hình ảnh đang mở, `⌘/Ctrl + =/−/0` thu phóng hình ảnh.
 

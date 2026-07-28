@@ -146,6 +146,9 @@
   }
   #editor-hl mark.search-mark { background: rgba(255, 213, 79, .45); color: transparent; border-radius: 2px; }
   #editor-hl mark.search-mark.current { background: rgba(255, 152, 0, .9); animation: search-flash .9s ease-out; }
+  #editor-hl mark.ai-sel { background: rgba(88,166,255,.22); color: transparent; border-radius: 2px; }
+  /* 插入模式（无选区）：零宽 mark 显示成蓝色光标竖条，提示插入位置 */
+  #editor-hl mark.ai-sel:empty { display: inline-block; width: 2px; height: 1.3em; background: var(--accent); color: var(--accent); vertical-align: -0.25em; border-radius: 1px; }
   #preview mark.search-mark { background: rgba(255, 213, 79, .5); border-radius: 2px; }
   #preview mark.search-mark.current { background: rgba(255, 152, 0, .85); animation: search-flash .9s ease-out; }
   @keyframes search-flash {
@@ -465,6 +468,84 @@
     border-radius: 5px; cursor: pointer; transition: transform .08s;
   }
   .color-sw:hover { transform: scale(1.18); }
+  /* ---------- AI 改写 ---------- */
+  /* 选区定位镜像层：与 #editor 同框/同字体/同换行，不滚动，仅用于测量选区像素矩形（见 verify-selection-pos.html）。 */
+  #ai-mirror {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden;
+    box-sizing: border-box; padding: 20px 24px; margin: 0; border: 0;
+    font-family: var(--mono); font-size: 14px; line-height: 1.7; tab-size: 2;
+    white-space: pre-wrap; word-break: break-word; color: transparent; visibility: hidden;
+  }
+  /* 选区高亮覆盖层（浮层打开时显示正在处理的选区，半透明蓝，类原生选区） */
+  #ai-sel-mark { position: absolute; z-index: 3; pointer-events: none; border-radius: 2px;
+    background: rgba(88,166,255,.22); border: 1px solid rgba(88,166,255,.55); }
+  /* 选区下方指令浮层 */
+  #ai-pop {
+    position: fixed; z-index: 50; width: 360px; max-width: calc(100vw - 16px); max-height: calc(100vh - 24px);
+    background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.22); padding: 10px; font-family: system-ui, sans-serif; font-size: 13px;
+  }
+  #ai-pop .ai-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  #ai-pop #ai-status { color: var(--fg-muted); font-size: 12px; flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #ai-pop .ai-pop-x { background: none; border: 0; color: var(--fg-muted); cursor: pointer;
+    font-size: 16px; line-height: 1; padding: 0 4px; }
+  #ai-pop .ai-pop-x:hover { color: var(--fg); }
+  #ai-input { width: 100%; box-sizing: border-box; resize: none; font: inherit; font-size: 13px;
+    padding: 7px 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--fg); outline: 0; }
+  #ai-input:focus { border-color: var(--accent); }
+  #ai-pop .ai-pop-bar { display: flex; gap: 6px; margin-top: 8px; }
+  /* 两区：编辑区 + 对话区 */
+  #ai-pop .ai-zone { margin-bottom: 8px; }
+  #ai-pop .ai-zone-label { font-size: 11px; color: var(--fg-muted); margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; }
+  #ai-pop .ai-zone-actions { display: flex; gap: 4px; }
+  #ai-pop .ai-mini { background: var(--bg); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; padding: 2px 8px; font: inherit; font-size: 11px; cursor: pointer; }
+  #ai-pop .ai-mini:hover { border-color: var(--accent); color: var(--accent); }
+  #ai-pop .ai-mini:disabled { opacity: .4; cursor: default; }
+  /* 编辑区：当前改写版本，与原文 diff 高亮 */
+  #ai-pop .ai-edit-body { padding: 8px 9px; max-height: 160px; overflow: auto;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    font: 12.5px/1.6 var(--mono); color: var(--fg); white-space: pre-wrap; word-break: break-word; }
+  #ai-pop .ai-edit-body ins { background: rgba(63,185,80,.28); color: #3fb950; text-decoration: none; border-radius: 2px; padding: 0 1px; }
+  #ai-pop .ai-edit-body del { color: #f85149; text-decoration: line-through; opacity: .65; }
+  /* 对话区：多轮对话流 */
+  #ai-pop .ai-chat { padding: 6px 9px; max-height: 200px; overflow: auto;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 5px; font-size: 12.5px; line-height: 1.5; }
+  #ai-pop .ai-chat .ai-msg { margin: 5px 0; white-space: pre-wrap; word-break: break-word; }
+  #ai-pop .ai-chat .ai-msg-user::before { content: "我："; color: var(--fg-muted); }
+  #ai-pop .ai-chat .ai-msg-ai::before { content: "AI："; color: var(--accent); }
+  #ai-pop .ai-chat .ai-msg-note { color: var(--fg-muted); font-style: italic; }
+  #ai-pop .ai-chat .ai-to-edit { display: block; margin-top: 4px; background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: 11px; padding: 0; }
+  #ai-pop .ai-chat .ai-to-edit:hover { text-decoration: underline; }
+  /* 渲染态 markdown 内容样式（对话区回复 + 编辑区渲染视图） */
+  #ai-pop .ai-md p { margin: 4px 0; }
+  #ai-pop .ai-md h1, #ai-pop .ai-md h2, #ai-pop .ai-md h3 { font-size: 13px; font-weight: 600; margin: 6px 0 3px; }
+  #ai-pop .ai-md ul, #ai-pop .ai-md ol { margin: 4px 0; padding-left: 20px; }
+  #ai-pop .ai-md li { margin: 2px 0; }
+  #ai-pop .ai-md code { background: var(--bg); padding: 1px 4px; border-radius: 3px; font-family: var(--mono); font-size: 12px; }
+  #ai-pop .ai-md pre { background: var(--bg); padding: 6px 8px; border-radius: 4px; overflow-x: auto; margin: 4px 0; font-size: 12px; }
+  #ai-pop .ai-md pre code { background: none; padding: 0; }
+  #ai-pop .ai-md blockquote { border-left: 3px solid var(--border); padding-left: 8px; margin: 4px 0; color: var(--fg-muted); }
+  #ai-pop .ai-md a { color: var(--accent); }
+  #ai-pop .ai-md table { border-collapse: collapse; margin: 4px 0; }
+  #ai-pop .ai-md th, #ai-pop .ai-md td { border: 1px solid var(--border); padding: 3px 6px; }
+  #ai-pop .ai-md .mermaid-wrap svg { max-width: 100%; height: auto; }
+  #ai-pop .ai-md .mermaid-err { color: var(--fg-muted); font-size: 11px; }
+  /* AI 设置 modal */
+  #ai-settings-mask .modal-card { width: 420px; max-width: calc(100% - 32px); }
+  .ai-field { margin-bottom: 10px; }
+  .ai-field label { display: block; font-size: 12px; color: var(--fg-muted); margin-bottom: 3px; }
+  .ai-field input, .ai-field select { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
+    padding: 6px 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--fg); outline: 0; }
+  .ai-field input:focus, .ai-field select:focus { border-color: var(--accent); }
+  .ai-hint { font-size: 11px; color: var(--fg-muted); line-height: 1.5; margin: 4px 0 10px; }
+  /* 右键迷你菜单（有选区才弹） */
+  #ai-ctx { position: fixed; z-index: 9; min-width: 150px; background: var(--bg-alt);
+    border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    padding: 4px; font-family: system-ui, sans-serif; font-size: 13px; }
+  #ai-ctx button { display: block; width: 100%; text-align: left; background: none; border: 0;
+    color: var(--fg); padding: 6px 10px; border-radius: 4px; cursor: pointer; font: inherit; font-size: 13px; }
+  #ai-ctx button:hover { background: var(--bg); }
 </style>
 </head>
 <body>
@@ -505,6 +586,9 @@
       <div class="color-pop" id="color-pop" hidden></div>
     </span>
   </div>
+  <div class="group">
+    <button class="btn icon" data-act="ai-rewrite" data-i18n-title="aiRewrite" title="AI 改写">✨</button>
+  </div>
   <div class="spacer"></div>
   <div class="group">
     <button class="btn" id="view-mode" data-i18n-title="split" title="分屏">分屏</button>
@@ -515,7 +599,6 @@
         <button class="bib-pop-item" id="bib-unload" data-i18n="bibUnloadBtn">卸载文献库</button>
       </div>
     </span>
-    <button class="btn" id="sync-btn" data-i18n-title="sync">同步:开</button>
     <button class="btn" id="theme-btn" data-i18n-title="themeDark">🌙 深色</button>
   </div>
 </div>
@@ -540,7 +623,34 @@
     </div>
     <div class="editor-area">
       <div id="editor-hl" aria-hidden="true"></div>
+      <div id="ai-mirror" aria-hidden="true"></div>
       <textarea id="editor" spellcheck="false" data-i18n-ph="ph" placeholder=""></textarea>
+      <!-- 选区高亮覆盖层：浮层打开期间显示「正在处理的选区」（编辑区失焦后原生高亮消失，用此补偿） -->
+      <div id="ai-sel-mark" hidden></div>
+      <!-- AI 改写浮层（锚定在选区下方） -->
+      <div id="ai-pop" hidden>
+        <div class="ai-pop-head"><span id="ai-status"></span><button class="ai-pop-x" id="ai-pop-close" title="关闭">×</button></div>
+        <!-- 编辑区：当前改写版本（与原文 diff 高亮），有选区或已生成内容时显示 -->
+        <div id="ai-edit-zone" class="ai-zone" hidden>
+          <div class="ai-zone-label"><span data-i18n="aiEditZone">编辑区</span>
+            <span class="ai-zone-actions">
+              <button class="btn icon" id="ai-edit-undo" data-i18n-title="aiEditUndo" title="回退"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h8a6 6 0 0 1 6 6"/></svg></button>
+              <button class="btn icon" id="ai-edit-redo" data-i18n-title="aiEditRedo" title="前进"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M20 9h-8a6 6 0 0 0-6 6"/></svg></button>
+              <button class="ai-mini" id="ai-edit-view" data-i18n-title="aiViewRender" title="源码/渲染切换">渲染</button>
+              <button class="ai-mini" id="ai-apply" data-i18n="aiApply" hidden>应用到文档</button>
+              <button class="ai-mini" id="ai-insert" data-i18n="aiInsert" hidden>在光标处插入</button>
+            </span>
+          </div>
+          <div id="ai-edit-body" class="ai-edit-body"></div>
+        </div>
+        <!-- 对话区：多轮对话流 -->
+        <div class="ai-zone">
+          <div class="ai-zone-label" data-i18n="aiChatZone">对话</div>
+          <div id="ai-chat" class="ai-chat"></div>
+        </div>
+        <textarea id="ai-input" rows="2" data-i18n-ph="aiPh" placeholder=""></textarea>
+        <div class="ai-pop-bar"><button class="btn" id="ai-send" data-i18n="aiSend">发送</button><button class="btn" id="ai-discard" data-i18n="aiDiscard">关闭</button></div>
+      </div>
     </div>
   </div>
   <div class="gutter" id="gutter"></div>
@@ -614,6 +724,33 @@
     <div class="help-body" id="help-body"></div>
   </div>
 </div>
+
+<!-- AI 改写设置（端点/模型/温度/Key，存 localStorage；Key 单独存 md-ai-key，不纳入会话备份） -->
+<div class="modal-mask" id="ai-settings-mask" hidden>
+  <div class="modal-card">
+    <div class="modal-msg" data-i18n="aiSettingsTitle" style="font-weight:600;">AI 改写设置</div>
+    <div class="ai-hint" data-i18n="aiSettingsHint"></div>
+    <div class="ai-field"><label data-i18n="aiProvider">协议 / 提供商</label>
+      <select id="ai-set-provider">
+        <option value="openai">OpenAI 兼容（OpenAI / DeepSeek / 智谱 / Ollama …）</option>
+        <option value="anthropic">Anthropic（Claude）</option>
+      </select>
+    </div>
+    <div class="ai-field"><label data-i18n="aiEndpoint">端点 (Base URL)</label><input id="ai-set-endpoint" placeholder="https://api.openai.com/v1"></div>
+    <div class="ai-field"><label data-i18n="aiModel">模型</label><input id="ai-set-model" placeholder="gpt-4o-mini"></div>
+    <div class="ai-field"><label data-i18n="aiTemp">温度 (0–2)</label><input id="ai-set-temp" type="number" min="0" max="2" step="0.1"></div>
+    <div class="ai-field"><label data-i18n="aiKey">API Key</label><input id="ai-set-key" type="password" placeholder="sk-…"></div>
+    <div class="modal-actions" style="margin-top:6px;">
+      <button class="btn" id="ai-test-btn" data-i18n="aiTest">测试连接</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="ai-settings-cancel" data-i18n="cancel">取消</button>
+      <button class="btn primary" id="ai-settings-save" data-i18n="save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 右键迷你菜单（编辑区有选区时弹，仅 AI 改写） -->
+<div id="ai-ctx" hidden><button id="ai-ctx-item" data-i18n="aiRewrite">✨ AI 改写</button></div>
 
 <!-- Mermaid 图查看器：点击渲染区 mermaid 图弹出大图，支持缩放/平移/全屏。文案由 mermaidI18n() 注入。 -->
 <div class="modal-mask mv-mask" id="mermaid-viewer" hidden>

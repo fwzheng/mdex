@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v1.4.1 (macOS · Windows · Linux · vollständig offline · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · vollständig offline · Tauri v2)
 
 > **MDeX** · ausgesprochen „em-dex" (/ˌemˈdɛks/) — der Buchstabe M gefolgt von „dex", zwei Silben.
 
-Ein offline-orientierter Markdown-Reader & Editor für den **Air-Gap-/Intranet-/Getrennt-Betrieb**. Jede Datei wird lokal verarbeitet — **kein Netzwerk, keine Uploads, keine Cloud-Synchronisation**.
+Ein offline-orientierter Markdown-Reader & Editor für den **Air-Gap-/Intranet-/Getrennt-Betrieb**. Jede Datei wird lokal verarbeitet — **kein Netzwerk, keine Uploads, keine Cloud-Synchronisation**. Seit v2.0 bietet MDeX zusätzlich ein optionales, AI-gestütztes Umschreiben an — und das kann vollständig offline bleiben: ein lokales Modell (z. B. Ollama) benötigt kein Internet; nur ein Online-AI-Dienst (OpenAI / Anthropic) führt eine Anfrage aus, und auch das nur, wenn Sie ihn konfigurieren und aktiv aufrufen.
 
 - Ein einzelnes, in sich geschlossenes HTML-Frontend (ohne Vue / React); Tauri v2 stellt lediglich die native Hülle bereit (Fenster, Menüs, Dateidialoge).
 - **Keine einzigen Netzwerk-Anfragen zur Laufzeit**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` sowie sämtliche KaTeX-woff2-Fonts sind inline / base64-eingebettet in einer einzigen `index.html`.
@@ -75,6 +75,7 @@ Auf macOS `⌘`, auf Windows / Linux `Ctrl` verwenden.
 | `Alt/Option + Shift + ←↑↓→` | Spaltenauswahl erweitern |
 | `Esc` | Spaltenauswahl abbrechen |
 | `⌘/Ctrl + =/−/0` | Den zuletzt geklickten Bereich (Editor oder Vorschau) zoomen: vergrößern / verkleinern / zurücksetzen |
+| `⌘/Ctrl + J` | AI-Umschreiben |
 
 > Bei mehreren offenen Fenstern wirken sich Tastenkürzel nur auf das fokussierte Fenster aus. Wenn das Bildanzeige-Fenster geöffnet ist, zoomt `⌘/Ctrl + =/−/0` stattdessen das Bild.
 

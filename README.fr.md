@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v1.4.1 (macOS · Windows · Linux · Entièrement hors ligne · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · Entièrement hors ligne · Tauri v2)
 
 > **MDeX** · se prononce « em-dex » (/ˌemˈdɛks/) — la lettre M suivie de « dex », deux syllabes.
 
-Un lecteur et éditeur Markdown pensé d'abord pour le hors-ligne, conçu pour un usage **isolé (air-gapped) / intranet / déconnecté**. Chaque fichier est traité localement — **pas de réseau, pas d'envoi de données, pas de synchronisation cloud**.
+Un lecteur et éditeur Markdown pensé d'abord pour le hors-ligne, conçu pour un usage **isolé (air-gapped) / intranet / déconnecté**. Chaque fichier est traité localement — **pas de réseau, pas d'envoi de données, pas de synchronisation cloud**. Depuis la v2.0, MDeX propose également une réécriture assistée par AI en option — et elle peut rester entièrement hors ligne : un modèle local (par ex. Ollama) n'a besoin d'aucune connexion ; seul un service d'AI en ligne (OpenAI / Anthropic) émet une requête, et uniquement lorsque vous le configurez et le déclenchez.
 
 - Un frontend HTML autonome en un seul fichier (sans Vue / React) ; Tauri v2 ne fournit que l'enveloppe native (fenêtres, menus, boîtes de dialogue de fichiers).
 - **Zéro requête réseau à l'exécution** : `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` ainsi que toutes les polices woff2 de KaTeX sont intégrés / embarqués en base64 dans un seul `index.html`.
@@ -75,6 +75,7 @@ Utilisez `⌘` sur macOS, `Ctrl` sur Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Étendre la sélection en colonne |
 | `Esc` | Annuler la sélection en colonne |
 | `⌘/Ctrl + =/−/0` | Zoomer le dernier volet cliqué (éditeur ou aperçu) : agrandir / réduire / réinitialiser |
+| `⌘/Ctrl + J` | Réécriture IA |
 
 > Avec plusieurs fenêtres ouvertes, les raccourcis n'affectent que la fenêtre ayant le focus. Lorsque la fenêtre de visualisation d'images est ouverte, `⌘/Ctrl + =/−/0` zoome l'image à la place.
 

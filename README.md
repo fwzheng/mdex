@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v1.4.1 (macOS · Windows · Linux · Fully Offline · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · Fully Offline · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
-An offline-first Markdown reader & editor for **air-gapped / intranet / disconnected** use. Every file is processed locally — **no network, no uploads, no cloud sync, no ads, no telemetry, no data uploads**.
+An offline-first Markdown reader & editor for **air-gapped / intranet / disconnected** use. Every file is processed locally — **no network, no uploads, no cloud sync, no ads, no telemetry, no data uploads**. Since v2.0, MDeX also offers optional AI-assisted rewriting — and it can stay fully offline: a local model (e.g., Ollama) needs no internet; only an online AI service (OpenAI / Anthropic) makes a request, and only when you configure and trigger it.
 
 - A single self-contained HTML frontend (no Vue / React); Tauri v2 provides only the native shell (windows, menus, file dialogs).
 - **Zero runtime network requests**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` and all KaTeX woff2 fonts are inlined / base64-embedded into a single `index.html`.
@@ -75,6 +75,7 @@ Use `⌘` on macOS, `Ctrl` on Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Extend column select |
 | `Esc` | Cancel column select |
 | `⌘/Ctrl + =/−/0` | Zoom the last-clicked pane (editor or preview) in / out / reset |
+| `⌘/Ctrl + J` | AI rewrite |
 
 > With multiple windows open, shortcuts only affect the focused window. When the image viewer window is open, `⌘/Ctrl + =/−/0` zooms the image instead.
 

@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v1.4.1 (macOS · Windows · Linux · 완전 오프라인 · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · 완전 오프라인 · Tauri v2)
 
 > **MDeX** · "em-dex"(/ˌemˈdɛks/)로 발음 — 글자 M 뒤에 "dex"가 오는 2음절 단어입니다.
 
-**폐쇄망 / 인트라넷 / 연결 끊김** 환경을 위한 오프라인 우선 Markdown 리더 및 에디터입니다. 모든 파일은 로컬에서 처리됩니다 — **네트워크 없음, 업로드 없음, 클라우드 동기화, 광고 없음, 원격 측정 없음, 데이터 업로드 없음 없음**.
+**폐쇄망 / 인트라넷 / 연결 끊김** 환경을 위한 오프라인 우선 Markdown 리더 및 에디터입니다. 모든 파일은 로컬에서 처리됩니다 — **네트워크 없음, 업로드 없음, 클라우드 동기화, 광고 없음, 원격 측정 없음, 데이터 업로드 없음 없음**. v2.0부터 MDeX는 선택적 AI 보조 재작성 기능도 제공합니다 — 완전히 오프라인으로 유지할 수 있습니다: 로컬 모델(예: Ollama)은 인터넷이 필요 없으며, 온라인 AI 서비스(OpenAI / Anthropic)만이 요청을 발생시키고, 그것도 사용자가 구성하여 호출할 때뿐입니다.
 
 - 단일 자체 포함형 HTML 프론트엔드(Vue / React 없음); Tauri v2는 네이티브 셸(창, 메뉴, 파일 대화상자)만 제공합니다.
 - **런타임 네트워크 요청 제로**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` 와 모든 KaTeX woff2 폰트가 단일 `index.html` 에 인라인 / base64 임베드됩니다.
@@ -75,6 +75,7 @@ macOS에서는 `⌘`, Windows / Linux에서는 `Ctrl` 를 사용하세요.
 | `Alt/Option + Shift + ←↑↓→` | 열 선택 확장 |
 | `Esc` | 열 선택 취소 |
 | `⌘/Ctrl + =/−/0` | 마지막으로 클릭한 창(에디터 또는 미리보기) 확대/축소: 확대 / 축소 / 재설정 |
+| `⌘/Ctrl + J` | AI 다시 쓰기 |
 
 > 여러 창이 열려 있을 때, 단축키는 포커스된 창에만 적용됩니다. 이미지 뷰어 창이 열려 있을 때, `⌘/Ctrl + =/−/0`은 이미지를 확대/축소합니다.
 

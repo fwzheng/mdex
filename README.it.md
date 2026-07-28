@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v1.4.1 (macOS · Windows · Linux · Completamente offline · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · Completamente offline · Tauri v2)
 
 > **MDeX** · si pronuncia "em-dex" (/ˌemˈdɛks/) — la lettera M seguita da "dex", due sillabe.
 
-Un lettore ed editor Markdown offline-first per uso in **reti isolate / intranet / senza connessione**. Ogni file viene elaborato localmente — **nessuna rete, nessun caricamento, nessuna sincronizzazione cloud**.
+Un lettore ed editor Markdown offline-first per uso in **reti isolate / intranet / senza connessione**. Ogni file viene elaborato localmente — **nessuna rete, nessun caricamento, nessuna sincronizzazione cloud**. A partire dalla v2.0, MDeX offre anche la riscrittura assistita da AI opzionale — e può rimanere completamente offline: un modello locale (es. Ollama) non necessita di internet; solo un servizio AI online (OpenAI / Anthropic) effettua una richiesta, e solo quando lo configuri e lo attivi.
 
 - Un singolo frontend HTML autonomo (niente Vue / React); Tauri v2 fornisce solo la shell nativa (finestre, menu, finestre di dialogo file).
 - **Zero richieste di rete a runtime**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` e tutti i font woff2 di KaTeX sono inline / incorporati in base64 in un unico `index.html`.
@@ -75,6 +75,7 @@ Usa `⌘` su macOS, `Ctrl` su Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Estendi selezione colonna |
 | `Esc` | Annulla selezione colonna |
 | `⌘/Ctrl + =/−/0` | Zoom sull'ultimo riquadro cliccato (editor o anteprima): ingrandisci / riduci / ripristina |
+| `⌘/Ctrl + J` | Riscrittura AI |
 
 > Con più finestre aperte, le scorciatoie interessano solo la finestra in primo piano. Quando la finestra del visualizzatore di immagini è aperta, `⌘/Ctrl + =/−/0` ingrandisce l'immagine.
 

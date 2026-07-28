@@ -5,11 +5,11 @@
 
 </details>
 
-# MDeX v1.4.1（macOS · Windows · Linux · 完全离线 · Tauri v2）
+# MDeX v2.0.0（macOS · Windows · Linux · 完全离线 · Tauri v2）
 
 > **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
 
-一个面向 **离线 / 内网 / 隐私保护** 场景的 Markdown 阅读编辑器。所有文件都在本地处理，**不联网、不上传、无云端同步、无广告、无遥测、无数据上传**。
+一个面向 **离线 / 内网 / 隐私保护** 场景的 Markdown 阅读编辑器。所有文件都在本地处理，**不联网、不上传、无云端同步、无广告、无遥测、无数据上传**。自 v2.0 起，MDeX 还提供可选的 AI 辅助重写功能——并且仍可保持完全离线：本地模型（如 Ollama）无需联网；只有在线 AI 服务（OpenAI / Anthropic）才会发起请求，且仅在你配置并主动触发时。
 
 - 纯前端单 HTML（无 Vue / React），Tauri v2 仅提供原生外壳（窗口、菜单、文件对话框）。
 - **运行时零网络请求**：`marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` 及 KaTeX 全部 woff2 字体，均以内联 / base64 方式打进单个 `index.html`。
@@ -74,6 +74,7 @@ macOS 用 `⌘`，Windows / Linux 用 `Ctrl`。
 | `Alt/Option + Shift + ←↑↓→` | 扩展列选取 |
 | `Esc` | 取消列选取 |
 | `⌘/Ctrl + =/−/0` | 放大 / 缩小 / 重置（作用最后点击的窗格：编辑区或预览区）|
+| `⌘/Ctrl + J` | AI 改写 |
 
 > 多窗口下，快捷键只作用于当前焦点窗口。图查看器窗口打开时，`⌘/Ctrl + =/−/0` 缩放图片。
 
