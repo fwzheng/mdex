@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Entièrement hors ligne · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · Prêt hors ligne · Tauri v2)
 
 > **MDeX** · se prononce « em-dex » (/ˌemˈdɛks/) — la lettre M suivie de « dex », deux syllabes.
 
-Un lecteur et éditeur Markdown pensé d'abord pour le hors-ligne, conçu pour un usage **isolé (air-gapped) / intranet / déconnecté**. Chaque fichier est traité localement — **pas de réseau, pas d'envoi de données, pas de synchronisation cloud**. Depuis la v2.0, MDeX propose également une réécriture assistée par AI en option — et elle peut rester entièrement hors ligne : un modèle local (par ex. Ollama) n'a besoin d'aucune connexion ; seul un service d'AI en ligne (OpenAI / Anthropic) émet une requête, et uniquement lorsque vous le configurez et le déclenchez.
+Un lecteur et éditeur Markdown multilingue pensé pour un usage **isolé (air-gapped) / intranet / axé confidentialité**, centré sur la **confidentialité et l'assistance AI**. Chaque fichier est traité localement — **par défaut pas de réseau, pas d'envoi, pas de synchronisation cloud, pas de publicité, pas de télémétrie** ; les enregistrements atomiques (résistants aux plantages) évitent toute perte de données en cas de plantage ou de coupure de courant. Depuis la v2.0, MDeX propose également une réécriture assistée par AI en option — et elle peut rester entièrement hors ligne : un modèle local (par ex. Ollama) n'a besoin d'aucune connexion ; seul un service d'AI en ligne (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) émet une requête, et uniquement lorsque vous le configurez et le déclenchez.
 
 - Un frontend HTML autonome en un seul fichier (sans Vue / React) ; Tauri v2 ne fournit que l'enveloppe native (fenêtres, menus, boîtes de dialogue de fichiers).
 - **Zéro requête réseau à l'exécution** : `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` ainsi que toutes les polices woff2 de KaTeX sont intégrés / embarqués en base64 dans un seul `index.html`.
@@ -155,7 +155,7 @@ markdown/
 │   ├── fetch-vendor.mjs    # une fois : télécharge les dépendances dans vendor/ + verrou d'intégrité (en ligne ici uniquement)
 │   ├── build-html.mjs      # intègre vendor + src/app.js dans dist/index.html (polices KaTeX → base64)
 │   └── test-pure.mjs       # tests des fonctions pures du frontend (npm test)
-├── dist/index.html         # sortie de build : fichier unique entièrement hors ligne (Tauri frontendDist)
+├── dist/index.html         # sortie de build : fichier unique autonome (Tauri frontendDist)
 ├── vendor/                 # cache de téléchargement + integrity.json (.gitignore)
 ├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/

@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Totalmente Offline · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · Pronto para offline · Tauri v2)
 
 > **MDeX** · pronuncia-se "em-dex" (/ˌemˈdɛks/) — a letra M seguida de "dex", duas sílabas.
 
-Um leitor e editor Markdown offline-first para uso em **ambientes isolados / intranet / desconectados**. Cada arquivo é processado localmente — **sem rede, sem uploads, sem sincronização na nuvem, sem anúncios, sem telemetria, sem upload de dados**. A partir da v2.0, o MDeX também oferece reescrita assistida por AI opcional — e pode continuar totalmente offline: um modelo local (ex.: Ollama) não exige internet; apenas um serviço de AI online (OpenAI / Anthropic) faz uma requisição, e somente quando você o configura e aciona.
+Um leitor e editor Markdown multilíngue para uso em **ambientes isolados / intranet / privacidade primeiro**, focado em **privacidade e assistência de AI**. Cada arquivo é processado localmente — **sem rede, sem uploads, sem sincronização na nuvem, sem anúncios, sem telemetria por padrão**; as gravações atómicas (à prova de falhas) evitam perda de dados em caso de falha ou corte de energia. A partir da v2.0, o MDeX também oferece reescrita assistida por AI opcional — e pode continuar totalmente offline: um modelo local (ex.: Ollama) não exige internet; apenas um serviço de AI online (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) faz um pedido, e somente quando o configura e o aciona.
 
 - Um único frontend HTML autossuficiente (sem Vue / React); o Tauri v2 fornece apenas a casca nativa (janelas, menus, diálogos de arquivo).
 - **Zero requisições de rede em tempo de execução**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` e todas as fontes woff2 do KaTeX são embutidas / incorporadas em base64 num único `index.html`.
@@ -155,7 +155,7 @@ markdown/
 │   ├── fetch-vendor.mjs    # uma vez: baixa deps para vendor/ + bloqueio de integridade (online apenas aqui)
 │   ├── build-html.mjs      # embute vendor + src/app.js em dist/index.html (fontes KaTeX → base64)
 │   └── test-pure.mjs       # testes de funções puras do frontend (npm test)
-├── dist/index.html         # saída do build: arquivo único totalmente offline (Tauri frontendDist)
+├── dist/index.html         # saída do build: arquivo único autossuficiente (Tauri frontendDist)
 ├── vendor/                 # cache de downloads + integrity.json (.gitignore)
 ├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/

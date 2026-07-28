@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · 完全オフライン · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · オフライン対応 · Tauri v2)
 
 > **MDeX** · 「エム・デックス」と発音します（/ˌemˈdɛks/）— アルファベットの M に続けて「dex」、2音節です。
 
-**エアギャップ / 社内ネットワーク / 非接続**環境向けのオフラインファーストな Markdown リーダー＆エディタ。すべてのファイルはローカルで処理され、**ネットワーク不要、アップロード不要、クラウド同期、広告なし、テレメトリなし、データ送信なしなし**です。 v2.0 以降、MDeX はオプションで AI 支援によるリライトも提供します — しかも完全にオフラインのまま利用できます: ローカルモデル（例: Ollama）はインターネット不要で、オンラインの AI サービス（OpenAI / Anthropic）だけが、あなたが設定して実行したときに限りリクエストを送信します。
+**エアギャップ / 社内ネットワーク / プライバシー重視**環境向けの、**プライバシーと AI 支援**に重点を置いた多言語 Markdown リーダー＆エディタ。すべてのファイルはローカルで処理され、**デフォルトでネットワーク不要・アップロード不要・クラウド同期なし・広告なし・テレメトリなし**。アトミック（クラッシュ耐性）保存により、クラッシュや停電時にもデータは失われません。v2.0 以降、オプションで AI 支援によるリライトも提供します — しかも完全にオフラインのまま利用できます: ローカルモデル（例: Ollama）はインターネット不要で、オンラインの AI サービス（OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi など）だけが、設定して実行したときに限りリクエストを送信します。
 
 - UIは単一の自己完結した HTML フロントエンド（Vue / React なし）。Tauri v2 はネイティブシェル（ウィンドウ、メニュー、ファイルダイアログ）のみを提供します。
 - **ランタイムのネットワークリクエストがゼロ**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` およびすべての KaTeX woff2 フォントは、単一の `index.html` にインライン化 / base64 埋め込みされています。
@@ -155,7 +155,7 @@ markdown/
 │   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ + integrity lock (online only here)
 │   ├── build-html.mjs      # inline vendor + src/app.js into dist/index.html (KaTeX fonts → base64)
 │   └── test-pure.mjs       # frontend pure-function tests (npm test)
-├── dist/index.html         # build output: fully offline single file (Tauri frontendDist)
+├── dist/index.html         # build output: self-contained single file (Tauri frontendDist)
 ├── vendor/                 # download cache + integrity.json (.gitignore)
 ├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/

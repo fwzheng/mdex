@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · يعمل بالكامل دون اتصال · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · جاهز للعمل دون اتصال · Tauri v2)
 
 > **MDeX** · يُنطق "em-dex" (/ˌemˈdɛks/) — الحرف M يتبعه "dex"، مقطعان لفظيان.
 
-قارئ ومحرر Markdown يعمل أولاً دون اتصال، مصمم للاستخدام في البيئات **المعزولة عن الشبكة / الشبكات الداخلية / دون اتصال خارجي**. تتم معالجة كل ملف محلياً — **لا شبكة، لا رفع للملفات، لا مزامنة سحابية، بدون إعلانات، بدون قياس عن بعد، بدون رفع بيانات**. اعتباراً من v2.0، يقدّم MDeX أيضاً ميزة اختيارية لإعادة الكتابة بمساعدة AI — ويمكنه البقاء دون اتصال بالكامل: النموذج المحلي (مثل Ollama) لا يحتاج إلى إنترنت؛ فقط خدمة AI عبر الإنترنت (OpenAI / Anthropic) تُجري الطلب، وذلك فقط عند تهيئتها وتشغيلها.
+قارئ ومحرر Markdown متعدد اللغات مصمم للاستخدام في البيئات **المعزولة عن الشبكة / الشبكات الداخلية / الخصوصية أولاً**، يركّز على **الخصوصية والمساعدة عبر AI**. تتم معالجة كل ملف محلياً — **افتراضياً لا شبكة، لا رفع للملفات، لا مزامنة سحابية، بدون إعلانات، بدون قياس عن بعد**؛ الحفظ الذري (المقاوم للأعطال) يمنع فقدان البيانات عند الانهيار أو انقطاع التيار. اعتباراً من v2.0، يقدّم MDeX أيضاً ميزة اختيارية لإعادة الكتابة بمساعدة AI — ويمكنه البقاء دون اتصال بالكامل: النموذج المحلي (مثل Ollama) لا يحتاج إلى إنترنت؛ فقط خدمة AI عبر الإنترنت (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi إلخ) تُجري الطلب، وذلك فقط عند تهيئتها وتشغيلها.
 
 - واجهة أمامية بملف HTML واحد مكتفٍ ذاتياً (بدون Vue / React)؛ يوفر Tauri v2 القشرة الأصلية فقط (النوافذ، القوائم، حوارات الملفات).
 - **صفر طلبات شبكة أثناء التشغيل**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` وجميع خطوط KaTeX بصيغة woff2 مُضمَّنة / مُضمَّنة بـ base64 داخل ملف `index.html` واحد.
@@ -155,7 +155,7 @@ markdown/
 │   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ + integrity lock (online only here)
 │   ├── build-html.mjs      # inline vendor + src/app.js into dist/index.html (KaTeX fonts → base64)
 │   └── test-pure.mjs       # frontend pure-function tests (npm test)
-├── dist/index.html         # build output: fully offline single file (Tauri frontendDist)
+├── dist/index.html         # build output: self-contained single file (Tauri frontendDist)
 ├── vendor/                 # download cache + integrity.json (.gitignore)
 ├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/

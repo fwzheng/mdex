@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · पूर्णतः ऑफ़लाइन · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · ऑफ़लाइन-तैयार · Tauri v2)
 
 > **MDeX** · उच्चारण "em-dex" (/ˌemˈdɛks/) — अक्षर M के बाद "dex", दो अक्षर।
 
-**एयर-गैप्ड / इंट्रानेट / डिस्कनेक्टेड** उपयोग के लिए एक ऑफ़लाइन-फ़र्स्ट Markdown रीडर और एडिटर। हर फ़ाइल स्थानीय रूप से प्रोसेस होती है — **कोई नेटवर्क नहीं, कोई अपलोड नहीं, कोई क्लाउड सिंक, बिना विज्ञापन, बिना टेलीमेट्री, बिना डेटा अपलोड नहीं**। v2.0 से, MDeX एक वैकल्पिक AI-सहायित पुनर्लेखन सुविधा भी प्रदान करता है — और यह पूरी तरह ऑफ़लाइन रह सकता है: कोई स्थानीय मॉडल (जैसे Ollama) इंटरनेट की आवश्यकता नहीं रखता; केवल एक ऑनलाइन AI सेवा (OpenAI / Anthropic) ही अनुरोध भेजती है, वह भी केवल तब जब आप उसे कॉन्फ़िगर कर ट्रिगर करें।
+**एयर-गैप्ड / इंट्रानेट / गोपनीयता-प्रथम** उपयोग के लिए, **गोपनीयता और AI सहायता** पर केंद्रित एक बहुभाषी Markdown रीडर और एडिटर। हर फ़ाइल स्थानीय रूप से प्रोसेस होती है — **डिफ़ॉल्ट रूप से कोई नेटवर्क नहीं, कोई अपलोड नहीं, कोई क्लाउड सिंक नहीं, बिना विज्ञापन, बिना टेलीमेट्री**; एटॉमिक (क्रैश-प्रूफ) सेविंग से क्रैश या पावर आउटेज पर डेटा नहीं खोता। v2.0 से, MDeX एक वैकल्पिक AI-सहायित पुनर्लेखन सुविधा भी देता है — और यह पूरी तरह ऑफ़लाइन रह सकता है: कोई स्थानीय मॉडल (जैसे Ollama) इंटरनेट की आवश्यकता नहीं रखता; केवल एक ऑनलाइन AI सेवा (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi आदि) ही अनुरोध भेजती है, वह भी केवल तब जब आप उसे कॉन्फ़िगर कर ट्रिगर करें।
 
 - एक सिंगल सेल्फ़-कंटेन्ड HTML फ्रंटएंड (Vue / React नहीं); Tauri v2 केवल नेटिव शेल (विंडोज़, मेन्यू, फ़ाइल डायलॉग) प्रदान करता है।
 - **ज़ीरो रनटाइम नेटवर्क रिक्वेस्ट**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` तथा सभी KaTeX woff2 फ़ॉन्ट एक ही `index.html` में इनलाइन / base64-एम्बेड किए गए हैं।
@@ -155,7 +155,7 @@ markdown/
 │   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ + integrity lock (online only here)
 │   ├── build-html.mjs      # inline vendor + src/app.js into dist/index.html (KaTeX fonts → base64)
 │   └── test-pure.mjs       # frontend pure-function tests (npm test)
-├── dist/index.html         # build output: fully offline single file (Tauri frontendDist)
+├── dist/index.html         # build output: self-contained single file (Tauri frontendDist)
 ├── vendor/                 # download cache + integrity.json (.gitignore)
 ├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/

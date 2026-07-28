@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Hoàn toàn ngoại tuyến · Tauri v2)
+# MDeX v2.0.0 (macOS · Windows · Linux · Sẵn sàng ngoại tuyến · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
-Một trình đọc & soạn thảo Markdown ưu tiên ngoại tuyến, dành cho môi trường **không mạng / nội bộ / mất kết nối**. Mọi tệp đều được xử lý cục bộ — **không mạng, không tải lên, không đồng bộ đám mây**. Kể từ v2.0, MDeX cũng cung cấp tính năng viết lại hỗ trợ AI tùy chọn — và có thể vẫn hoàn toàn ngoại tuyến: một mô hình cục bộ (ví dụ Ollama) không cần internet; chỉ dịch vụ AI trực tuyến (OpenAI / Anthropic) mới tạo yêu cầu mạng, và chỉ khi bạn cấu hình và kích hoạt nó.
+Một trình đọc & soạn thảo Markdown đa ngôn ngữ dành cho môi trường **không mạng / nội bộ / quyền riêng tư trước**, tập trung vào **quyền riêng tư và hỗ trợ AI**. Mọi tệp đều được xử lý cục bộ — **mặc định không mạng, không tải lên, không đồng bộ đám mây, không quảng cáo, không đo lường từ xa**; lưu nguyên tử (chống sự cố) tránh mất dữ liệu khi sập chương trình hoặc mất điện. Kể từ v2.0, MDeX cũng cung cấp tính năng viết lại hỗ trợ AI tùy chọn — và có thể vẫn hoàn toàn ngoại tuyến: một mô hình cục bộ (ví dụ Ollama) không cần internet; chỉ dịch vụ AI trực tuyến (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi v.v.) mới tạo yêu cầu mạng, và chỉ khi bạn cấu hình và kích hoạt nó.
 
 - Một giao diện diện HTML khép kín đơn lẻ (không dùng Vue / React); Tauri v2 chỉ cung cấp lớp vỏ gốc (cửa sổ, menu, hộp thoại tệp).
 - **Không có yêu cầu mạng khi chạy**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` và toàn bộ font woff2 của KaTeX đều được nhúng / base64-nhúng vào một `index.html` duy nhất.
@@ -155,7 +155,7 @@ markdown/
 │   ├── fetch-vendor.mjs    # một lần: tải deps vào vendor/ + khóa toàn vẹn (chỉ bước này cần mạng)
 │   ├── build-html.mjs      # nhúng vendor + src/app.js vào dist/index.html (font KaTeX → base64)
 │   └── test-pure.mjs       # kiểm thử hàm thuần giao diện (npm test)
-├── dist/index.html         # đầu ra build: tệp đơn hoàn toàn ngoại tuyến (Tauri frontendDist)
+├── dist/index.html         # đầu ra build: tệp đơn độc lập (Tauri frontendDist)
 ├── vendor/                 # bộ nhớ đệm tải về + integrity.json (.gitignore)
 ├── package.json            # @tauri-apps/cli + typescript(dev) + scripts
 └── src-tauri/
