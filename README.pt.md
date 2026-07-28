@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Pronto para offline · Tauri v2)
+# MDeX v2.0.1 (macOS · Windows · Linux · Pronto para offline · Tauri v2)
 
 > **MDeX** · pronuncia-se "em-dex" (/ˌemˈdɛks/) — a letra M seguida de "dex", duas sílabas.
 
-Um leitor e editor Markdown multilíngue para uso em **ambientes isolados / intranet / privacidade primeiro**, focado em **privacidade e assistência de AI**. Cada arquivo é processado localmente — **sem rede, sem uploads, sem sincronização na nuvem, sem anúncios, sem telemetria por padrão**; as gravações atómicas (à prova de falhas) evitam perda de dados em caso de falha ou corte de energia. A partir da v2.0, o MDeX também oferece reescrita assistida por AI opcional — e pode continuar totalmente offline: um modelo local (ex.: Ollama) não exige internet; apenas um serviço de AI online (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) faz um pedido, e somente quando o configura e o aciona.
+Um leitor e editor Markdown multilíngue para uso em **ambientes isolados / intranet / privacidade primeiro**, focado em **privacidade e assistência de AI**. Cada arquivo é processado localmente — **sem rede, sem uploads, sem sincronização na nuvem, sem anúncios, sem telemetria por padrão**; as gravações atómicas (à prova de falhas) evitam perda de dados em caso de falha ou corte de energia. A partir da v2.0, o MDeX também oferece edição auxiliada por IA opcional — e pode continuar totalmente offline: um modelo local (ex.: Ollama) não exige internet; apenas um serviço de AI online (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) faz um pedido, e somente quando o configura e o aciona.
 
 - Um único frontend HTML autossuficiente (sem Vue / React); o Tauri v2 fornece apenas a casca nativa (janelas, menus, diálogos de arquivo).
 - **Zero requisições de rede em tempo de execução**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` e todas as fontes woff2 do KaTeX são embutidas / incorporadas em base64 num único `index.html`.
@@ -49,6 +49,7 @@ A interface é disponibilizada em **17 idiomas**: English, 简体中文, França
 - **Arrastar e soltar**: solte um arquivo `.md` sobre a janela para abri-lo; solte uma imagem para inseri-la.
 - **Exportação**: salvar como Markdown / HTML / PDF (vetorial) / LaTeX.
 - **Cor do texto**: a paleta da barra envolve a seleção em `<span style="color:…">`.
+- **Edição auxiliada por IA**: selecione um trecho de texto e pressione `⌘/Ctrl + J` (ou o botão na barra de ferramentas) para que a IA refine, expanda ou reajuste o tom; funciona com serviços online (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) e com um modelo local como o Ollama para uso totalmente offline; o resultado é pré-visualizado antes de substituir o original, e a chave de API é armazenada apenas localmente.
 - **Voltar / Avançar**: histórico unificado de documentos e posições do cursor; botões ◀ ▶, `Alt+←/→`.
 - **Seguir links**: clicar num link da pré-visualização abre o destino numa nova aba (http no navegador do sistema); o documento atual não é substituído.
 
@@ -75,7 +76,7 @@ Use `⌘` no macOS, `Ctrl` no Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Estender seleção em coluna |
 | `Esc` | Cancelar seleção em coluna |
 | `⌘/Ctrl + =/−/0` | Zoom no último painel clicado (editor ou pré-visualização): aumentar / diminuir / redefinir |
-| `⌘/Ctrl + J` | Reescrita IA |
+| `⌘/Ctrl + J` | Edição auxiliada por IA |
 
 > Com várias janelas abertas, os atalhos afetam apenas a janela em foco. Quando a janela do visualizador de imagens está aberta, `⌘/Ctrl + =/−/0` amplia a imagem em vez disso.
 

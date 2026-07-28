@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Prêt hors ligne · Tauri v2)
+# MDeX v2.0.1 (macOS · Windows · Linux · Prêt hors ligne · Tauri v2)
 
 > **MDeX** · se prononce « em-dex » (/ˌemˈdɛks/) — la lettre M suivie de « dex », deux syllabes.
 
-Un lecteur et éditeur Markdown multilingue pensé pour un usage **isolé (air-gapped) / intranet / axé confidentialité**, centré sur la **confidentialité et l'assistance AI**. Chaque fichier est traité localement — **par défaut pas de réseau, pas d'envoi, pas de synchronisation cloud, pas de publicité, pas de télémétrie** ; les enregistrements atomiques (résistants aux plantages) évitent toute perte de données en cas de plantage ou de coupure de courant. Depuis la v2.0, MDeX propose également une réécriture assistée par AI en option — et elle peut rester entièrement hors ligne : un modèle local (par ex. Ollama) n'a besoin d'aucune connexion ; seul un service d'AI en ligne (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) émet une requête, et uniquement lorsque vous le configurez et le déclenchez.
+Un lecteur et éditeur Markdown multilingue pensé pour un usage **isolé (air-gapped) / intranet / axé confidentialité**, centré sur la **confidentialité et l'assistance AI**. Chaque fichier est traité localement — **par défaut pas de réseau, pas d'envoi, pas de synchronisation cloud, pas de publicité, pas de télémétrie** ; les enregistrements atomiques (résistants aux plantages) évitent toute perte de données en cas de plantage ou de coupure de courant. Depuis la v2.0, MDeX propose également une édition assistée par IA en option — et elle peut rester entièrement hors ligne : un modèle local (par ex. Ollama) n'a besoin d'aucune connexion ; seul un service d'AI en ligne (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) émet une requête, et uniquement lorsque vous le configurez et le déclenchez.
 
 - Un frontend HTML autonome en un seul fichier (sans Vue / React) ; Tauri v2 ne fournit que l'enveloppe native (fenêtres, menus, boîtes de dialogue de fichiers).
 - **Zéro requête réseau à l'exécution** : `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` ainsi que toutes les polices woff2 de KaTeX sont intégrés / embarqués en base64 dans un seul `index.html`.
@@ -49,6 +49,7 @@ L'interface est disponible en **17 langues** : English, 简体中文, Français,
 - **Glisser-déposer** : déposez un fichier `.md` sur la fenêtre pour l'ouvrir ; déposez une image pour l'insérer.
 - **Exportation** : enregistrer en Markdown / HTML / PDF (vectoriel) / LaTeX.
 - **Couleur du texte** : la palette de la barre d'outils enveloppe la sélection dans `<span style="color:…">`.
+- **Édition assistée par IA** : sélectionnez du texte et appuyez sur `⌘/Ctrl + J` (ou le bouton de la barre d'outils) pour que l'IA le raffine, le développe ou en change le ton ; fonctionne avec les services en ligne (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) et avec un modèle local tel qu'Ollama pour un usage entièrement hors ligne ; le résultat est prévisualisé avant de remplacer l'original, et la clé API n'est stockée que localement.
 - **Précédent / Suivant** : historique unifié des documents et positions du curseur ; boutons ◀ ▶, `Alt+←/→`.
 - **Suivre les liens** : un clic sur un lien de l'aperçu ouvre la cible dans un nouvel onglet (http dans le navigateur) ; le document courant n'est pas remplacé.
 
@@ -75,7 +76,7 @@ Utilisez `⌘` sur macOS, `Ctrl` sur Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Étendre la sélection en colonne |
 | `Esc` | Annuler la sélection en colonne |
 | `⌘/Ctrl + =/−/0` | Zoomer le dernier volet cliqué (éditeur ou aperçu) : agrandir / réduire / réinitialiser |
-| `⌘/Ctrl + J` | Réécriture IA |
+| `⌘/Ctrl + J` | Édition assistée par IA |
 
 > Avec plusieurs fenêtres ouvertes, les raccourcis n'affectent que la fenêtre ayant le focus. Lorsque la fenêtre de visualisation d'images est ouverte, `⌘/Ctrl + =/−/0` zoome l'image à la place.
 

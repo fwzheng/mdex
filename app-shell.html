@@ -587,7 +587,7 @@
     </span>
   </div>
   <div class="group">
-    <button class="btn icon" data-act="ai-rewrite" data-i18n-title="aiRewrite" title="AI 改写">✨</button>
+    <button class="btn icon" data-act="ai-rewrite" data-i18n-title="aiRewrite" title="AI 辅助">✨</button>
   </div>
   <div class="spacer"></div>
   <div class="group">
@@ -728,7 +728,7 @@
 <!-- AI 改写设置（端点/模型/温度/Key，存 localStorage；Key 单独存 md-ai-key，不纳入会话备份） -->
 <div class="modal-mask" id="ai-settings-mask" hidden>
   <div class="modal-card">
-    <div class="modal-msg" data-i18n="aiSettingsTitle" style="font-weight:600;">AI 改写设置</div>
+    <div class="modal-msg" data-i18n="aiSettingsTitle" style="font-weight:600;">AI 辅助设置</div>
     <div class="ai-hint" data-i18n="aiSettingsHint"></div>
     <div class="ai-field"><label data-i18n="aiProvider">协议 / 提供商</label>
       <select id="ai-set-provider">
@@ -750,7 +750,7 @@
 </div>
 
 <!-- 右键迷你菜单（编辑区有选区时弹，仅 AI 改写） -->
-<div id="ai-ctx" hidden><button id="ai-ctx-item" data-i18n="aiRewrite">✨ AI 改写</button></div>
+<div id="ai-ctx" hidden><button id="ai-ctx-item" data-i18n="aiRewrite">✨ AI 辅助</button></div>
 
 <!-- Mermaid 图查看器：点击渲染区 mermaid 图弹出大图，支持缩放/平移/全屏。文案由 mermaidI18n() 注入。 -->
 <div class="modal-mask mv-mask" id="mermaid-viewer" hidden>
@@ -1991,7 +1991,7 @@ erDiagram
     }
 ```
 
-> 本程序完全离线，已内置 Mermaid 渲染引擎，无需联网即可渲染上述所有图。更多语法可参考 Mermaid 官方文档（联网时访问 mermaid.js.org）。
+> 本程序已内置 Mermaid 渲染引擎，无需联网即可渲染上述所有图。更多语法可参考 Mermaid 官方文档（联网时访问 mermaid.js.org）。
 </script>
 <script type="text/plain" id="mermaid-example-tpl-en"># Mermaid Diagram Example
 
@@ -2104,7 +2104,7 @@ erDiagram
     }
 ```
 
-> This application is fully offline with a built-in Mermaid rendering engine, so all the diagrams above render without a network connection. For more syntax, see the official Mermaid documentation (visit mermaid.js.org when online).
+> This application has a built-in Mermaid rendering engine, so all the diagrams above render without a network connection. For more syntax, see the official Mermaid documentation (visit mermaid.js.org when online).
 </script>
 <script type="text/plain" id="mermaid-example-tpl-fr"># Exemple de diagrammes Mermaid
 
@@ -2217,7 +2217,7 @@ erDiagram
     }
 ```
 
-> Ce programme est entièrement hors ligne et intègre le moteur de rendu Mermaid ; aucun réseau n'est requis pour afficher tous les diagrammes ci-dessus. Pour plus de syntaxe, consultez la documentation officielle de Mermaid (mermaid.js.org, accessible en ligne).
+> Ce programme intègre le moteur de rendu Mermaid ; aucun réseau n'est requis pour afficher tous les diagrammes ci-dessus. Pour plus de syntaxe, consultez la documentation officielle de Mermaid (mermaid.js.org, accessible en ligne).
 </script>
 <script type="text/plain" id="mermaid-example-tpl-de"># Mermaid-Diagrammbeispiel
 
@@ -2330,7 +2330,7 @@ erDiagram
     }
 ```
 
-> Dieses Programm ist vollständig offline und enthält eine integrierte Mermaid-Rendering-Engine, sodass alle obigen Diagramme ohne Internetverbindung gerendert werden. Weitere Syntax finden Sie in der offiziellen Mermaid-Dokumentation (mermaid.js.org, bei bestehender Internetverbindung).
+> Dieses Programm enthält eine integrierte Mermaid-Rendering-Engine, sodass alle obigen Diagramme ohne Internetverbindung gerendert werden. Weitere Syntax finden Sie in der offiziellen Mermaid-Dokumentation (mermaid.js.org, bei bestehender Internetverbindung).
 </script>
 <script type="text/plain" id="mermaid-example-tpl-ru"># Пример диаграмм Mermaid
 
@@ -2443,7 +2443,7 @@ erDiagram
     }
 ```
 
-> Эта программа полностью автономна и содержит встроенный движок рендеринга Mermaid, поэтому все приведённые выше диаграммы можно отрисовать без подключения к сети. Дополнительные сведения о синтаксисе см. в официальной документации Mermaid (при наличии сети — mermaid.js.org).
+> Эта программа содержит встроенный движок рендеринга Mermaid, поэтому все приведённые выше диаграммы можно отрисовать без подключения к сети. Дополнительные сведения о синтаксисе см. в официальной документации Mermaid (при наличии сети — mermaid.js.org).
 </script>
 <script type="text/plain" id="mermaid-example-tpl-it"># Esempio di diagrammi Mermaid
 
@@ -2556,7 +2556,7 @@ erDiagram
     }
 ```
 
-> Questo programma è completamente offline e ha il motore di rendering Mermaid integrato, perciò tutti i diagrammi sopra possono essere renderizzati senza connessione. Per ulteriori dettagli sintattici si veda la documentazione ufficiale di Mermaid (mermaid.js.org, accessibile con connessione).
+> Questo programma ha il motore di rendering Mermaid integrato, perciò tutti i diagrammi sopra possono essere renderizzati senza connessione. Per ulteriori dettagli sintattici si veda la documentazione ufficiale di Mermaid (mermaid.js.org, accessibile con connessione).
 </script>
 <script type="text/plain" id="mermaid-example-tpl-ja"># Mermaid 図の例
 
@@ -2669,7 +2669,7 @@ erDiagram
     }
 ```
 
-> 本プログラムは完全オフラインで、Mermaid レンダリングエンジンを内蔵しており、ネット接続なしで上記のすべての図をレンダリングできます。さらに詳しい文法は Mermaid 公式ドキュメントを参照してください（ネット接続時に mermaid.js.org にアクセス）。
+> 本プログラムはMermaid レンダリングエンジンを内蔵しており、ネット接続なしで上記のすべての図をレンダリングできます。さらに詳しい文法は Mermaid 公式ドキュメントを参照してください（ネット接続時に mermaid.js.org にアクセス）。
 </script>
 <script type="text/plain" id="mermaid-example-tpl-ko"># Mermaid 다이어그램 예시
 
@@ -2782,7 +2782,7 @@ erDiagram
     }
 ```
 
-> 이 프로그램은 완전히 오프라인으로 동작하며, Mermaid 렌더링 엔진이 내장되어 있어 인터넷에 연결하지 않아도 위의 모든 다이어그램을 렌더링할 수 있습니다. 더 많은 문법은 Mermaid 공식 문서를 참조하세요 (인터넷 연결 시 mermaid.js.org에 접속).
+> 이 프로그램은 Mermaid 렌더링 엔진이 내장되어 있어 인터넷에 연결하지 않아도 위의 모든 다이어그램을 렌더링할 수 있습니다. 더 많은 문법은 Mermaid 공식 문서를 참조하세요 (인터넷 연결 시 mermaid.js.org에 접속).
 </script>
 <script type="text/plain" id="mermaid-example-tpl-es"># Ejemplo de diagramas Mermaid
 
@@ -3121,7 +3121,7 @@ erDiagram
     }
 ```
 
-> هذا البرنامج يعمل دون اتصال بالكامل، ويحتوي على محرّك عرض Mermaid مدمج، فلا حاجة للاتصال بالإنترنت لعرض جميع المخططات أعلاه. لمزيد من الصياغة، يمكن الرجوع إلى وثائق Mermaid الرسمية (عند توفّر الاتصال، زُر mermaid.js.org).
+> هذا البرنامج يحتوي على محرّك عرض Mermaid مدمج، فلا حاجة للاتصال بالإنترنت لعرض جميع المخططات أعلاه. لمزيد من الصياغة، يمكن الرجوع إلى وثائق Mermaid الرسمية (عند توفّر الاتصال، زُر mermaid.js.org).
 </script>
 <script type="text/plain" id="mermaid-example-tpl-hi"># Mermaid आरेख उदाहरण
 
@@ -3686,7 +3686,7 @@ erDiagram
     }
 ```
 
-> یہ ایپلی کیشن مکمل آف لائن ہے اور اس میں بلٹ اِن Mermaid رینڈر انجن ہے، اس لیے اوپر کے تمام خاکے بغیر نیٹ ورک کے رینڈر ہوتے ہیں۔ مزید نحو کے لیے Mermaid باقاعدہ دستاویزات دیکھیں (آن لائن ہونے پر mermaid.js.org جائیں)۔
+> اس ایپلی کیشن میں بلٹ اِن Mermaid رینڈر انجن ہے، اس لیے اوپر کے تمام خاکے بغیر نیٹ ورک کے رینڈر ہوتے ہیں۔ مزید نحو کے لیے Mermaid باقاعدہ دستاویزات دیکھیں (آن لائن ہونے پر mermaid.js.org جائیں)۔
 </script>
 <script type="text/plain" id="mermaid-example-tpl-mn"># Mermaid диаграммын жишээ
 
@@ -3803,7 +3803,7 @@ erDiagram
 </script>
 <script type="text/plain" id="mdex-example-tpl-zh"># 欢迎使用 MDeX 编辑器
 
-一个**纯前端、完全离线**的 Markdown 编辑器，基于 Tauri v2，支持实时预览、LaTeX 公式、图片与代码高亮。
+一个**纯前端、可离线**的 Markdown 编辑器，基于 Tauri v2，支持实时预览、LaTeX 公式、图片与代码高亮。
 
 ## 功能
 
@@ -3864,7 +3864,7 @@ def fib(n):
 </script>
 <script type="text/plain" id="mdex-example-tpl-en"># Welcome to the MDeX Editor
 
-A **pure-frontend, fully offline** Markdown editor built on Tauri v2, supporting live preview, LaTeX formulas, images, and code highlighting.
+A **pure-frontend, offline-capable** Markdown editor built on Tauri v2, supporting live preview, LaTeX formulas, images, and code highlighting.
 
 ## Features
 
@@ -3986,7 +3986,7 @@ def fib(n):
 </script>
 <script type="text/plain" id="mdex-example-tpl-de"># Willkommen beim MDeX-Editor
 
-Ein **rein im Frontend laufender, vollständig offline** Markdown-Editor basierend auf Tauri v2, mit Echtzeitvorschau, LaTeX-Formeln, Bildern und Code-Highlighting.
+Ein **rein im Frontend laufender, offline-fähig** Markdown-Editor basierend auf Tauri v2, mit Echtzeitvorschau, LaTeX-Formeln, Bildern und Code-Highlighting.
 
 ## Funktionen
 
@@ -4108,7 +4108,7 @@ def fib(n):
 </script>
 <script type="text/plain" id="mdex-example-tpl-it"># Benvenuti nell'editor MDeX
 
-Un editor Markdown **interamente front-end e completamente offline**, basato su Tauri v2, con anteprima in tempo reale, formule LaTeX, immagini ed evidenziazione del codice.
+Un editor Markdown **interamente front-end e pronto per l'offline**, basato su Tauri v2, con anteprima in tempo reale, formule LaTeX, immagini ed evidenziazione del codice.
 
 ## Funzionalità
 
@@ -4169,7 +4169,7 @@ Inizia a scrivere!
 </script>
 <script type="text/plain" id="mdex-example-tpl-ja"># MDeX エディタへようこそ
 
-**完全フロントエンド・完全オフライン**の Markdown エディタで、Tauri v2 ベース、リアルタイムプレビュー、LaTeX 数式、画像、コードハイライトに対応しています。
+**完全フロントエンド・オフライン対応**の Markdown エディタで、Tauri v2 ベース、リアルタイムプレビュー、LaTeX 数式、画像、コードハイライトに対応しています。
 
 ## 機能
 
@@ -4230,7 +4230,7 @@ def fib(n):
 </script>
 <script type="text/plain" id="mdex-example-tpl-ko"># MDeX 편집기에 오신 것을 환영합니다
 
-Tauri v2 기반의 **순수 프론트엔드, 완전 오프라인** Markdown 편집기로, 실시간 미리보기, LaTeX 수식, 이미지 및 코드 하이라이트를 지원합니다.
+Tauri v2 기반의 **순수 프론트엔드, 오프라인 대응** Markdown 편집기로, 실시간 미리보기, LaTeX 수식, 이미지 및 코드 하이라이트를 지원합니다.
 
 ## 기능
 
@@ -4413,7 +4413,7 @@ Comece a editar!
 </script>
 <script type="text/plain" id="mdex-example-tpl-ar"># مرحبًا بك في محرّر MDeX
 
-محرّر Markdown **بواجهة أمامية بحتة ويعمل دون اتصال بالكامل**، مبني على Tauri v2، ويدعم المعاينة الفورية وصيغ LaTeX والصور وإبراز الشيفرة.
+محرّر Markdown **بواجهة أمامية بحتة وجاهز للعمل دون اتصال**، مبني على Tauri v2، ويدعم المعاينة الفورية وصيغ LaTeX والصور وإبراز الشيفرة.
 
 ## الميزات
 
@@ -4718,7 +4718,7 @@ Mulai menyunting!
 </script>
 <script type="text/plain" id="mdex-example-tpl-ur"># MDeX ایڈیٹر میں خوش آمدید
 
-Tauri v2 پر مبنی ایک **خالص فرنٹ اینڈ، مکمل آف لائن** Markdown ایڈیٹر، جو لائیو پیش نظارہ، LaTeX صیغے، تصاویر اور کوڈ ہائی لائٹ کی معاونت کرتا ہے۔
+Tauri v2 پر مبنی ایک **خالص فرنٹ اینڈ، آف لائن تیار** Markdown ایڈیٹر، جو لائیو پیش نظارہ، LaTeX صیغے، تصاویر اور کوڈ ہائی لائٹ کی معاونت کرتا ہے۔
 
 ## خصوصیات
 

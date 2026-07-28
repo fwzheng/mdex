@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · offline-fähig · Tauri v2)
+# MDeX v2.0.1 (macOS · Windows · Linux · offline-fähig · Tauri v2)
 
 > **MDeX** · ausgesprochen „em-dex" (/ˌemˈdɛks/) — der Buchstabe M gefolgt von „dex", zwei Silben.
 
-Ein mehrsprachiger Markdown-Reader & Editor für den **Air-Gap-/Intranet-/datenschutzorientierten** Einsatz, mit Fokus auf **Datenschutz und AI-Unterstützung**. Jede Datei wird lokal verarbeitet — **standardmäßig kein Netzwerk, keine Uploads, keine Cloud-Synchronisation, keine Werbung, keine Telemetrie**; atomares (absturzsicheres) Speichern verhindert Datenverlust bei Absturz oder Stromausfall. Seit v2.0 bietet MDeX zusätzlich ein optionales, AI-gestütztes Umschreiben an — und das kann vollständig offline bleiben: ein lokales Modell (z. B. Ollama) benötigt kein Internet; nur ein Online-AI-Dienst (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi usw.) führt eine Anfrage aus, und auch das nur, wenn Sie ihn konfigurieren und aktiv aufrufen.
+Ein mehrsprachiger Markdown-Reader & Editor für den **Air-Gap-/Intranet-/datenschutzorientierten** Einsatz, mit Fokus auf **Datenschutz und AI-Unterstützung**. Jede Datei wird lokal verarbeitet — **standardmäßig kein Netzwerk, keine Uploads, keine Cloud-Synchronisation, keine Werbung, keine Telemetrie**; atomares (absturzsicheres) Speichern verhindert Datenverlust bei Absturz oder Stromausfall. Seit v2.0 bietet MDeX zusätzlich ein optionales, KI-gestütztes Bearbeiten an — und das kann vollständig offline bleiben: ein lokales Modell (z. B. Ollama) benötigt kein Internet; nur ein Online-AI-Dienst (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi usw.) führt eine Anfrage aus, und auch das nur, wenn Sie ihn konfigurieren und aktiv aufrufen.
 
 - Ein einzelnes, in sich geschlossenes HTML-Frontend (ohne Vue / React); Tauri v2 stellt lediglich die native Hülle bereit (Fenster, Menüs, Dateidialoge).
 - **Keine einzigen Netzwerk-Anfragen zur Laufzeit**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` sowie sämtliche KaTeX-woff2-Fonts sind inline / base64-eingebettet in einer einzigen `index.html`.
@@ -49,6 +49,7 @@ Die Benutzeroberfläche wird in **17 Sprachen** ausgeliefert: English, 简体中
 - **Drag-and-Drop**: eine `.md`-Datei auf das Fenster ziehen, um sie zu öffnen; ein Bild ziehen, um es einzufügen.
 - **Export**: speichern als Markdown / HTML / PDF (Vektor) / LaTeX.
 - **Textfarbe**: Die Paletten-Schaltfläche schließt die Auswahl in `<span style="color:…">` ein.
+- **KI-gestütztes Bearbeiten**: Text auswählen und `⌘/Ctrl + J` (oder die Symbolleisten-Schaltfläche) drücken, damit die AI ihn verfeinert, erweitert oder umformuliert; funktioniert mit Online-Diensten (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi usw.) sowie mit einem lokalen Modell wie Ollama, das vollständig offline arbeitet; das Ergebnis wird vor dem Ersetzen des Originals in der Vorschau angezeigt, und der API-Schlüssel wird nur lokal gespeichert.
 - **Zurück / Vor**: vereinigte History über Dokumente und Cursorpositionen; ◀ ▶-Buttons, `Alt+←/→`.
 - **Links folgen**: Ein Klick auf einen Link in der Vorschau öffnet das Ziel in einem neuen Tab (http im Systembrowser); das aktuelle Dokument bleibt erhalten.
 
@@ -75,7 +76,7 @@ Auf macOS `⌘`, auf Windows / Linux `Ctrl` verwenden.
 | `Alt/Option + Shift + ←↑↓→` | Spaltenauswahl erweitern |
 | `Esc` | Spaltenauswahl abbrechen |
 | `⌘/Ctrl + =/−/0` | Den zuletzt geklickten Bereich (Editor oder Vorschau) zoomen: vergrößern / verkleinern / zurücksetzen |
-| `⌘/Ctrl + J` | AI-Umschreiben |
+| `⌘/Ctrl + J` | KI-gestütztes Bearbeiten |
 
 > Bei mehreren offenen Fenstern wirken sich Tastenkürzel nur auf das fokussierte Fenster aus. Wenn das Bildanzeige-Fenster geöffnet ist, zoomt `⌘/Ctrl + =/−/0` stattdessen das Bild.
 

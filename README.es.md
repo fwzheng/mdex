@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Listo sin conexión · Tauri v2)
+# MDeX v2.0.1 (macOS · Windows · Linux · Listo sin conexión · Tauri v2)
 
 > **MDeX** · se pronuncia "em-dex" (/ˌemˈdɛks/) — la letra M seguida de "dex", dos sílabas.
 
-Un lector y editor de Markdown multilingüe para uso en **entornos aislados / intranet / privacidad primero**, centrado en la **privacidad y la asistencia con IA**. Cada archivo se procesa localmente — **sin red, sin subidas, sin sincronización en la nube, sin anuncios, sin telemetría por defecto**; el guardado atómico (a prueba de fallos) evita la pérdida de datos ante cuelgues o cortes de energía. Desde v2.0, MDeX también ofrece reescritura asistida por IA opcional — y puede seguir siendo totalmente offline: un modelo local (p. ej., Ollama) no necesita internet; solo un servicio de IA en línea (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) realiza una petición, y únicamente cuando lo configuras y lo activas.
+Un lector y editor de Markdown multilingüe para uso en **entornos aislados / intranet / privacidad primero**, centrado en la **privacidad y la asistencia con IA**. Cada archivo se procesa localmente — **sin red, sin subidas, sin sincronización en la nube, sin anuncios, sin telemetría por defecto**; el guardado atómico (a prueba de fallos) evita la pérdida de datos ante cuelgues o cortes de energía. Desde v2.0, MDeX también ofrece edición asistida por IA opcional — y puede seguir siendo totalmente offline: un modelo local (p. ej., Ollama) no necesita internet; solo un servicio de IA en línea (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) realiza una petición, y únicamente cuando lo configuras y lo activas.
 
 - Un único frontend HTML autónomo (sin Vue / React); Tauri v2 proporciona únicamente el shell nativo (ventanas, menús, diálogos de archivos).
 - **Cero peticiones de red en tiempo de ejecución**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` y todas las fuentes woff2 de KaTeX están incrustadas / embebidas en base64 dentro de un único `index.html`.
@@ -49,6 +49,7 @@ La interfaz está disponible en **17 idiomas**: English, 简体中文, Français
 - **Arrastrar y soltar**: suelta un archivo `.md` sobre la ventana para abrirlo; suelta una imagen para insertarla.
 - **Exportación**: guardar como Markdown / HTML / PDF (vectorial) / LaTeX.
 - **Color del texto**: la paleta de la barra envuelve la selección en `<span style="color:…">`.
+- **Edición asistida por IA**: selecciona un texto y pulsa `⌘/Ctrl + J` (o el botón de la barra de herramientas) para que la IA lo refine, lo expanda o le cambie el tono; funciona con servicios en línea (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) y con un modelo local como Ollama para uso totalmente sin conexión; el resultado se previsualiza antes de reemplazar el original, y la clave de API se almacena solo localmente.
 - **Atrás / Adelante**: historial unificado de documentos y posiciones del cursor; botones ◀ ▶, `Alt+←/→`.
 - **Seguir enlaces**: un clic en un enlace de la vista previa abre el destino en una nueva pestaña (http en el navegador del sistema); el documento actual no se reemplaza.
 
@@ -75,7 +76,7 @@ Usa `⌘` en macOS, `Ctrl` en Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Extender selección de columna |
 | `Esc` | Cancelar selección de columna |
 | `⌘/Ctrl + =/−/0` | Zoom del último panel clicado (editor o vista previa): acercar / alejar / restablecer |
-| `⌘/Ctrl + J` | Reescritura IA |
+| `⌘/Ctrl + J` | Edición asistida por IA |
 
 > Con varias ventanas abiertas, los atajos solo afectan a la ventana enfocada. Cuando la ventana del visor de imágenes está abierta, `⌘/Ctrl + =/−/0` amplía la imagen en su lugar.
 

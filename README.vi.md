@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Sẵn sàng ngoại tuyến · Tauri v2)
+# MDeX v2.0.1 (macOS · Windows · Linux · Sẵn sàng ngoại tuyến · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
-Một trình đọc & soạn thảo Markdown đa ngôn ngữ dành cho môi trường **không mạng / nội bộ / quyền riêng tư trước**, tập trung vào **quyền riêng tư và hỗ trợ AI**. Mọi tệp đều được xử lý cục bộ — **mặc định không mạng, không tải lên, không đồng bộ đám mây, không quảng cáo, không đo lường từ xa**; lưu nguyên tử (chống sự cố) tránh mất dữ liệu khi sập chương trình hoặc mất điện. Kể từ v2.0, MDeX cũng cung cấp tính năng viết lại hỗ trợ AI tùy chọn — và có thể vẫn hoàn toàn ngoại tuyến: một mô hình cục bộ (ví dụ Ollama) không cần internet; chỉ dịch vụ AI trực tuyến (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi v.v.) mới tạo yêu cầu mạng, và chỉ khi bạn cấu hình và kích hoạt nó.
+Một trình đọc & soạn thảo Markdown đa ngôn ngữ dành cho môi trường **không mạng / nội bộ / quyền riêng tư trước**, tập trung vào **quyền riêng tư và hỗ trợ AI**. Mọi tệp đều được xử lý cục bộ — **mặc định không mạng, không tải lên, không đồng bộ đám mây, không quảng cáo, không đo lường từ xa**; lưu nguyên tử (chống sự cố) tránh mất dữ liệu khi sập chương trình hoặc mất điện. Kể từ v2.0, MDeX cũng cung cấp tính năng chỉnh sửa có hỗ trợ AI tùy chọn — và có thể vẫn hoàn toàn ngoại tuyến: một mô hình cục bộ (ví dụ Ollama) không cần internet; chỉ dịch vụ AI trực tuyến (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi v.v.) mới tạo yêu cầu mạng, và chỉ khi bạn cấu hình và kích hoạt nó.
 
 - Một giao diện diện HTML khép kín đơn lẻ (không dùng Vue / React); Tauri v2 chỉ cung cấp lớp vỏ gốc (cửa sổ, menu, hộp thoại tệp).
 - **Không có yêu cầu mạng khi chạy**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` và toàn bộ font woff2 của KaTeX đều được nhúng / base64-nhúng vào một `index.html` duy nhất.
@@ -49,6 +49,7 @@ Giao diện được cung cấp bằng **17 ngôn ngữ**: English, 简体中文
 - **Kéo-thả**: thả một tệp `.md` lên cửa sổ để mở; thả một hình ảnh để chèn.
 - **Xuất**: lưu dưới dạng Markdown / HTML / PDF (vector) / LaTeX.
 - **Màu chữ**: bảng màu trên thanh công cụ bọc vùng chọn trong `<span style="color:…">`.
+- **Chỉnh sửa có hỗ trợ AI**: chọn một đoạn văn bản và nhấn `⌘/Ctrl + J` (hoặc nút trên thanh công cụ) để AI tinh chỉnh, mở rộng hoặc đổi giọng điệu; hoạt động với các dịch vụ trực tuyến (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, v.v.) và với mô hình cục bộ như Ollama để dùng hoàn toàn ngoại tuyến; kết quả được xem trước trước khi thay thế bản gốc, và khóa API chỉ được lưu cục bộ.
 - **Lùi / Tiến**: lịch sử thống nhất qua tài liệu và vị trí con trỏ; nút ◀ ▶, `Alt+←/→`.
 - **Mở liên kết**: nhấp liên kết trong xem trước sẽ mở đích trong tab mới (http trong trình duyệt hệ thống); tài liệu hiện tại không bị thay thế.
 
@@ -75,7 +76,7 @@ Dùng `⌘` trên macOS, `Ctrl` trên Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Mở rộng chọn cột |
 | `Esc` | Hủy chọn cột |
 | `⌘/Ctrl + =/−/0` | Thu phóng khung cuối cùng được nhấp (trình soạn thảo hoặc xem trước): phóng to / thu nhỏ / đặt lại |
-| `⌘/Ctrl + J` | Viết lại AI |
+| `⌘/Ctrl + J` | Chỉnh sửa có hỗ trợ của AI |
 
 > Khi có nhiều cửa sổ đang mở, phím tắt chỉ tác động lên cửa sổ đang được tiêu điểm. Khi cửa sổ trình xem hình ảnh đang mở, `⌘/Ctrl + =/−/0` thu phóng hình ảnh.
 

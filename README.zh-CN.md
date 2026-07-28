@@ -5,11 +5,11 @@
 
 </details>
 
-# MDeX v2.0.0（macOS · Windows · Linux · 可离线 · Tauri v2）
+# MDeX v2.0.1（macOS · Windows · Linux · 可离线 · Tauri v2）
 
 > **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
 
-一款面向 **离线 / 内网 / 隐私保护** 场景、主打**隐私与 AI 辅助**的多语言 Markdown 阅读编辑器。所有文件均在本地处理，**默认不联网、不上传、无云端同步、无广告、无遥测**；采用原子化保存，无惧崩溃或断电导致的数据丢失。自 v2.0 起提供可选的 AI 辅助改写——并且仍可保持完全离线：接入本地模型（如 Ollama）时完全不联网；只有在线 AI 服务（OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi 等）才会发起请求，且仅在你配置并主动触发时。
+一款面向 **离线 / 内网 / 隐私保护** 场景、主打**隐私与 AI 辅助**的多语言 Markdown 阅读编辑器。所有文件均在本地处理，**默认不联网、不上传、无云端同步、无广告、无遥测**；采用原子化保存，无惧崩溃或断电导致的数据丢失。自 v2.0 起提供可选的 AI 辅助编辑——并且仍可保持完全离线：接入本地模型（如 Ollama）时完全不联网；只有在线 AI 服务（OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi 等）才会发起请求，且仅在你配置并主动触发时。
 
 - 纯前端单 HTML（无 Vue / React），Tauri v2 仅提供原生外壳（窗口、菜单、文件对话框）。
 - **运行时零网络请求**：`marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` 及 KaTeX 全部 woff2 字体，均以内联 / base64 方式打进单个 `index.html`。
@@ -48,6 +48,7 @@
 - **拖拽打开**：拖拽 `.md` 文件到窗口直接打开；拖拽图片直接插入。
 - **多格式导出**：另存为 Markdown / HTML / PDF（矢量打印）/ LaTeX。
 - **文字颜色**：工具栏色板把选区包成 `<span style="color:…">`（行内彩色）。
+- **AI 辅助编辑**：选中一段文字，按 `⌘/Ctrl + J`（或工具栏按钮）即可调用 AI 做润色、续写、调整语气等辅助编辑；兼容 OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi 等在线服务，也可接 Ollama 等本地模型全程离线；AI 结果先预览、确认后再替换原文，密钥仅保存在本地。
 - **前进 / 返回**：跨文档与光标位置的统一导航历史；◀ ▶ 按钮，`Alt+←/→`。
 - **跟随链接**：预览中点链接在**新标签页**打开目标文件（http 链接走系统浏览器），当前文档不被替换。
 
@@ -74,7 +75,7 @@ macOS 用 `⌘`，Windows / Linux 用 `Ctrl`。
 | `Alt/Option + Shift + ←↑↓→` | 扩展列选取 |
 | `Esc` | 取消列选取 |
 | `⌘/Ctrl + =/−/0` | 放大 / 缩小 / 重置（作用最后点击的窗格：编辑区或预览区）|
-| `⌘/Ctrl + J` | AI 改写 |
+| `⌘/Ctrl + J` | AI 辅助编辑 |
 
 > 多窗口下，快捷键只作用于当前焦点窗口。图查看器窗口打开时，`⌘/Ctrl + =/−/0` 缩放图片。
 

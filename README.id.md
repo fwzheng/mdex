@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Siap offline · Tauri v2)
+# MDeX v2.0.1 (macOS · Windows · Linux · Siap offline · Tauri v2)
 
 > **MDeX** · diucapkan "em-dex" (/ˌemˈdɛks/) — huruf M diikuti "dex", dua suku kata.
 
-Pembaca & editor Markdown multibahasa untuk penggunaan **air-gapped / intranet / privasi utama**, yang berfokus pada **privasi dan bantuan AI**. Setiap file diproses secara lokal — **secara default tanpa jaringan, tanpa unggahan, tanpa sinkronisasi cloud, tanpa iklan, tanpa telemetri**; penyimpanan atomik (tahan crash) mencegah kehilangan data saat crash atau mati listrik. Sejak v2.0, MDeX juga menawarkan penulisan ulang berbantuan AI opsional — dan dapat tetap sepenuhnya offline: model lokal (mis., Ollama) tidak memerlukan internet; hanya layanan AI daring (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi dll.) yang membuat permintaan, dan hanya saat Anda mengonfigurasinya serta memicunya.
+Pembaca & editor Markdown multibahasa untuk penggunaan **air-gapped / intranet / privasi utama**, yang berfokus pada **privasi dan bantuan AI**. Setiap file diproses secara lokal — **secara default tanpa jaringan, tanpa unggahan, tanpa sinkronisasi cloud, tanpa iklan, tanpa telemetri**; penyimpanan atomik (tahan crash) mencegah kehilangan data saat crash atau mati listrik. Sejak v2.0, MDeX juga menawarkan penyuntingan berbantuan AI opsional — dan dapat tetap sepenuhnya offline: model lokal (mis., Ollama) tidak memerlukan internet; hanya layanan AI daring (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi dll.) yang membuat permintaan, dan hanya saat Anda mengonfigurasinya serta memicunya.
 
 - Frontend HTML mandiri tunggal (tanpa Vue / React); Tauri v2 hanya menyediakan shell native (jendela, menu, dialog file).
 - **Nol permintaan jaringan saat runtime**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` dan semua font woff2 KaTeX di-inline / disematkan sebagai base64 ke dalam satu `index.html`.
@@ -49,6 +49,7 @@ Antarmuka tersedia dalam **17 bahasa**: English, 简体中文, Français, Deutsc
 - **Seret-dan-jatuhkan**: jatuhkan file `.md` ke jendela untuk membukanya; jatuhkan gambar untuk menyisipkannya.
 - **Ekspor**: simpan sebagai Markdown / HTML / PDF (vektor) / LaTeX.
 - **Warna teks**: palet pada bilah alat membungkus seleksi dalam `<span style="color:…">`.
+- **Penyuntingan berbantuan AI**: pilih beberapa teks dan tekan `⌘/Ctrl + J` (atau tombol toolbar) untuk menyempurnakan, memperluas, atau mengganti nada teks oleh AI; bekerja dengan layanan daring (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, dll.) dan dengan model lokal seperti Ollama untuk penggunaan sepenuhnya luring; hasilnya dipratinjau sebelum menggantikan yang asli, dan kunci API hanya disimpan secara lokal.
 - **Mundur / Maju**: riwayat terpadu lintas dokumen dan posisi kursor; tombol ◀ ▶, `Alt+←/→`.
 - **Ikuti tautan**: klik tautan di pratinjau membuka target di tab baru (http di peramban sistem); dokumen saat ini tidak diganti.
 
@@ -75,7 +76,7 @@ Gunakan `⌘` di macOS, `Ctrl` di Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Perluas pilihan kolom |
 | `Esc` | Batalkan pilihan kolom |
 | `⌘/Ctrl + =/−/0` | Zoom panel terakhir yang diklik (editor atau pratinjau): perbesar / perkecil / reset |
-| `⌘/Ctrl + J` | Penulisan ulang AI |
+| `⌘/Ctrl + J` | Penyuntingan berbantuan AI |
 
 > Dengan beberapa jendela terbuka, pintasan hanya memengaruhi jendela yang difokuskan. Ketika jendela penampil gambar terbuka, `⌘/Ctrl + =/−/0` memperbesar gambar.
 

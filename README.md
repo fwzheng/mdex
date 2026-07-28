@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.0.0 (macOS · Windows · Linux · Offline-Ready · Tauri v2)
+# MDeX v2.0.1 (macOS · Windows · Linux · Offline-Ready · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
-A multilingual Markdown reader & editor for **air-gapped / intranet / privacy-first** use, focused on **privacy and AI assistance**. Every file is processed locally — **no network, no uploads, no cloud sync, no ads, no telemetry, by default**; atomic (crash-proof) saves prevent data loss on crash or power outage. Since v2.0, MDeX also offers optional AI-assisted rewriting — and it can stay fully offline: a local model (e.g., Ollama) needs no internet; only an online AI service (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) makes a request, and only when you configure and trigger it.
+A multilingual Markdown reader & editor for **air-gapped / intranet / privacy-first** use, focused on **privacy and AI assistance**. Every file is processed locally — **no network, no uploads, no cloud sync, no ads, no telemetry, by default**; atomic (crash-proof) saves prevent data loss on crash or power outage. Since v2.0, MDeX also offers optional AI-assisted editing — and it can stay fully offline: a local model (e.g., Ollama) needs no internet; only an online AI service (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) makes a request, and only when you configure and trigger it.
 
 - A single self-contained HTML frontend (no Vue / React); Tauri v2 provides only the native shell (windows, menus, file dialogs).
 - **Zero runtime network requests**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` and all KaTeX woff2 fonts are inlined / base64-embedded into a single `index.html`.
@@ -49,6 +49,7 @@ The interface ships in **17 languages**: English, 简体中文, Français, Deuts
 - **Drag-and-drop**: drop a `.md` file onto the window to open it; drop an image to insert it.
 - **Export**: save as Markdown / HTML / PDF (vector) / LaTeX.
 - **Text color**: toolbar palette wraps the selection in `<span style="color:…">`.
+- **AI-assisted editing**: select some text and press `⌘/Ctrl + J` (or the toolbar button) to have AI refine, expand or re-tone it; works with online services (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) and with a local model such as Ollama for fully offline use; the result is previewed before it replaces the original, and the API key is stored only locally.
 - **Back / Forward**: unified history across documents and cursor positions; ◀ ▶ buttons, `Alt+←/→`.
 - **Follow links**: click a link in the preview to open the target in a new tab (http links in the system browser); the current document is never replaced.
 
@@ -75,7 +76,7 @@ Use `⌘` on macOS, `Ctrl` on Windows / Linux.
 | `Alt/Option + Shift + ←↑↓→` | Extend column select |
 | `Esc` | Cancel column select |
 | `⌘/Ctrl + =/−/0` | Zoom the last-clicked pane (editor or preview) in / out / reset |
-| `⌘/Ctrl + J` | AI rewrite |
+| `⌘/Ctrl + J` | AI-assisted editing |
 
 > With multiple windows open, shortcuts only affect the focused window. When the image viewer window is open, `⌘/Ctrl + =/−/0` zooms the image instead.
 
