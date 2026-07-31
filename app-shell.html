@@ -129,8 +129,12 @@
     display: flex; justify-content: space-between; align-items: center;
   }
 
+  /* overflow-y:scroll 恒显滚动条：内容区宽度不再随"是否溢出"漂移，与 #editor-hl 的滚动条占位
+     逐像素对齐（BUG-056 对齐清单遗漏的"滚动条占位"项；否则软换行长行换行宽度不同 → 行数/
+     scrollHeight 不同 → scrollTop 像素同步在长文档末尾累积偏移，AI 选区阴影跳到下一行）。 */
   #editor {
     flex: 1; width: 100%; border: 0; outline: 0; resize: none; padding: 20px 24px;
+    overflow-y: scroll;
     font-family: var(--mono); font-size: 14px; line-height: 1.7;
     background: var(--bg); color: var(--fg); tab-size: 2;
     position: relative; z-index: 1;
@@ -138,11 +142,25 @@
   #editor.colsel-active { caret-color: transparent; }
   /* 编辑器搜索高亮覆盖层：与 textarea 同字体/内边距/行高，叠在上方；文字透明，仅 <mark> 显底色 */
   .editor-area { position: relative; flex: 1; min-height: 0; display: flex; }
+  /* overflow 与 #editor 一致（恒显滚动条）：两层可用文本宽度逐像素相等，软换行行数/scrollHeight
+     一致，hl.scrollTop=editor.scrollTop 像素同步才在长文档末尾不再累积偏移。滚动条与 #editor
+     几何完全重合、pointer-events:none 不拦截交互（详见 #editor 的 overflow 注释）。 */
   #editor-hl {
-    position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden;
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    overflow-x: hidden; overflow-y: scroll;
     box-sizing: border-box; padding: 20px 24px; margin: 0; border: 0;
     font-family: var(--mono); font-size: 14px; line-height: 1.7; tab-size: 2;
     white-space: pre-wrap; word-break: break-word; color: transparent;
+  }
+  /* 编辑器 Y 探测镜像层：与 #editor 同框/字体/换行/滚动条占位，visibility:hidden 不显示但参与布局，
+     用 Range 测每个源码行的真实像素 Y（含折行），供滚动同步“像素→偏移”查表（替代按字符宽估算，
+     解决中文折行算不准）。overflow-y:scroll 与 #editor 对齐内容宽（BUG-102）。 */
+  #editor-yprobe {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none; visibility: hidden;
+    overflow-x: hidden; overflow-y: scroll;
+    box-sizing: border-box; padding: 20px 24px; margin: 0; border: 0;
+    font-family: var(--mono); font-size: 14px; line-height: 1.7; tab-size: 2;
+    white-space: pre-wrap; word-break: break-word;
   }
   #editor-hl mark.search-mark { background: rgba(255, 213, 79, .45); color: transparent; border-radius: 2px; }
   #editor-hl mark.search-mark.current { background: rgba(255, 152, 0, .9); animation: search-flash .9s ease-out; }
@@ -485,7 +503,12 @@
     background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px;
     box-shadow: 0 6px 24px rgba(0,0,0,.22); padding: 10px; font-family: system-ui, sans-serif; font-size: 13px;
   }
-  #ai-pop .ai-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  #ai-pop .ai-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 6px; }
+  /* 当前使用的 API（激活预设名）chip；空时不占位 */
+  #ai-pop .ai-active-name { flex: none; font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    background: rgba(88,166,255,.18); color: var(--accent); max-width: 150px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ai-pop .ai-active-name:empty { display: none; }
   #ai-pop #ai-status { color: var(--fg-muted); font-size: 12px; flex: 1; min-width: 0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #ai-pop .ai-pop-x { background: none; border: 0; color: var(--fg-muted); cursor: pointer;
@@ -532,13 +555,26 @@
   #ai-pop .ai-md .mermaid-wrap svg { max-width: 100%; height: auto; }
   #ai-pop .ai-md .mermaid-err { color: var(--fg-muted); font-size: 11px; }
   /* AI 设置 modal */
-  #ai-settings-mask .modal-card { width: 420px; max-width: calc(100% - 32px); }
+  #ai-settings-mask .modal-card { width: 560px; max-width: calc(100% - 32px); }
   .ai-field { margin-bottom: 10px; }
   .ai-field label { display: block; font-size: 12px; color: var(--fg-muted); margin-bottom: 3px; }
   .ai-field input, .ai-field select { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
     padding: 6px 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--fg); outline: 0; }
   .ai-field input:focus, .ai-field select:focus { border-color: var(--accent); }
   .ai-hint { font-size: 11px; color: var(--fg-muted); line-height: 1.5; margin: 4px 0 10px; }
+  /* AI 设置两栏：左预设列表 + 右表单（v2.1.0 多 API 切换）。逻辑属性适配 RTL（BUG-042）。 */
+  .ai-settings-layout { display: flex; gap: 12px; align-items: stretch; }
+  .ai-preset-pane { width: 160px; flex: none; display: flex; flex-direction: column; gap: 6px;
+    border-inline-end: 1px solid var(--border); padding-inline-end: 12px; }
+  .ai-preset-list { flex: 1; min-height: 120px; max-height: 260px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 2px; }
+  .ai-preset-item { padding: 6px 8px; cursor: pointer; border-radius: 5px; font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
+  .ai-preset-item:hover { background: var(--bg-alt); }
+  .ai-preset-item.active { background: var(--accent); color: #fff; }
+  .ai-preset-new { flex: none; }
+  .ai-fields-pane { flex: 1; min-width: 0; }
+  #ai-preset-delete.confirming { background: #d33; color: #fff; border-color: transparent; }
   /* 右键迷你菜单（有选区才弹） */
   #ai-ctx { position: fixed; z-index: 9; min-width: 150px; background: var(--bg-alt);
     border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.25);
@@ -623,13 +659,14 @@
     </div>
     <div class="editor-area">
       <div id="editor-hl" aria-hidden="true"></div>
+      <div id="editor-yprobe" aria-hidden="true"></div>
       <div id="ai-mirror" aria-hidden="true"></div>
       <textarea id="editor" spellcheck="false" data-i18n-ph="ph" placeholder=""></textarea>
       <!-- 选区高亮覆盖层：浮层打开期间显示「正在处理的选区」（编辑区失焦后原生高亮消失，用此补偿） -->
       <div id="ai-sel-mark" hidden></div>
       <!-- AI 改写浮层（锚定在选区下方） -->
       <div id="ai-pop" hidden>
-        <div class="ai-pop-head"><span id="ai-status"></span><button class="ai-pop-x" id="ai-pop-close" title="关闭">×</button></div>
+        <div class="ai-pop-head"><span id="ai-active-name" class="ai-active-name" title="API"></span><span id="ai-status"></span><button class="ai-pop-x" id="ai-pop-close" title="关闭">×</button></div>
         <!-- 编辑区：当前改写版本（与原文 diff 高亮），有选区或已生成内容时显示 -->
         <div id="ai-edit-zone" class="ai-zone" hidden>
           <div class="ai-zone-label"><span data-i18n="aiEditZone">编辑区</span>
@@ -730,18 +767,28 @@
   <div class="modal-card">
     <div class="modal-msg" data-i18n="aiSettingsTitle" style="font-weight:600;">AI 辅助设置</div>
     <div class="ai-hint" data-i18n="aiSettingsHint"></div>
-    <div class="ai-field"><label data-i18n="aiProvider">协议 / 提供商</label>
-      <select id="ai-set-provider">
-        <option value="openai">OpenAI 兼容（OpenAI / DeepSeek / 智谱 / Ollama …）</option>
-        <option value="anthropic">Anthropic（Claude）</option>
-      </select>
+    <div class="ai-settings-layout">
+      <div class="ai-preset-pane">
+        <div class="ai-preset-list" id="ai-preset-list"></div>
+        <button class="btn ai-preset-new" id="ai-preset-new" data-i18n="aiPresetNew">+ 新建</button>
+      </div>
+      <div class="ai-fields-pane">
+        <div class="ai-field"><label data-i18n="aiPresetName">配置名</label><input id="ai-set-name" data-i18n-ph="aiPresetNamePh" placeholder="我的 GPT-4o"></div>
+        <div class="ai-field"><label data-i18n="aiProvider">协议 / 提供商</label>
+          <select id="ai-set-provider">
+            <option value="openai">OpenAI 兼容（OpenAI / DeepSeek / 智谱 / Ollama …）</option>
+            <option value="anthropic">Anthropic（Claude）</option>
+          </select>
+        </div>
+        <div class="ai-field"><label data-i18n="aiEndpoint">端点 (Base URL)</label><input id="ai-set-endpoint" placeholder="https://api.openai.com/v1"></div>
+        <div class="ai-field"><label data-i18n="aiModel">模型</label><input id="ai-set-model" placeholder="gpt-4o-mini"></div>
+        <div class="ai-field"><label data-i18n="aiTemp">温度 (0–2)</label><input id="ai-set-temp" type="number" min="0" max="2" step="0.1"></div>
+        <div class="ai-field"><label data-i18n="aiKey">API Key</label><input id="ai-set-key" type="password" placeholder="sk-…"></div>
+      </div>
     </div>
-    <div class="ai-field"><label data-i18n="aiEndpoint">端点 (Base URL)</label><input id="ai-set-endpoint" placeholder="https://api.openai.com/v1"></div>
-    <div class="ai-field"><label data-i18n="aiModel">模型</label><input id="ai-set-model" placeholder="gpt-4o-mini"></div>
-    <div class="ai-field"><label data-i18n="aiTemp">温度 (0–2)</label><input id="ai-set-temp" type="number" min="0" max="2" step="0.1"></div>
-    <div class="ai-field"><label data-i18n="aiKey">API Key</label><input id="ai-set-key" type="password" placeholder="sk-…"></div>
     <div class="modal-actions" style="margin-top:6px;">
       <button class="btn" id="ai-test-btn" data-i18n="aiTest">测试连接</button>
+      <button class="btn" id="ai-preset-delete" data-i18n="aiPresetDelete">删除</button>
       <span style="flex:1"></span>
       <button class="btn" id="ai-settings-cancel" data-i18n="cancel">取消</button>
       <button class="btn primary" id="ai-settings-save" data-i18n="save">保存</button>

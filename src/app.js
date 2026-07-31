@@ -122,6 +122,7 @@
       aiSettingsHint: "配置 OpenAI 兼容接口（OpenAI / DeepSeek / 智谱 / 本地 Ollama 等）。Key 仅存本机 localStorage，不随会话备份外泄。",
       aiProvider: "协议 / 提供商", aiEndpoint: "端点 (Base URL)", aiModel: "模型", aiTemp: "温度 (0–2)", aiKey: "API Key",
       aiTest: "测试连接", aiTesting: "测试中…", aiSave: "保存", aiTestOk: "✓ 连接成功", aiTestFail: "✗ 连接失败: ", aiTestEmpty: "✗ 未收到响应", aiTestFillFirst: "请先填写端点、模型与 Key",
+      aiPresetName: "配置名", aiPresetNamePh: "我的 GPT-4o", aiPresetNew: "新建", aiPresetDelete: "删除", aiPresetDefault: "默认", aiPresetConfirmDelete: "确认删除?",
       aiPh: "输入指令（辅助/提问/生成）… Enter 发送、Esc 关闭", aiSend: "发送", aiApply: "应用到文档", aiDiscard: "关闭",
       aiInsert: "在光标处插入", aiEditedNote: "✓ 已更新（见编辑区）", aiChatZone: "对话", aiEditZone: "编辑区",
       aiToEdit: "→ 用作编辑区内容", aiMovedToEdit: "已设为编辑区内容，可点「应用到文档」",
@@ -157,6 +158,7 @@
       aiSettingsHint: "Configure an OpenAI-compatible endpoint (OpenAI / DeepSeek / Zhipu / local Ollama, etc.). The key is stored only in this machine's localStorage and is never included in session backups.",
       aiProvider: "Provider", aiEndpoint: "Endpoint (Base URL)", aiModel: "Model", aiTemp: "Temperature (0–2)", aiKey: "API Key",
       aiTest: "Test connection", aiTesting: "Testing…", aiSave: "Save", aiTestOk: "✓ Connected", aiTestFail: "✗ Failed: ", aiTestEmpty: "✗ No response", aiTestFillFirst: "Fill endpoint, model and key first",
+      aiPresetName: "Profile name", aiPresetNamePh: "My GPT-4o", aiPresetNew: "New", aiPresetDelete: "Delete", aiPresetDefault: "Default", aiPresetConfirmDelete: "Confirm delete?",
       aiPh: "Type an instruction (copilot/ask/generate)… Enter to send, Esc to close", aiSend: "Send", aiApply: "Apply", aiDiscard: "Close",
       aiInsert: "Insert at cursor", aiEditedNote: "✓ Updated (see edit zone)", aiChatZone: "Chat", aiEditZone: "Edit zone",
       aiToEdit: "→ Use as edit content", aiMovedToEdit: "Set as edit content; click Apply",
@@ -183,6 +185,7 @@
       aiSettingsHint: "Configurez un point de terminaison compatible OpenAI (OpenAI / DeepSeek / Zhipu / Ollama local, etc.). La clé est stockée uniquement dans le localStorage de cette machine et n'est jamais incluse dans les sauvegardes de session.",
       aiProvider: "Fournisseur", aiEndpoint: "Point de terminaison (Base URL)", aiModel: "Modèle", aiTemp: "Température (0–2)", aiKey: "API Key",
       aiTest: "Tester la connexion", aiTesting: "Test en cours…", aiSave: "Enregistrer", aiTestOk: "✓ Connecté", aiTestFail: "✗ Échec : ", aiTestEmpty: "✗ Aucune réponse", aiTestFillFirst: "Renseignez d'abord le point de terminaison, le modèle et la clé",
+      aiPresetName: "Nom du profil", aiPresetNamePh: "Mon GPT-4o", aiPresetNew: "Nouveau", aiPresetDelete: "Supprimer", aiPresetDefault: "Par défaut", aiPresetConfirmDelete: "Confirmer la suppression ?",
       aiPh: "Saisissez une instruction (copilot/poser une question/générer)… Enter pour envoyer, Esc pour fermer", aiSend: "Envoyer", aiApply: "Appliquer", aiDiscard: "Fermer",
       aiInsert: "Insérer au curseur", aiEditedNote: "✓ Mis à jour (voir zone d'édition)", aiChatZone: "Discussion", aiEditZone: "Zone d'édition",
       aiToEdit: "→ Utiliser comme contenu d'édition", aiMovedToEdit: "Défini comme contenu d'édition ; cliquez sur Appliquer",
@@ -209,6 +212,7 @@
       aiSettingsHint: "Konfigurieren Sie einen OpenAI-kompatiblen Endpoint (OpenAI / DeepSeek / Zhipu / lokales Ollama usw.). Der API Key wird nur im localStorage dieses Rechners gespeichert und nie in Sitzungs-Backups einbezogen.",
       aiProvider: "Anbieter", aiEndpoint: "Endpoint (Base URL)", aiModel: "Modell", aiTemp: "Temperatur (0–2)", aiKey: "API Key",
       aiTest: "Verbindung testen", aiTesting: "Testen…", aiSave: "Speichern", aiTestOk: "✓ Verbunden", aiTestFail: "✗ Fehlgeschlagen: ", aiTestEmpty: "✗ Keine Antwort", aiTestFillFirst: "Zuerst Endpoint, Modell und API Key ausfüllen",
+      aiPresetName: "Profilname", aiPresetNamePh: "Mein GPT-4o", aiPresetNew: "Neu", aiPresetDelete: "Löschen", aiPresetDefault: "Standard", aiPresetConfirmDelete: "Löschen bestätigen?",
       aiPh: "Anweisung eingeben (Copilot/Fragen/Generieren)… Enter zum Senden, Esc zum Schließen", aiSend: "Senden", aiApply: "Anwenden", aiDiscard: "Schließen",
       aiInsert: "Am Cursor einfügen", aiEditedNote: "✓ Aktualisiert (siehe Bearbeitungsbereich)", aiChatZone: "Chat", aiEditZone: "Bearbeitungsbereich",
       aiToEdit: "→ Als Bearbeitungsinhalt verwenden", aiMovedToEdit: "Als Bearbeitungsinhalt gesetzt; auf Anwenden klicken",
@@ -235,6 +239,7 @@
       aiSettingsHint: "Настройте конечную точку, совместимую с OpenAI (OpenAI / DeepSeek / Zhipu / локальный Ollama и т. д.). Ключ хранится только в localStorage этого компьютера и никогда не включается в резервные копии сессии.",
       aiProvider: "Провайдер", aiEndpoint: "Конечная точка (Base URL)", aiModel: "Модель", aiTemp: "Температура (0–2)", aiKey: "API Key",
       aiTest: "Проверить подключение", aiTesting: "Проверка…", aiSave: "Сохранить", aiTestOk: "✓ Подключено", aiTestFail: "✗ Ошибка: ", aiTestEmpty: "✗ Нет ответа", aiTestFillFirst: "Сначала заполните конечную точку, модель и ключ",
+      aiPresetName: "Имя профиля", aiPresetNamePh: "Мой GPT-4o", aiPresetNew: "Новый", aiPresetDelete: "Удалить", aiPresetDefault: "По умолчанию", aiPresetConfirmDelete: "Подтвердить удаление?",
       aiPh: "Введите инструкцию (Copilot/вопрос/генерация)… Enter для отправки, Esc для закрытия", aiSend: "Отправить", aiApply: "Применить", aiDiscard: "Закрыть",
       aiInsert: "Вставить в курсор", aiEditedNote: "✓ Обновлено (см. зону редактирования)", aiChatZone: "Чат", aiEditZone: "Зона редактирования",
       aiToEdit: "→ Использовать как содержимое для редактирования", aiMovedToEdit: "Установлено как содержимое для редактирования; нажмите «Применить»",
@@ -261,6 +266,7 @@
       aiSettingsHint: "Configura un endpoint compatibile con OpenAI (OpenAI / DeepSeek / Zhipu / Ollama locale, ecc.). La chiave è conservata solo nel localStorage di questa macchina e non viene mai inclusa nei backup di sessione.",
       aiProvider: "Provider", aiEndpoint: "Endpoint (Base URL)", aiModel: "Modello", aiTemp: "Temperatura (0–2)", aiKey: "API Key",
       aiTest: "Test connessione", aiTesting: "Test in corso…", aiSave: "Salva", aiTestOk: "✓ Connesso", aiTestFail: "✗ Fallito: ", aiTestEmpty: "✗ Nessuna risposta", aiTestFillFirst: "Inserisci prima endpoint, modello e chiave",
+      aiPresetName: "Nome profilo", aiPresetNamePh: "Il mio GPT-4o", aiPresetNew: "Nuovo", aiPresetDelete: "Elimina", aiPresetDefault: "Predefinito", aiPresetConfirmDelete: "Conferma eliminazione?",
       aiPh: "Scrivi un'istruzione (copilot/chiedi/genera)… Enter per inviare, Esc per chiudere", aiSend: "Invia", aiApply: "Applica", aiDiscard: "Chiudi",
       aiInsert: "Inserisci al cursore", aiEditedNote: "✓ Aggiornato (vedi zona di modifica)", aiChatZone: "Chat", aiEditZone: "Zona di modifica",
       aiToEdit: "→ Usa come contenuto di modifica", aiMovedToEdit: "Imposta come contenuto di modifica; clicca Applica",
@@ -287,6 +293,7 @@
       aiSettingsHint: "OpenAI 互換のエンドポイントを設定します（OpenAI / DeepSeek / Zhipu / ローカルの Ollama など）。API Key はこのマシンの localStorage にのみ保存され、セッションバックアップには含まれません。",
       aiProvider: "プロバイダ", aiEndpoint: "エンドポイント (Base URL)", aiModel: "モデル", aiTemp: "温度 (0–2)", aiKey: "API Key",
       aiTest: "接続テスト", aiTesting: "テスト中…", aiSave: "保存", aiTestOk: "✓ 接続しました", aiTestFail: "✗ 失敗: ", aiTestEmpty: "✗ 応答がありません", aiTestFillFirst: "先にエンドポイント、モデル、API Key を入力してください",
+      aiPresetName: "設定名", aiPresetNamePh: "私の GPT-4o", aiPresetNew: "新規", aiPresetDelete: "削除", aiPresetDefault: "デフォルト", aiPresetConfirmDelete: "削除を実行?",
       aiPh: "指示を入力（copilot/ask/generate）… Enter で送信、Esc で閉じる", aiSend: "送信", aiApply: "適用", aiDiscard: "閉じる",
       aiInsert: "カーソル位置に挿入", aiEditedNote: "✓ 更新しました（編集ゾーンを確認）", aiChatZone: "チャット", aiEditZone: "編集ゾーン",
       aiToEdit: "→ 編集内容として使用", aiMovedToEdit: "編集内容に設定しました。「適用」をクリック",
@@ -313,6 +320,7 @@
       aiSettingsHint: "OpenAI 호환 엔드포인트를 구성합니다 (OpenAI / DeepSeek / Zhipu / 로컬 Ollama 등). 키는 이 컴퓨터의 localStorage에만 저장되며 세션 백업에는 포함되지 않습니다.",
       aiProvider: "제공자", aiEndpoint: "엔드포인트 (Base URL)", aiModel: "모델", aiTemp: "온도 (0–2)", aiKey: "API Key",
       aiTest: "연결 테스트", aiTesting: "테스트 중…", aiSave: "저장", aiTestOk: "✓ 연결됨", aiTestFail: "✗ 실패: ", aiTestEmpty: "✗ 응답 없음", aiTestFillFirst: "먼저 엔드포인트, 모델, 키를 입력하세요",
+      aiPresetName: "프로필 이름", aiPresetNamePh: "내 GPT-4o", aiPresetNew: "새로 만들기", aiPresetDelete: "삭제", aiPresetDefault: "기본", aiPresetConfirmDelete: "삭제 확인?",
       aiPh: "지시어를 입력하세요 (copilot/ask/generate)… Enter로 전송, Esc로 닫기", aiSend: "전송", aiApply: "적용", aiDiscard: "닫기",
       aiInsert: "커서 위치에 삽입", aiEditedNote: "✓ 업데이트됨 (편집 영역 확인)", aiChatZone: "채팅", aiEditZone: "편집 영역",
       aiToEdit: "→ 편집 내용으로 사용", aiMovedToEdit: "편집 내용으로 설정됨, 적용을 클릭하세요",
@@ -339,6 +347,7 @@
       aiSettingsHint: "Configura un endpoint compatible con OpenAI (OpenAI / DeepSeek / Zhipu / Ollama local, etc.). La API Key se guarda únicamente en el localStorage de esta máquina y nunca se incluye en las copias de seguridad de la sesión.",
       aiProvider: "Proveedor", aiEndpoint: "Endpoint (Base URL)", aiModel: "Modelo", aiTemp: "Temperatura (0–2)", aiKey: "API Key",
       aiTest: "Probar conexión", aiTesting: "Probando…", aiSave: "Guardar", aiTestOk: "✓ Conectado", aiTestFail: "✗ Falló: ", aiTestEmpty: "✗ Sin respuesta", aiTestFillFirst: "Completa primero el endpoint, el modelo y la clave",
+      aiPresetName: "Nombre del perfil", aiPresetNamePh: "Mi GPT-4o", aiPresetNew: "Nuevo", aiPresetDelete: "Eliminar", aiPresetDefault: "Predeterminado", aiPresetConfirmDelete: "¿Confirmar eliminación?",
       aiPh: "Escribe una instrucción (copilot/preguntar/generar)… Enter para enviar, Esc para cerrar", aiSend: "Enviar", aiApply: "Aplicar", aiDiscard: "Cerrar",
       aiInsert: "Insertar en el cursor", aiEditedNote: "✓ Actualizado (ver zona de edición)", aiChatZone: "Chat", aiEditZone: "Zona de edición",
       aiToEdit: "→ Usar como contenido de edición", aiMovedToEdit: "Establecido como contenido de edición; haz clic en Aplicar",
@@ -365,6 +374,7 @@
       aiSettingsHint: "Configure um endpoint compatível com OpenAI (OpenAI / DeepSeek / Zhipu / Ollama local, etc.). A chave é armazenada apenas no localStorage desta máquina e nunca é incluída nos backups de sessão.",
       aiProvider: "Provedor", aiEndpoint: "Endpoint (Base URL)", aiModel: "Modelo", aiTemp: "Temperatura (0–2)", aiKey: "API Key",
       aiTest: "Testar conexão", aiTesting: "Testando…", aiSave: "Salvar", aiTestOk: "✓ Conectado", aiTestFail: "✗ Falhou: ", aiTestEmpty: "✗ Sem resposta", aiTestFillFirst: "Preencha o endpoint, o modelo e a chave primeiro",
+      aiPresetName: "Nome do perfil", aiPresetNamePh: "Meu GPT-4o", aiPresetNew: "Novo", aiPresetDelete: "Excluir", aiPresetDefault: "Padrão", aiPresetConfirmDelete: "Confirmar exclusão?",
       aiPh: "Digite uma instrução (Copilot/Perguntar/Gerar)… Enter para enviar, Esc para fechar", aiSend: "Enviar", aiApply: "Aplicar", aiDiscard: "Fechar",
       aiInsert: "Inserir no cursor", aiEditedNote: "✓ Atualizado (veja a zona de edição)", aiChatZone: "Chat", aiEditZone: "Zona de edição",
       aiToEdit: "→ Usar como conteúdo de edição", aiMovedToEdit: "Definido como conteúdo de edição; clique em Aplicar",
@@ -391,6 +401,7 @@
       aiSettingsHint: "قم بتكوين نقطة نهاية متوافقة مع OpenAI (OpenAI / DeepSeek / Zhipu / Ollama محلي، إلخ). يُخزَّن المفتاح في localStorage على هذا الجهاز فقط ولا يُضمَّن أبداً في نسخ احتياطية الجلسة.",
       aiProvider: "المزود", aiEndpoint: "نقطة النهاية (Base URL)", aiModel: "النموذج", aiTemp: "الحرارة (0–2)", aiKey: "API Key",
       aiTest: "اختبار الاتصال", aiTesting: "جارٍ الاختبار…", aiSave: "حفظ", aiTestOk: "✓ متصل", aiTestFail: "✗ فشل: ", aiTestEmpty: "✗ لا استجابة", aiTestFillFirst: "املأ نقطة النهاية والنموذج والمفتاح أولاً",
+      aiPresetName: "اسم الملف الشخصي", aiPresetNamePh: "GPT-4o الخاص بي", aiPresetNew: "جديد", aiPresetDelete: "حذف", aiPresetDefault: "افتراضي", aiPresetConfirmDelete: "تأكيد الحذف؟",
       aiPh: "اكتب تعليماً (copilot/ask/generate)… Enter للإرسال، Esc للإغلاق", aiSend: "إرسال", aiApply: "تطبيق", aiDiscard: "إغلاق",
       aiInsert: "إدراج عند المؤشر", aiEditedNote: "✓ تم التحديث (انظر منطقة التحرير)", aiChatZone: "دردشة", aiEditZone: "منطقة التحرير",
       aiToEdit: "→ استخدم كمحتوى للتحرير", aiMovedToEdit: "تم التعيين كمحتوى للتحرير؛ انقر تطبيق",
@@ -419,6 +430,7 @@
       aiSettingsHint: "एक OpenAI-संगत एंडपॉइंट कॉन्फ़िगर करें (OpenAI / DeepSeek / Zhipu / स्थानीय Ollama, आदि)। कुंजी केवल इस मशीन के localStorage में संग्रहीत होती है और कभी भी सत्र बैकअप में शामिल नहीं होती।",
       aiProvider: "प्रदाता", aiEndpoint: "एंडपॉइंट (Base URL)", aiModel: "मॉडल", aiTemp: "तापमान (0–2)", aiKey: "API Key",
       aiTest: "कनेक्शन परखें", aiTesting: "परख रहे हैं…", aiSave: "सहेजें", aiTestOk: "✓ जुड़ा", aiTestFail: "✗ विफल: ", aiTestEmpty: "✗ कोई प्रतिक्रिया नहीं", aiTestFillFirst: "पहले एंडपॉइंट, मॉडल और कुंजी भरें",
+      aiPresetName: "प्रोफ़ाइल नाम", aiPresetNamePh: "मेरा GPT-4o", aiPresetNew: "नया", aiPresetDelete: "हटाएँ", aiPresetDefault: "डिफ़ॉल्ट", aiPresetConfirmDelete: "हटाने की पुष्टि करें?",
       aiPh: "निर्देश लिखें (copilot/ask/generate)… भेजने के लिए Enter, बंद करने के लिए Esc", aiSend: "भेजें", aiApply: "लागू", aiDiscard: "बंद करें",
       aiInsert: "कर्सर पर डालें", aiEditedNote: "✓ अद्यतन (संपादन क्षेत्र देखें)", aiChatZone: "चैट", aiEditZone: "संपादन क्षेत्र",
       aiToEdit: "→ संपादन सामग्री के रूप में उपयोग करें", aiMovedToEdit: "संपादन सामग्री के रूप में सेट किया; लागू पर क्लिक करें",
@@ -447,6 +459,7 @@
       aiSettingsHint: "OpenAI-ਅਨੁਕੂਲ ਐਂਡਪੌਇੰਟ ਸੰਰਚਿਤ ਕਰੋ (OpenAI / DeepSeek / Zhipu / ਸਥਾਨਕ Ollama, ਆਦਿ)। ਕੁੰਜੀ ਸਿਰਫ਼ ਇਸ ਮਸ਼ੀਨ ਦੇ localStorage ਵਿੱਚ ਸੰਭਾਲੀ ਜਾਂਦੀ ਹੈ ਅਤੇ ਸੈਸ਼ਨ ਬੈਕਅੱਪ ਵਿੱਚ ਕਦੇ ਸ਼ਾਮਲ ਨਹੀਂ ਹੁੰਦੀ।",
       aiProvider: "ਪ੍ਰਦਾਤਾ", aiEndpoint: "ਐਂਡਪੌਇੰਟ (Base URL)", aiModel: "ਮਾਡਲ", aiTemp: "ਤਾਪਮਾਨ (0–2)", aiKey: "API Key",
       aiTest: "ਕਨੈਕਸ਼ਨ ਟੈਸਟ ਕਰੋ", aiTesting: "ਟੈਸਟ ਹੋ ਰਿਹਾ ਹੈ…", aiSave: "ਸੰਭਾਲੋ", aiTestOk: "✓ ਜੁੜਿਆ", aiTestFail: "✗ ਅਸਫ਼ਲ: ", aiTestEmpty: "✗ ਕੋਈ ਜਵਾਬ ਨਹੀਂ", aiTestFillFirst: "ਪਹਿਲਾਂ ਐਂਡਪੌਇੰਟ, ਮਾਡਲ ਅਤੇ ਕੁੰਜੀ ਭਰੋ",
+      aiPresetName: "ਪ੍ਰੋਫਾਈਲ ਨਾਮ", aiPresetNamePh: "ਮੇਰਾ GPT-4o", aiPresetNew: "ਨਵਾਂ", aiPresetDelete: "ਮਿਟਾਓ", aiPresetDefault: "ਡਿਫ਼ਾਲਟ", aiPresetConfirmDelete: "ਮਿਟਾਉਣ ਦੀ ਪੁਸ਼ਟੀ?",
       aiPh: "ਹਦਾਇਤ ਲਿਖੋ (copilot/ask/generate)… ਭੇਜਣ ਲਈ Enter, ਬੰਦ ਕਰਨ ਲਈ Esc", aiSend: "ਭੇਜੋ", aiApply: "ਲਾਗੂ", aiDiscard: "ਬੰਦ ਕਰੋ",
       aiInsert: "ਕਰਸਰ ਉੱਤੇ ਪਾਓ", aiEditedNote: "✓ ਅੱਪਡੇਟ ਹੋਇਆ (ਸੰਪਾਦਨ ਜ਼ੋਨ ਵੇਖੋ)", aiChatZone: "ਚੈੱਟ", aiEditZone: "ਸੰਪਾਦਨ ਜ਼ੋਨ",
       aiToEdit: "→ ਸੰਪਾਦਨ ਸਮੱਗਰੀ ਵਜੋਂ ਵਰਤੋ", aiMovedToEdit: "ਸੰਪਾਦਨ ਸਮੱਗਰੀ ਵਜੋਂ ਸੈੱਟ ਕੀਤਾ; ਲਾਗੂ ਕਲਿੱਕ ਕਰੋ",
@@ -475,6 +488,7 @@
       aiSettingsHint: "Cấu hình một endpoint tương thích OpenAI (OpenAI / DeepSeek / Zhipu / Ollama cục bộ, v.v.). Khóa chỉ được lưu trong localStorage của máy này và không bao giờ đưa vào bản sao lưu phiên.",
       aiProvider: "Nhà cung cấp", aiEndpoint: "Endpoint (Base URL)", aiModel: "Mô hình", aiTemp: "Nhiệt độ (0–2)", aiKey: "API Key",
       aiTest: "Kiểm tra kết nối", aiTesting: "Đang kiểm tra…", aiSave: "Lưu", aiTestOk: "✓ Đã kết nối", aiTestFail: "✗ Thất bại: ", aiTestEmpty: "✗ Không có phản hồi", aiTestFillFirst: "Hãy nhập endpoint, mô hình và API Key trước",
+      aiPresetName: "Tên hồ sơ", aiPresetNamePh: "GPT-4o của tôi", aiPresetNew: "Mới", aiPresetDelete: "Xóa", aiPresetDefault: "Mặc định", aiPresetConfirmDelete: "Xác nhận xóa?",
       aiPh: "Nhập chỉ dẫn (copilot/hỏi/tạo)… Enter để gửi, Esc để đóng", aiSend: "Gửi", aiApply: "Áp dụng", aiDiscard: "Đóng",
       aiInsert: "Chèn tại con trỏ", aiEditedNote: "✓ Đã cập nhật (xem vùng chỉnh sửa)", aiChatZone: "Trò chuyện", aiEditZone: "Vùng chỉnh sửa",
       aiToEdit: "→ Dùng làm nội dung chỉnh sửa", aiMovedToEdit: "Đặt làm nội dung chỉnh sửa; nhấn Áp dụng",
@@ -503,6 +517,7 @@
       aiSettingsHint: "Konfigurasikan endpoint kompatibel OpenAI (OpenAI / DeepSeek / Zhipu / Ollama lokal, dll.). Kunci hanya disimpan di localStorage mesin ini dan tidak pernah disertakan dalam cadangan sesi.",
       aiProvider: "Penyedia", aiEndpoint: "Endpoint (Base URL)", aiModel: "Model", aiTemp: "Temperatur (0–2)", aiKey: "API Key",
       aiTest: "Uji koneksi", aiTesting: "Menguji…", aiSave: "Simpan", aiTestOk: "✓ Terhubung", aiTestFail: "✗ Gagal: ", aiTestEmpty: "✗ Tidak ada respons", aiTestFillFirst: "Isi endpoint, model, dan kunci terlebih dahulu",
+      aiPresetName: "Nama profil", aiPresetNamePh: "GPT-4o saya", aiPresetNew: "Baru", aiPresetDelete: "Hapus", aiPresetDefault: "Bawaan", aiPresetConfirmDelete: "Konfirmasi hapus?",
       aiPh: "Ketik instruksi (copilot/tanya/hasilkan)… Enter untuk mengirim, Esc untuk menutup", aiSend: "Kirim", aiApply: "Terapkan", aiDiscard: "Tutup",
       aiInsert: "Sisipkan pada kursor", aiEditedNote: "✓ Diperbarui (lihat zona edit)", aiChatZone: "Obrolan", aiEditZone: "Zona edit",
       aiToEdit: "→ Gunakan sebagai konten edit", aiMovedToEdit: "Ditetapkan sebagai konten edit; klik Terapkan",
@@ -531,6 +546,7 @@
       aiSettingsHint: "OpenAI-مطابق اینڈ پائنٹ مرتب کریں (OpenAI / DeepSeek / Zhipu / مقامی Ollama وغیرہ)۔ API Key صرف اس مشین کے localStorage میں محفوظ ہوتا ہے اور سیشن بیک اپس میں کبھی شامل نہیں ہوتا۔",
       aiProvider: "فراہم کنندہ", aiEndpoint: "اینڈ پائنٹ (Base URL)", aiModel: "ماڈل", aiTemp: "درجہ حرارت (0–2)", aiKey: "API Key",
       aiTest: "کنکشن ٹیسٹ کریں", aiTesting: "ٹیسٹ ہو رہا ہے…", aiSave: "محفوظ کریں", aiTestOk: "✓ متصل", aiTestFail: "✗ ناکام: ", aiTestEmpty: "✗ کوئی جواب نہیں", aiTestFillFirst: "پہلے اینڈ پائنٹ، ماڈل اور کلید پُر کریں",
+      aiPresetName: "پروفائل کا نام", aiPresetNamePh: "میرا GPT-4o", aiPresetNew: "نیا", aiPresetDelete: "حذف کریں", aiPresetDefault: "پہلے سے طے شدہ", aiPresetConfirmDelete: "حذف کرنے کی تصدیق؟",
       aiPh: "ہدایت لکھیں (copilot/ask/generate)… بھیجنے کے لیے Enter، بند کرنے کے لیے Esc", aiSend: "بھیجیں", aiApply: "لاگو", aiDiscard: "بند کریں",
       aiInsert: "کرسر پر داخل کریں", aiEditedNote: "✓ اپ ڈیٹ ہوا (ترمیم زون دیکھیں)", aiChatZone: "چیٹ", aiEditZone: "ترمیم زون",
       aiToEdit: "→ بطور ترمیم مواد استعمال کریں", aiMovedToEdit: "ترمیم مواد کے طور پر سیٹ کریں؛ لاگو پر کلک کریں",
@@ -559,6 +575,7 @@
       aiSettingsHint: "OpenAI-тай нийцэх төгсгөлийн цэг тохируул (OpenAI / DeepSeek / Zhipu / орон нутгийн Ollama гэх мэт). Түлхүүр зөвхөн энэ машины localStorage-д хадгалагдаж, сэшний нөөцөд хэзээ ч багтдаггүй.",
       aiProvider: "Үйлчилгээ үзүүлэгч", aiEndpoint: "Төгсгөлийн цэг (Base URL)", aiModel: "Загвар", aiTemp: "Температур (0–2)", aiKey: "API Key",
       aiTest: "Холболтыг шалгах", aiTesting: "Шалгаж байна…", aiSave: "Хадгалах", aiTestOk: "✓ Холбогдсон", aiTestFail: "✗ Амжилтгүй: ", aiTestEmpty: "✗ Хариулт алга", aiTestFillFirst: "Эхлээд төгсгөлийн цэг, загвар, түлхүүрийг бөглөнө үү",
+      aiPresetName: "Профилийн нэр", aiPresetNamePh: "Миний GPT-4o", aiPresetNew: "Шинэ", aiPresetDelete: "Устгах", aiPresetDefault: "Үндсэн", aiPresetConfirmDelete: "Устгахыг баталгаажуулах уу?",
       aiPh: "Зааварчилгаа бичих (Copilot/асуух/үүсгэх)… Илгээхдээ Enter, хаахдаа Esc", aiSend: "Илгээх", aiApply: "Хэрэгжүүлэх", aiDiscard: "Хаах",
       aiInsert: "Курсор дээр оруулах", aiEditedNote: "✓ Шинэчлэгдсэн (засварын бүсийг үз)", aiChatZone: "Чат", aiEditZone: "Засварын бүс",
       aiToEdit: "→ Засварын агуулга болгон ашиглах", aiMovedToEdit: "Засварын агуулгаар тохируулав; Хэрэгжүүлэх дээр дар",
@@ -1684,6 +1701,7 @@
     let editHistory = [], editFuture = []; // 编辑区文本的回退/前进栈（多轮改写状态）
     let editViewMode = "diff"; // 编辑区视图："diff"（源码+diff 高亮）| "render"（渲染预览）
     let editBodyGen = 0; // 编辑区渲染态的代际守卫（mermaid 异步，切视图时作废旧的）
+    let editingId = null, deleteConfirmTimer = null; // 预设列表：当前编辑项 id；删除二次确认定时器（v2.1.0）
 
     const aiEsc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -1841,6 +1859,7 @@
       setStatus(t("aiPh"));
       buildAiSel();
       placePop();
+      const _an = $("ai-active-name"); if (_an) _an.textContent = currentApiLabel();
       inp.focus();
     }
     function closePop() {
@@ -1983,22 +2002,116 @@
 
     // —— 设置面板 ——
     function openSettings() {
-      const c = cfg();
-      $("ai-set-provider").value = c.provider;
-      $("ai-set-endpoint").value = c.endpoint;
-      $("ai-set-model").value = c.model;
-      $("ai-set-temp").value = c.temp;
-      $("ai-set-key").value = c.key;
+      migrateIfNeeded();
+      const a = loadPresets();
+      if (!a.length) { editingId = null; clearForm(); renderPresetList(); }
+      else {
+        const aid = getActiveId();
+        if (!aid || !findPreset(aid)) selectPreset(a[0].id);
+        else selectPreset(aid);
+      }
       $("ai-settings-mask").hidden = false;
     }
     function closeSettings() { $("ai-settings-mask").hidden = true; }
-    function saveSettings() {
-      localStorage.setItem("md-ai-provider", $("ai-set-provider").value);
-      localStorage.setItem("md-ai-endpoint", $("ai-set-endpoint").value.trim());
-      localStorage.setItem("md-ai-model", $("ai-set-model").value.trim());
+
+    // —— 预设列表（多 API 切换，v2.1.0）——
+    // md-ai-presets: [{id,name,provider,endpoint,model,temp,key}]；md-ai-active: 当前激活 id。
+    // md-ai-* 5 key 仍是“当前在用配置”镜像，cfg()/ai_rewrite 零改动；切换/保存预设时同步镜像。
+    const PRESETS_KEY = "md-ai-presets", ACTIVE_KEY = "md-ai-active";
+    function pid() { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+    function loadPresets() {
+      try { const a = JSON.parse(localStorage.getItem(PRESETS_KEY) || "[]"); return Array.isArray(a) ? a : []; }
+      catch (_) { return []; }
+    }
+    function savePresets(a) { localStorage.setItem(PRESETS_KEY, JSON.stringify(a || [])); }
+    function getActiveId() { return localStorage.getItem(ACTIVE_KEY) || null; }
+    function setActiveId(id) { if (id) localStorage.setItem(ACTIVE_KEY, id); else localStorage.removeItem(ACTIVE_KEY); }
+    function findPreset(id) { return id ? loadPresets().find(p => p.id === id) || null : null; }
+    function currentApiLabel() { // 浮层头部展示的“当前 API”：优先激活预设名，降级用 model/endpoint
+      const p = findPreset(getActiveId());
+      if (p && p.name) return p.name;
+      const c = cfg();
+      return c.model || c.endpoint || "";
+    }
+    function syncMirror(p) { // 把预设字段写回 md-ai-* 镜像，使 cfg() 立即反映所选 API
+      if (!p) return;
+      localStorage.setItem("md-ai-provider", p.provider || "openai");
+      localStorage.setItem("md-ai-endpoint", (p.endpoint || "").trim());
+      localStorage.setItem("md-ai-model", (p.model || "").trim());
+      localStorage.setItem("md-ai-temp", String(isNaN(p.temp) ? 0.7 : Math.max(0, Math.min(2, p.temp))));
+      localStorage.setItem("md-ai-key", p.key || "");
+    }
+    // 老用户迁移：首次开设置时若无预设、但有旧 md-ai-endpoint，把当前 cfg() 导为「默认」预设
+    function migrateIfNeeded() {
+      if (loadPresets().length) return;
+      const cur = cfg();
+      const p = { id: pid(), name: t("aiPresetDefault"), provider: cur.provider, endpoint: cur.endpoint, model: cur.model, temp: cur.temp, key: cur.key };
+      savePresets([p]); setActiveId(p.id);
+    }
+    function renderPresetList() {
+      const list = $("ai-preset-list"); if (!list) return;
+      const a = loadPresets(), aid = getActiveId();
+      list.innerHTML = "";
+      a.forEach(p => {
+        const el = document.createElement("div");
+        el.className = "ai-preset-item" + (p.id === aid ? " active" : "");
+        el.textContent = p.name || t("aiPresetDefault");
+        el.title = p.name || ""; el.dataset.id = p.id;
+        list.appendChild(el);
+      });
+    }
+    function fillForm(p) {
+      $("ai-set-name").value = (p && p.name) || "";
+      $("ai-set-provider").value = (p && p.provider) || "openai";
+      $("ai-set-endpoint").value = (p && p.endpoint) || "";
+      $("ai-set-model").value = (p && p.model) || "";
+      $("ai-set-temp").value = (p && p.temp != null) ? p.temp : 0.7;
+      $("ai-set-key").value = (p && p.key) || "";
+    }
+    function clearForm() { fillForm(null); }
+    function selectPreset(id) {            // 选中 = 设为 active + 填表单 + 同步镜像（选哪个用哪个）
+      const p = findPreset(id); if (!p) return;
+      setActiveId(id); editingId = id; fillForm(p); syncMirror(p); renderPresetList();
+    }
+    function newPreset() {                 // 新建草稿（不改 active，保存时才生效）
+      editingId = null; clearForm();
+      const list = $("ai-preset-list");
+      if (list) list.querySelectorAll(".ai-preset-item.active").forEach(el => el.classList.remove("active"));
+      $("ai-set-name").focus();
+    }
+    function commitFormToActive() {        // 保存：写回当前编辑预设（或新建），设为 active 并同步镜像
+      const name = $("ai-set-name").value.trim() || t("aiPresetDefault");
+      const provider = $("ai-set-provider").value;
+      const endpoint = $("ai-set-endpoint").value.trim();
+      const model = $("ai-set-model").value.trim();
       const tp = parseFloat($("ai-set-temp").value);
-      localStorage.setItem("md-ai-temp", String(isNaN(tp) ? 0.7 : Math.max(0, Math.min(2, tp))));
-      localStorage.setItem("md-ai-key", $("ai-set-key").value);
+      const temp = isNaN(tp) ? 0.7 : Math.max(0, Math.min(2, tp));
+      const key = $("ai-set-key").value;
+      const a = loadPresets();
+      if (editingId) {
+        const p = a.find(x => x.id === editingId);
+        if (p) { p.name = name; p.provider = provider; p.endpoint = endpoint; p.model = model; p.temp = temp; p.key = key; }
+      } else {
+        const p = { id: pid(), name, provider, endpoint, model, temp, key };
+        a.push(p); editingId = p.id;
+      }
+      savePresets(a); setActiveId(editingId);
+      syncMirror({ provider, endpoint, model, temp, key });
+    }
+    function deletePreset() {
+      const a = loadPresets();
+      const id = editingId || getActiveId();
+      if (!id) return;
+      const idx = a.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      a.splice(idx, 1); savePresets(a);
+      if (a.length) selectPreset(a[Math.min(idx, a.length - 1)].id); // 切到相邻项（同步 active+镜像+表单+列表）
+      else { setActiveId(null); editingId = null; clearForm(); renderPresetList(); }
+    }
+
+    function saveSettings() {
+      commitFormToActive();
+      renderPresetList();
       closeSettings();
       toast(t("saved"));
     }
@@ -2061,6 +2174,24 @@
 
     $("ai-settings-cancel").addEventListener("click", closeSettings);
     $("ai-settings-save").addEventListener("click", saveSettings);
+    $("ai-preset-new").addEventListener("click", newPreset);
+    $("ai-preset-list").addEventListener("click", (e) => {
+      const it = e.target.closest(".ai-preset-item");
+      if (it) selectPreset(it.dataset.id);
+    });
+    // 删除：二次确认（首次点击变红“确认删除?”，3s 内再点才真删）——避免原生 confirm()（BUG-006）
+    $("ai-preset-delete").addEventListener("click", () => {
+      const btn = $("ai-preset-delete");
+      if (!btn.classList.contains("confirming")) {
+        btn.classList.add("confirming"); btn.textContent = t("aiPresetConfirmDelete");
+        clearTimeout(deleteConfirmTimer);
+        deleteConfirmTimer = setTimeout(() => { btn.classList.remove("confirming"); btn.textContent = t("aiPresetDelete"); }, 3000);
+      } else {
+        clearTimeout(deleteConfirmTimer);
+        btn.classList.remove("confirming"); btn.textContent = t("aiPresetDelete");
+        deletePreset();
+      }
+    });
     $("ai-test-btn").addEventListener("click", testConn);
     $("ai-settings-mask").addEventListener("click", (e) => { if (e.target === $("ai-settings-mask")) closeSettings(); });
     // 指令框：Enter 发送 / Esc 关闭
@@ -3635,11 +3766,15 @@
 
   /* ---------- 同步滚动 ---------- */
   let scrollSrc = null, scrollReset;
+  let lastPreviewH = 0; // 上次预览 scrollHeight；图片/mermaid 等异步渲染改变高度会使 Y 缓存过期 → syncAnchors 检测变化则重测
+  let imgLoadT = 0; // 图片 load 后重测 Y 缓存的防抖定时器
   /* ---- 编辑↔预览 双向定位（点击 + 滚动同步）----
      预览侧用"块顶 Y"：非虚拟化时每次渲染测一次缓存（buildPreviewBlockY）；虚拟化时直接用 vprefix
      （虚拟化自维护、滚动时自动校正）。滚动只查缓存、零 DOM 测量 → 丝滑。代码块按行插值。 */
   let previewBlockY = [];
+  let fineYCache = []; // 渲染时测的细粒度（块+li/tr）Y 缓存；滚动查它、零 DOM 测量（避免反馈，见 bug 2）
   let editorLineStarts = [0];   // 每个源码行的起始偏移
+  let editorFineYCache = []; // 每源码行起点的实测像素 Y（镜像 div+Range 测，含折行；滚动查它替代字符宽估算）
   let visLineStart = [0];       // 累计【视觉行】：visLineStart[i]=源码第 i 行之前的视觉行数（含折行）
   let editorCharW = 8.4;        // 等宽字体单字符宽（px）
   let editorLH = 23.8;          // 编辑器实际行高（px）
@@ -3677,13 +3812,34 @@
       vis.push(vis[k] + Math.max(1, Math.ceil((end - start) / editorCharsPerRow)));
     }
     visLineStart = vis;
+    buildEditorFineYCache(); // 行起点已定 → 用镜像 div 实测每行 Y（滚动查表，绕开字符宽估算）
+  }
+  // 镜像 div 实测每源码行起点的像素 Y（含折行真实位置）——滚动“像素↔偏移”查它，替代按字符宽估算（中文折行不准）
+  function buildEditorFineYCache() {
+    const probe = $("editor-yprobe");
+    if (!probe || !editorLineStarts.length) { editorFineYCache = []; return; }
+    probe.textContent = editor.value; // 与 textarea 同字体/换行/宽 → 视觉一致
+    const tn = probe.firstChild;
+    if (!tn || tn.nodeType !== 3) { editorFineYCache = []; return; }
+    const probeTop = probe.getBoundingClientRect().top;
+    const len = editor.value.length;
+    const cache = [];
+    for (let i = 0; i < editorLineStarts.length; i++) {
+      const off = editorLineStarts[i];
+      const r = document.createRange();
+      r.setStart(tn, off);
+      r.setEnd(tn, off + 1 <= len ? off + 1 : off);
+      const rect = r.getBoundingClientRect();
+      cache.push({ off: off, y: rect.top ? (rect.top - probeTop) : (i ? cache[i - 1].y + editorLH : 0) });
+    }
+    editorFineYCache = cache;
   }
   // 预览块顶 Y：虚拟化用 vprefix（虚拟化自维护），非虚拟化每次渲染测一次（滚动不重测 → 丝滑）
   function pby(i) { const a = vblocks.length ? vprefix : previewBlockY; return a ? (a[i] || 0) : 0; }
   function pbyLen() { const a = vblocks.length ? vprefix : previewBlockY; return a ? a.length : 0; }
   function buildPreviewBlockY() {
-    if (vblocks.length) return;              // 虚拟化：由 vprefix 提供，无需测
-    if (!srcBlockOffsets.length) { previewBlockY = []; return; }
+    if (vblocks.length) { fineYCache = []; return; }   // 虚拟化：由 vprefix 提供，无需测
+    if (!srcBlockOffsets.length) { previewBlockY = []; fineYCache = []; return; }
     const pvTop = preview.getBoundingClientRect().top, sts = preview.scrollTop;
     const arr = [], kids = preview.children;
     for (let i = 0; i < kids.length && i < srcBlockOffsets.length; i++) {
@@ -3691,9 +3847,34 @@
       arr.push(r.top - pvTop + sts);
     }
     previewBlockY = arr;
+    // 细粒度 Y 缓存：所有 data-src-offset 单元（块 + li/tr）的 (off,end,top,h)；滚动查它，零 DOM 测量
+    const fine = [];
+    const all = preview.querySelectorAll("[data-src-offset]");
+    for (let i = 0; i < all.length; i++) {
+      const el = /** @type {HTMLElement} */ (all[i]);
+      const o = parseInt(el.getAttribute("data-src-offset") || "", 10);
+      if (isNaN(o)) continue;
+      const en = parseInt(el.getAttribute("data-src-end") || "", 10);
+      const r = el.getBoundingClientRect();
+      fine.push({ off: o, end: isNaN(en) ? null : en, top: r.top - pvTop + sts, h: r.height });
+    }
+    fineYCache = fine;
   }
   function blockIsCode(bs) { return editor.value.slice(bs, bs + 3) === "```"; }
-  function previewYToOff(y) { // 预览内容 Y → 源偏移（块顶 Y 分段线性）
+  function previewYToOff(y) { // 预览内容 Y → 源偏移（优先 fineYCache 实测细粒度，回退块顶分段线性）
+    if (fineYCache.length) {
+      let best = null;
+      for (let i = 0; i < fineYCache.length; i++) {
+        const u = fineYCache[i];
+        if (y >= u.top && y < u.top + u.h) {
+          if (!best || u.off > best.off || (u.off === best.off && u.end != null && best.end == null)) best = u;
+        }
+      }
+      if (best) {
+        const frac = best.h > 0 ? Math.max(0, Math.min(1, (y - best.top) / best.h)) : 0;
+        return best.end != null ? Math.round(best.off + frac * (best.end - best.off)) : best.off;
+      }
+    }
     const n = pbyLen(); if (!n || !srcBlockOffsets.length) return -1;
     if (y <= pby(0)) return srcBlockOffsets[0] || 0;
     if (y >= pby(n - 1)) return srcBlockOffsets[srcBlockOffsets.length - 1] || editor.value.length;
@@ -3704,7 +3885,20 @@
     const bs = srcBlockOffsets[bi], be = bi + 1 < srcBlockOffsets.length ? srcBlockOffsets[bi + 1] : editor.value.length;
     return Math.round(bs + frac * (be - bs));
   }
-  function offToPreviewY(off) { // 源偏移 → 预览内容 Y（代码块按行插值，其余按字符比）
+  function offToPreviewY(off) { // 源偏移 → 预览内容 Y（优先 fineYCache 实测细粒度，回退块顶+字符比/行比）
+    if (fineYCache.length) {
+      let best = null;
+      for (let i = 0; i < fineYCache.length; i++) {
+        const u = fineYCache[i];
+        if (u.off <= off && (u.end == null || off < u.end)) {
+          if (!best || u.off > best.off || (u.off === best.off && u.end != null && best.end == null)) best = u;
+        }
+      }
+      if (best) {
+        const frac = (best.end != null && best.end > best.off && best.h > 0) ? (off - best.off) / (best.end - best.off) : 0;
+        return best.top + frac * best.h;
+      }
+    }
     const n = pbyLen(); if (!n || !srcBlockOffsets.length) return null;
     let lo = 0, hi = srcBlockOffsets.length;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (srcBlockOffsets[mid] <= off) lo = mid + 1; else hi = mid; }
@@ -3720,7 +3914,65 @@
     } else frac = be > bs ? (off - bs) / (be - bs) : 0;
     return top + frac * (bot - top);
   }
-  function editorYToOff(y) { // 编辑器像素 Y → 源偏移（按视觉行累计，含折行；修旧线性模型导致滑动不准）
+  // 编辑点击→预览：优先 DOM 实测（精确到 li/tr/块顶），回退 offToPreviewY（虚拟化未挂载）。
+  // 复用 BUG-057 的 data-src-offset/data-src-end 标记；点击低频，querySelectorAll 一次可接受。
+  function previewOffsetToY(off) {
+    const all = preview.querySelectorAll("[data-src-offset]");
+    let best = null, bestSt = -1;
+    for (let i = 0; i < all.length; i++) {
+      const el = /** @type {HTMLElement} */ (all[i]);
+      const st = parseInt(el.getAttribute("data-src-offset") || "", 10);
+      if (isNaN(st) || st > off) continue;
+      const en = parseInt(el.getAttribute("data-src-end") || "", 10);
+      if (!isNaN(en) && off >= en) continue;
+      if (st > bestSt) { bestSt = st; best = el; }   // st 最大 = 最细单元（li/tr 起点比父块靠后）
+    }
+    if (best) {
+      const pvRect = preview.getBoundingClientRect();
+      const r = best.getBoundingClientRect();
+      let y = r.top - pvRect.top + preview.scrollTop;  // 单元顶的预览内容 Y
+      const en = parseInt(best.getAttribute("data-src-end") || "", 10);
+      if (!isNaN(en) && en > bestSt && r.height > 0) {  // li/tr：单元内字符比微调（小单元近似线性）
+        y += ((off - bestSt) / (en - bestSt)) * r.height;
+      }
+      return y;
+    }
+    return offToPreviewY(off);
+  }
+  // 预览内容 Y → 源偏移（DOM 实测：elementFromPoint 命中该 Y 的最细单元；精确且 cheap，仅 1 次 rect）
+  function previewYToOffDom(contentY) {
+    const pvRect = preview.getBoundingClientRect();
+    const viewY = contentY - preview.scrollTop + pvRect.top; // 内容 Y → 视口 Y
+    const el = document.elementFromPoint(pvRect.left + 8, viewY); // 左侧附近，避开滚动条
+    if (el) {
+      const unit = el.closest("[data-src-offset]");
+      if (unit && preview.contains(unit)) {
+        const r = unit.getBoundingClientRect();
+        const st = parseInt(unit.getAttribute("data-src-offset") || "", 10);
+        if (!isNaN(st)) {
+          const en = parseInt(unit.getAttribute("data-src-end") || "", 10);
+          const frac = r.height > 0 ? Math.max(0, Math.min(1, (viewY - r.top) / r.height)) : 0;
+          return (!isNaN(en) && en > st) ? st + frac * (en - st) : st;
+        }
+      }
+    }
+    return -1; // 未命中（块间空白/虚拟化未挂载）→ 调用方回退
+  }
+  function editorYToOff(y) { // 编辑器像素 Y → 源偏移（优先 editorFineYCache 实测行 Y，回退折行估算）
+    if (editorFineYCache.length) {
+      const n = editorFineYCache.length;
+      if (y <= editorFineYCache[0].y) return editorFineYCache[0].off;
+      let clo = 0, chi = n - 1;
+      while (clo < chi) { const mid = (clo + chi + 1) >> 1; if (editorFineYCache[mid].y <= y) clo = mid; else chi = mid - 1; }
+      const cur = editorFineYCache[clo];
+      const nextY = clo + 1 < n ? editorFineYCache[clo + 1].y : cur.y + editorLH;
+      const lineOff = cur.off;
+      const lineEnd = clo + 1 < editorLineStarts.length ? editorLineStarts[clo + 1] : editor.value.length;
+      const visRows = Math.max(1, Math.round((nextY - cur.y) / editorLH)); // 实测视觉行数（行高/行距）
+      const charsPerVis = (lineEnd - lineOff) / visRows;                   // 每视觉行字符数（精确字符数/实测行数）
+      const localVis = Math.max(0, Math.min(visRows - 1, Math.round((y - cur.y) / editorLH)));
+      return Math.min(lineEnd, Math.round(lineOff + localVis * charsPerVis));
+    }
     const ls = editorLineStarts, vis = visLineStart; if (!ls.length || !vis.length) return 0;
     let vline = Math.round(y / editorLH);
     const total = vis[vis.length - 1];
@@ -3733,7 +3985,22 @@
     const end = lineIdx + 1 < ls.length ? ls[lineIdx + 1] - 1 : editor.value.length;
     return Math.min(end, start + localVis * editorCharsPerRow);
   }
-  function offToEditorY(off) { // 源偏移 → 编辑器像素 Y（含折行）
+  function offToEditorY(off) { // 源偏移 → 编辑器像素 Y（优先 editorFineYCache 实测，回退折行估算）
+    if (editorFineYCache.length) {
+      const ls = editorLineStarts;
+      let clo = 0, chi = ls.length - 1;
+      while (clo < chi) { const mid = (clo + chi + 1) >> 1; if (ls[mid] <= off) clo = mid; else chi = mid - 1; }
+      if (clo < editorFineYCache.length) {
+        const cur = editorFineYCache[clo];
+        const nextY = clo + 1 < editorFineYCache.length ? editorFineYCache[clo + 1].y : cur.y + editorLH;
+        const lineOff = ls[clo];
+        const lineEnd = clo + 1 < ls.length ? ls[clo + 1] : editor.value.length;
+        const visRows = Math.max(1, Math.round((nextY - cur.y) / editorLH));
+        const charsPerVis = visRows > 0 ? (lineEnd - lineOff) / visRows : 0;
+        const localVis = charsPerVis > 0 ? Math.floor((off - lineOff) / charsPerVis) : 0;
+        return cur.y + localVis * editorLH;
+      }
+    }
     const ls = editorLineStarts, vis = visLineStart; if (!ls.length || !vis.length) return 0;
     if (off <= 0) return 0;
     if (off >= ls[ls.length - 1]) return vis[vis.length - 1] * editorLH;
@@ -3745,6 +4012,8 @@
   // 锚点式滚动同步（替换原全局比例）：以各自中线偏移互映射；无锚点时回退比例
   function syncAnchors(src, dst) {
     if (!syncScroll) return;
+    // 图片/mermaid/KaTeX 等异步渲染会撑高预览 → fineYCache/previewBlockY 过期（预览偏上、越往后越偏）→ 检测 scrollHeight 变化则重测
+    if (preview.scrollHeight !== lastPreviewH) { buildPreviewBlockY(); lastPreviewH = preview.scrollHeight; }
     if (!pbyLen()) {
       const r = src.scrollTop / (src.scrollHeight - src.clientHeight || 1);
       dst.scrollTop = r * (dst.scrollHeight - dst.clientHeight); return;
@@ -3769,6 +4038,11 @@
     if (scrollSrc !== "editor") { scrollSrc = "preview"; scheduleSync(preview, editor); }
     if (vblocks.length) scheduleRenderVisible(); // 虚拟化：滚动时按需切换可见块
   });
+  // 图片异步加载会撑高预览，使 fineYCache/previewBlockY 过期（图片后内容偏上、文档后半部分累积偏差）→ img load 后防抖重测
+  preview.addEventListener("load", (e) => {
+    const t = e.target;
+    if (t && t.tagName === "IMG") { clearTimeout(imgLoadT); imgLoadT = setTimeout(buildPreviewBlockY, 60); }
+  }, true);
   [editor, preview].forEach((el) => el.addEventListener("scrollend", () => {
     clearTimeout(scrollReset); scrollReset = setTimeout(() => (scrollSrc = null), 120);
   }));
@@ -3959,7 +4233,7 @@
       const blockIdx = Math.max(0, lo - 1);
       const half = preview.clientHeight / 2;
       // 优先：测量式锚点分段线性（精确到 li/tr 与块内位置）
-      const py = offToPreviewY(pos);
+      const py = previewOffsetToY(pos);
       if (py != null) { preview.scrollTop = Math.max(0, py - half); }
       else {
         // 回退：块内字符比例（锚点表为空时）
@@ -4747,7 +5021,7 @@
     const rows = (arr) => arr.map((r) => "<tr><td><code>" + r.k + "</code></td><td>" + r.a + "</td></tr>").join("");
     return [
       "<p class=\"pron-line\"><strong>MDeX</strong> · " + s.pPron + "</p>",
-      "<p>" + s.pIntro.replace("{ver}", appVersion || "2.0.1") + "</p>",
+      "<p>" + s.pIntro.replace("{ver}", appVersion || "2.1.0") + "</p>",
       "<h2>" + s.hFeatures + "</h2>", pairs(s.features),
       "<h2>" + s.hShortcuts + "</h2>", "<p>" + s.pShortcut + "</p>",
       "<table><tr><th>" + s.thKey + "</th><th>" + s.thAction + "</th></tr>" + rows(s.shortcuts) + "</table>",
@@ -6117,6 +6391,7 @@
       const px = EZ_BASE * ez;
       editor.style.fontSize = px + "px";
       if (editorHl) editorHl.style.fontSize = px + "px";   // BUG-056：覆盖层同步
+      { const _yp = $("editor-yprobe"); if (_yp) _yp.style.fontSize = px + "px"; }   // BUG-104：probe 镜像层也须同步字号，否则缩放后折行不一致、行 Y 实测错位
       const lvl = $("ez-lvl"); if (lvl) lvl.textContent = Math.round(ez * 100) + "%";
       measureEditorFont();           // 重测单字符宽/行高（measureEditorFont 已改为读 #editor 实际字号）
       computeEditorMap();            // 重算每行字符数/视觉行映射，否则滚动同步偏

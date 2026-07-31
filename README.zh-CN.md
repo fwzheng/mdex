@@ -5,7 +5,7 @@
 
 </details>
 
-# MDeX v2.0.1（macOS · Windows · Linux · 可离线 · Tauri v2）
+# MDeX v2.1.0（macOS · Windows · Linux · 可离线 · Tauri v2）
 
 > **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
 

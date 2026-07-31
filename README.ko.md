@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.0.1 (macOS · Windows · Linux · 오프라인 대응 · Tauri v2)
+# MDeX v2.1.0 (macOS · Windows · Linux · 오프라인 대응 · Tauri v2)
 
 > **MDeX** · "em-dex"(/ˌemˈdɛks/)로 발음 — 글자 M 뒤에 "dex"가 오는 2음절 단어입니다.
 

@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.0.1 (macOS · Windows · Linux · Pronto offline · Tauri v2)
+# MDeX v2.1.0 (macOS · Windows · Linux · Pronto offline · Tauri v2)
 
 > **MDeX** · si pronuncia "em-dex" (/ˌemˈdɛks/) — la lettera M seguita da "dex", due sillabe.
 
