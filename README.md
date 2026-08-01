@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.1.0 (macOS · Windows · Linux · Offline-Ready · Tauri v2)
+# MDeX v2.1.1 (macOS · Windows · Linux · Offline-Ready · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
@@ -147,14 +147,16 @@ Source code: <https://github.com/fwzheng/mdex>. One-time setup: `npm install` �
 
 ```
 markdown/
-├── app-shell.html          # frontend shell (HTML+CSS); app logic lives in src/app.js
+├── app-shell.html          # frontend shell (HTML+CSS); app logic in src/app.js (+ i18n.js/help.js data)
 ├── src/
 │   ├── app.js              # application logic (// @ts-check; inlined into dist by build-html.mjs)
+│   ├── i18n.js            # 17-language UI strings (pure data; window.I18N, split from app.js)
+│   ├── help.js            # help-document data (HELP_STRINGS + SK/sc/CITE_HELP_*, window.HELP_DATA)
 │   └── globals.d.ts        # vendor / Window type declarations for type-checking
 ├── tsconfig.json           # type-check config (`tsc --noEmit`; no bundler)
 ├── tools/
 │   ├── fetch-vendor.mjs    # one-time: download deps into vendor/ + integrity lock (online only here)
-│   ├── build-html.mjs      # inline vendor + src/app.js into dist/index.html (KaTeX fonts → base64)
+│   ├── build-html.mjs      # inline vendor + src/app.js + i18n.js + help.js into dist/index.html (KaTeX fonts → base64)
 │   └── test-pure.mjs       # frontend pure-function tests (`npm test`)
 ├── dist/index.html         # build output: self-contained single file (Tauri frontendDist)
 ├── vendor/                 # download cache + integrity.json (.gitignore)
@@ -179,7 +181,7 @@ markdown/
 | Icons | replace the source image, then `npm run icon` |
 | Theme colors / fonts | `:root` CSS variables atop `app-shell.html` |
 | Menu items | `build_menu()` in `src-tauri/src/lib.rs` |
-| UI strings / help doc | `I18N` / `HELP_STRINGS` in `src/app.js` |
+| UI strings / help doc | `I18N` in `src/i18n.js` / `HELP_STRINGS` in `src/help.js` |
 | Dependency versions | `VERSIONS` atop `tools/fetch-vendor.mjs` (then `npm run fetch -- --force`) |
 | Tests / type-check | `npm test` (frontend) · `tsc --noEmit` (types) · `cargo test --lib` (backend) |
 

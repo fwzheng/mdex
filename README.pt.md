@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.1.0 (macOS · Windows · Linux · Pronto para offline · Tauri v2)
+# MDeX v2.1.1 (macOS · Windows · Linux · Pronto para offline · Tauri v2)
 
 > **MDeX** · pronuncia-se "em-dex" (/ˌemˈdɛks/) — a letra M seguida de "dex", duas sílabas.
 
@@ -150,11 +150,13 @@ markdown/
 ├── app-shell.html          # shell do frontend (HTML+CSS); a lógica do app está em src/app.js
 ├── src/
 │   ├── app.js              # lógica da aplicação (// @ts-check; embutida em dist pelo build-html.mjs)
+│   ├── i18n.js            # 17-language UI strings (pure data; window.I18N, split from app.js)
+│   ├── help.js            # help-document data (HELP_STRINGS + SK/sc/CITE_HELP_*, window.HELP_DATA)
 │   └── globals.d.ts        # declarações de tipos vendor / Window para verificação de tipos
 ├── tsconfig.json           # config de verificação de tipos (tsc --noEmit; sem bundler)
 ├── tools/
 │   ├── fetch-vendor.mjs    # uma vez: baixa deps para vendor/ + bloqueio de integridade (online apenas aqui)
-│   ├── build-html.mjs      # embute vendor + src/app.js em dist/index.html (fontes KaTeX → base64)
+│   ├── build-html.mjs      # embute vendor + src/app.js + i18n.js + help.js em dist/index.html (fontes KaTeX → base64)
 │   └── test-pure.mjs       # testes de funções puras do frontend (npm test)
 ├── dist/index.html         # saída do build: arquivo único autossuficiente (Tauri frontendDist)
 ├── vendor/                 # cache de downloads + integrity.json (.gitignore)

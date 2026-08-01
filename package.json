@@ -1,6 +1,6 @@
 {
   "name": "mdeditor",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "license": "Apache-2.0",
   "description": "macOS 可离线 Markdown 阅读编辑器 (Tauri v2)",
@@ -8,12 +8,14 @@
     "fetch": "node tools/fetch-vendor.mjs",
     "build:html": "node tools/build-html.mjs",
     "test": "node tools/test-pure.mjs",
+    "test:align": "node tools/test-align-e2e.mjs",
     "icon": "cargo tauri icon src-tauri/icons/source.png",
     "tauri": "tauri"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
     "jsdom": "^29.1.1",
+    "playwright-core": "^1.62.1",
     "typescript": "^7.0.2"
   },
   "dependencies": {

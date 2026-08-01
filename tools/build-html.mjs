@@ -73,8 +73,14 @@ async function build() {
   console.log("→ 组装离线 index.html …");
   let shell = await readFile(join(ROOT, "app-shell.html"), "utf8");
 
-  // ===== 应用脚本（从 src/app.js 内联到 <!--APP:js-->，模块化但不引入打包器，保持单文件离线产物）=====
+  // ===== 应用脚本（从 src/*.js 内联到 <!--APP:js-->，模块化但不引入打包器，保持单文件离线产物）=====
+  // i18n.js / help.js 是纯数据（挂 window.I18N / window.HELP_DATA），必须在 app.js(IIFE) 之前执行，
+  // app.js 用 "const X = window.X" 接回（抽离自 app.js，见 tools/extract-i18n-help.mjs）。
+  // 顺序：i18n → help → app；app.js 自带的顶层 "use strict" 拼接后不在首行，由前缀统一启用 strict。
   const appJs = await readFile(join(ROOT, "src", "app.js"), "utf8");
+  const i18nJs = await readFile(join(ROOT, "src", "i18n.js"), "utf8");
+  const helpJs = await readFile(join(ROOT, "src", "help.js"), "utf8");
+  const combinedApp = `"use strict";\n${i18nJs}\n${helpJs}\n${appJs}`;
 
   // ===== CSS =====
   const hljsLight = await read("highlight.js/github.css");
@@ -123,7 +129,7 @@ async function build() {
   shell = shell
     .replace("<!--VENDOR:css-->", () => vendorCss)
     .replace("<!--VENDOR:js-->", () => vendorJs)
-    .replace("<!--APP:js-->", () => appJs);
+    .replace("<!--APP:js-->", () => combinedApp);
 
   await mkdir(DIST, { recursive: true });
   await writeFile(join(DIST, "index.html"), shell, "utf8");

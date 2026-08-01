@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.1.0 (macOS · Windows · Linux · Офлайн-бэлэн · Tauri v2)
+# MDeX v2.1.1 (macOS · Windows · Linux · Офлайн-бэлэн · Tauri v2)
 
 > **MDeX** · "em-dex" (/ˌemˈdɛks/) гэж дуудна — M үсгийн дараа "dex" гэж бичигдсэн, хоёр үе бүхий үг.
 
@@ -150,11 +150,13 @@ markdown/
 ├── app-shell.html          # фронтэнд бүрхүүл (HTML+CSS); аппын логик src/app.js-д байна
 ├── src/
 │   ├── app.js              # аппын логик (// @ts-check; build-html.mjs-ээр dist рүү шингээгдсэн)
+│   ├── i18n.js            # 17-language UI strings (pure data; window.I18N, split from app.js)
+│   ├── help.js            # help-document data (HELP_STRINGS + SK/sc/CITE_HELP_*, window.HELP_DATA)
 │   └── globals.d.ts        # төрлийн шалгалтын vendor / Window төрлийн тунхаглалууд
 ├── tsconfig.json           # төрлийн шалгалтын тохиргоо (tsc --noEmit; bundlerгүй)
 ├── tools/
 │   ├── fetch-vendor.mjs    # нэг удаа: deps-ийг vendor/ рүү татах + бүрэн бүтэн байдлын түгжээ (зөвхөн энд онлайн)
-│   ├── build-html.mjs      # vendor + src/app.js-ийг dist/index.html рүү шингээх (KaTeX фонтууд → base64)
+│   ├── build-html.mjs      # vendor + src/app.js + i18n.js + help.js-ийг dist/index.html рүү шингээх (KaTeX фонтууд → base64)
 │   └── test-pure.mjs       # фронтэндийн цэвэр функцын тестүүд (npm test)
 ├── dist/index.html         # бүтээгдэхүүний гаралт: бие даасан нэг файл (Tauri frontendDist)
 ├── vendor/                 # татаж авах кэш + integrity.json (.gitignore)

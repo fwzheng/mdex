@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.1.0 (macOS · Windows · Linux · Prêt hors ligne · Tauri v2)
+# MDeX v2.1.1 (macOS · Windows · Linux · Prêt hors ligne · Tauri v2)
 
 > **MDeX** · se prononce « em-dex » (/ˌemˈdɛks/) — la lettre M suivie de « dex », deux syllabes.
 
@@ -150,11 +150,13 @@ markdown/
 ├── app-shell.html          # coquille frontend (HTML+CSS) ; la logique de l'application est dans src/app.js
 ├── src/
 │   ├── app.js              # logique de l'application (// @ts-check ; intégrée dans dist par build-html.mjs)
+│   ├── i18n.js            # 17-language UI strings (pure data; window.I18N, split from app.js)
+│   ├── help.js            # help-document data (HELP_STRINGS + SK/sc/CITE_HELP_*, window.HELP_DATA)
 │   └── globals.d.ts        # déclarations de types vendor / Window pour la vérification de types
 ├── tsconfig.json           # config de vérification de types (tsc --noEmit ; pas de bundler)
 ├── tools/
 │   ├── fetch-vendor.mjs    # une fois : télécharge les dépendances dans vendor/ + verrou d'intégrité (en ligne ici uniquement)
-│   ├── build-html.mjs      # intègre vendor + src/app.js dans dist/index.html (polices KaTeX → base64)
+│   ├── build-html.mjs      # intègre vendor + src/app.js + i18n.js + help.js dans dist/index.html (polices KaTeX → base64)
 │   └── test-pure.mjs       # tests des fonctions pures du frontend (npm test)
 ├── dist/index.html         # sortie de build : fichier unique autonome (Tauri frontendDist)
 ├── vendor/                 # cache de téléchargement + integrity.json (.gitignore)

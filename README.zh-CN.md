@@ -5,7 +5,7 @@
 
 </details>
 
-# MDeX v2.1.0（macOS · Windows · Linux · 可离线 · Tauri v2）
+# MDeX v2.1.1（macOS · Windows · Linux · 可离线 · Tauri v2）
 
 > **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
 
@@ -146,14 +146,16 @@ macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linu
 
 ```
 markdown/
-├── app-shell.html          # 前端外壳（HTML+CSS）；应用逻辑在 src/app.js
+├── app-shell.html          # 前端外壳（HTML+CSS）；应用逻辑在 src/app.js（+ i18n.js / help.js 数据）
 ├── src/
 │   ├── app.js              # 应用逻辑（// @ts-check；由 build-html.mjs 内联进 dist）
+│   ├── i18n.js            # 17-language UI strings (pure data; window.I18N, split from app.js)
+│   ├── help.js            # help-document data (HELP_STRINGS + SK/sc/CITE_HELP_*, window.HELP_DATA)
 │   └── globals.d.ts        # vendor / Window 类型声明（供类型检查）
 ├── tsconfig.json           # 类型检查配置（tsc --noEmit；无打包器）
 ├── tools/
 │   ├── fetch-vendor.mjs    # 一次性下载依赖到 vendor/ + 完整性锁（仅准备阶段联网）
-│   ├── build-html.mjs      # 把 vendor + src/app.js 内联进 dist/index.html（KaTeX 字体→base64）
+│   ├── build-html.mjs      # 把 vendor + src/app.js + i18n.js + help.js 内联进 dist/index.html（KaTeX 字体→base64）
 │   └── test-pure.mjs       # 前端纯函数测试（npm test）
 ├── dist/index.html         # 构建产物：自包含的单文件（Tauri 的 frontendDist）
 ├── vendor/                 # 下载缓存 + integrity.json（.gitignore）
@@ -178,7 +180,7 @@ markdown/
 | 图标 | 替换源图后 `npm run icon` |
 | 主题色 / 字体 | `app-shell.html` 顶部 `:root` CSS 变量 |
 | 菜单项 | `src-tauri/src/lib.rs` 的 `build_menu()` |
-| 界面文案 / 帮助文档 | `src/app.js` 的 `I18N` / `HELP_STRINGS` |
+| 界面文案 / 帮助文档 | `src/i18n.js` 的 `I18N` / `src/help.js` 的 `HELP_STRINGS` |
 | 依赖版本 | `tools/fetch-vendor.mjs` 顶部 `VERSIONS`（改完 `npm run fetch -- --force`） |
 | 测试 / 类型检查 | `npm test`（前端）· `tsc --noEmit`（类型）· `cargo test --lib`（后端） |
 
