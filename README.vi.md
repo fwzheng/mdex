@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.2.0 (macOS · Windows · Linux · Sẵn sàng ngoại tuyến · Tauri v2)
+# MDeX v2.2.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
-Một trình đọc & soạn thảo Markdown đa ngôn ngữ dành cho môi trường **không mạng / nội bộ / quyền riêng tư trước**, tập trung vào **quyền riêng tư và hỗ trợ AI**. Mọi tệp đều được xử lý cục bộ — **mặc định không mạng, không tải lên, không đồng bộ đám mây, không quảng cáo, không đo lường từ xa**; lưu nguyên tử (chống sự cố) tránh mất dữ liệu khi sập chương trình hoặc mất điện. Kể từ v2.0, MDeX cũng cung cấp tính năng chỉnh sửa có hỗ trợ AI tùy chọn — và có thể vẫn hoàn toàn ngoại tuyến: một mô hình cục bộ (ví dụ Ollama) không cần internet; chỉ dịch vụ AI trực tuyến (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi v.v.) mới tạo yêu cầu mạng, và chỉ khi bạn cấu hình và kích hoạt nó.
+Một trình đọc & soạn thảo Markdown đa ngôn ngữ tập trung vào **quyền riêng tư và hỗ trợ AI**. Mọi tệp đều được xử lý cục bộ — **mặc định không mạng, không tải lên, không đồng bộ đám mây, không quảng cáo, không đo lường từ xa**; lưu nguyên tử (chống sự cố) tránh mất dữ liệu khi sập chương trình hoặc mất điện. Kể từ v2.0, MDeX cũng cung cấp tính năng chỉnh sửa có hỗ trợ AI tùy chọn — và có thể vẫn hoàn toàn ngoại tuyến: một mô hình cục bộ (ví dụ Ollama) không cần internet; chỉ dịch vụ AI trực tuyến (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi v.v.) mới tạo yêu cầu mạng, và chỉ khi bạn cấu hình và kích hoạt nó.
 
 - Một giao diện diện HTML khép kín đơn lẻ (không dùng Vue / React); Tauri v2 chỉ cung cấp lớp vỏ gốc (cửa sổ, menu, hộp thoại tệp).
 - **Không có yêu cầu mạng khi chạy**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` và toàn bộ font woff2 của KaTeX đều được nhúng / base64-nhúng vào một `index.html` duy nhất.

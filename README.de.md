@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.2.0 (macOS · Windows · Linux · offline-fähig · Tauri v2)
+# MDeX v2.2.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · ausgesprochen „em-dex" (/ˌemˈdɛks/) — der Buchstabe M gefolgt von „dex", zwei Silben.
 
-Ein mehrsprachiger Markdown-Reader & Editor für den **Air-Gap-/Intranet-/datenschutzorientierten** Einsatz, mit Fokus auf **Datenschutz und AI-Unterstützung**. Jede Datei wird lokal verarbeitet — **standardmäßig kein Netzwerk, keine Uploads, keine Cloud-Synchronisation, keine Werbung, keine Telemetrie**; atomares (absturzsicheres) Speichern verhindert Datenverlust bei Absturz oder Stromausfall. Seit v2.0 bietet MDeX zusätzlich ein optionales, KI-gestütztes Bearbeiten an — und das kann vollständig offline bleiben: ein lokales Modell (z. B. Ollama) benötigt kein Internet; nur ein Online-AI-Dienst (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi usw.) führt eine Anfrage aus, und auch das nur, wenn Sie ihn konfigurieren und aktiv aufrufen.
+Ein mehrsprachiger Markdown-Reader & Editor mit Fokus auf **Datenschutz und AI-Unterstützung**. Jede Datei wird lokal verarbeitet — **standardmäßig kein Netzwerk, keine Uploads, keine Cloud-Synchronisation, keine Werbung, keine Telemetrie**; atomares (absturzsicheres) Speichern verhindert Datenverlust bei Absturz oder Stromausfall. Seit v2.0 bietet MDeX zusätzlich ein optionales, KI-gestütztes Bearbeiten an — und das kann vollständig offline bleiben: ein lokales Modell (z. B. Ollama) benötigt kein Internet; nur ein Online-AI-Dienst (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi usw.) führt eine Anfrage aus, und auch das nur, wenn Sie ihn konfigurieren und aktiv aufrufen.
 
 - Ein einzelnes, in sich geschlossenes HTML-Frontend (ohne Vue / React); Tauri v2 stellt lediglich die native Hülle bereit (Fenster, Menüs, Dateidialoge).
 - **Keine einzigen Netzwerk-Anfragen zur Laufzeit**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` sowie sämtliche KaTeX-woff2-Fonts sind inline / base64-eingebettet in einer einzigen `index.html`.

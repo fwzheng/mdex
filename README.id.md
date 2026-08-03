@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.2.0 (macOS · Windows · Linux · Siap offline · Tauri v2)
+# MDeX v2.2.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · diucapkan "em-dex" (/ˌemˈdɛks/) — huruf M diikuti "dex", dua suku kata.
 
-Pembaca & editor Markdown multibahasa untuk penggunaan **air-gapped / intranet / privasi utama**, yang berfokus pada **privasi dan bantuan AI**. Setiap file diproses secara lokal — **secara default tanpa jaringan, tanpa unggahan, tanpa sinkronisasi cloud, tanpa iklan, tanpa telemetri**; penyimpanan atomik (tahan crash) mencegah kehilangan data saat crash atau mati listrik. Sejak v2.0, MDeX juga menawarkan penyuntingan berbantuan AI opsional — dan dapat tetap sepenuhnya offline: model lokal (mis., Ollama) tidak memerlukan internet; hanya layanan AI daring (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi dll.) yang membuat permintaan, dan hanya saat Anda mengonfigurasinya serta memicunya.
+Pembaca & editor Markdown multibahasa yang berfokus pada **privasi dan bantuan AI**. Setiap file diproses secara lokal — **secara default tanpa jaringan, tanpa unggahan, tanpa sinkronisasi cloud, tanpa iklan, tanpa telemetri**; penyimpanan atomik (tahan crash) mencegah kehilangan data saat crash atau mati listrik. Sejak v2.0, MDeX juga menawarkan penyuntingan berbantuan AI opsional — dan dapat tetap sepenuhnya offline: model lokal (mis., Ollama) tidak memerlukan internet; hanya layanan AI daring (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi dll.) yang membuat permintaan, dan hanya saat Anda mengonfigurasinya serta memicunya.
 
 - Frontend HTML mandiri tunggal (tanpa Vue / React); Tauri v2 hanya menyediakan shell native (jendela, menu, dialog file).
 - **Nol permintaan jaringan saat runtime**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` dan semua font woff2 KaTeX di-inline / disematkan sebagai base64 ke dalam satu `index.html`.

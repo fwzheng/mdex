@@ -5,11 +5,11 @@
 
 </details>
 
-# MDeX v2.2.0（macOS · Windows · Linux · 可离线 · Tauri v2）
+# MDeX v2.2.0（macOS · Windows · Linux · Tauri v2）
 
 > **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
 
-一款面向 **离线 / 内网 / 隐私保护** 场景、主打**隐私与 AI 辅助**的多语言 Markdown 阅读编辑器。所有文件均在本地处理，**默认不联网、不上传、无云端同步、无广告、无遥测**；采用原子化保存，无惧崩溃或断电导致的数据丢失。自 v2.0 起提供可选的 AI 辅助编辑——并且仍可保持完全离线：接入本地模型（如 Ollama）时完全不联网；只有在线 AI 服务（OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi 等）才会发起请求，且仅在你配置并主动触发时。
+一款主打**隐私与 AI 辅助**的多语言 Markdown 阅读编辑器。所有文件均在本地处理，**默认不联网、不上传、无云端同步、无广告、无遥测**；采用原子化保存，无惧崩溃或断电导致的数据丢失。自 v2.0 起提供可选的 AI 辅助编辑——并且仍可保持完全离线：接入本地模型（如 Ollama）时完全不联网；只有在线 AI 服务（OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi 等）才会发起请求，且仅在你配置并主动触发时。
 
 - 纯前端单 HTML（无 Vue / React），Tauri v2 仅提供原生外壳（窗口、菜单、文件对话框）。
 - **运行时零网络请求**：`marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` 及 KaTeX 全部 woff2 字体，均以内联 / base64 方式打进单个 `index.html`。

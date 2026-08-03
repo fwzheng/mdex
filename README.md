@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.2.0 (macOS · Windows · Linux · Offline-Ready · Tauri v2)
+# MDeX v2.2.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
-A multilingual Markdown reader & editor for **air-gapped / intranet / privacy-first** use, focused on **privacy and AI assistance**. Every file is processed locally — **no network, no uploads, no cloud sync, no ads, no telemetry, by default**; atomic (crash-proof) saves prevent data loss on crash or power outage. Since v2.0, MDeX also offers optional AI-assisted editing — and it can stay fully offline: a local model (e.g., Ollama) needs no internet; only an online AI service (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) makes a request, and only when you configure and trigger it.
+A multilingual Markdown reader & editor focused on **privacy and AI assistance**. Every file is processed locally — **no network, no uploads, no cloud sync, no ads, no telemetry, by default**; atomic (crash-proof) saves prevent data loss on crash or power outage. Since v2.0, MDeX also offers optional AI-assisted editing — and it can stay fully offline: a local model (e.g., Ollama) needs no internet; only an online AI service (OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi, etc.) makes a request, and only when you configure and trigger it.
 
 - A single self-contained HTML frontend (no Vue / React); Tauri v2 provides only the native shell (windows, menus, file dialogs).
 - **Zero runtime network requests**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` and all KaTeX woff2 fonts are inlined / base64-embedded into a single `index.html`.

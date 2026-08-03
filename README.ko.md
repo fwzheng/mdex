@@ -6,11 +6,11 @@
 </details>
 
 
-# MDeX v2.2.0 (macOS · Windows · Linux · 오프라인 대응 · Tauri v2)
+# MDeX v2.2.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · "em-dex"(/ˌemˈdɛks/)로 발음 — 글자 M 뒤에 "dex"가 오는 2음절 단어입니다.
 
-**폐쇄망 / 인트라넷 / 프라이버시 우선** 환경을 위한, **개인정보 보호와 AI 지원**에 중점을 둔 다국어 Markdown 리더 및 에디터입니다. 모든 파일은 로컬에서 처리되며, **기본적으로 네트워크 연결·업로드·클라우드 동기화·광고·원격 측정이 없습니다**. 원자적(크래시 방지) 저장 덕분에 크래시나 정전 시에도 데이터가 손실되지 않습니다. v2.0부터 선택적 AI 보조 편집 기능도 제공합니다 — 완전히 오프라인으로 유지할 수 있습니다: 로컬 모델(예: Ollama)은 인터넷이 필요 없으며, 온라인 AI 서비스(OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi 등)만이 요청을 보내고, 그것도 사용자가 구성하여 호출할 때뿐입니다.
+**개인정보 보호와 AI 지원**에 중점을 둔 다국어 Markdown 리더 및 에디터입니다. 모든 파일은 로컬에서 처리되며, **기본적으로 네트워크 연결·업로드·클라우드 동기화·광고·원격 측정이 없습니다**. 원자적(크래시 방지) 저장 덕분에 크래시나 정전 시에도 데이터가 손실되지 않습니다. v2.0부터 선택적 AI 보조 편집 기능도 제공합니다 — 완전히 오프라인으로 유지할 수 있습니다: 로컬 모델(예: Ollama)은 인터넷이 필요 없으며, 온라인 AI 서비스(OpenAI / DeepSeek / Anthropic / GLM / Gemini / Kimi 등)만이 요청을 보내고, 그것도 사용자가 구성하여 호출할 때뿐입니다.
 
 - 단일 자체 포함형 HTML 프론트엔드(Vue / React 없음); Tauri v2는 네이티브 셸(창, 메뉴, 파일 대화상자)만 제공합니다.
 - **런타임 네트워크 요청 제로**: `marked` / `KaTeX` / `highlight.js` / `DOMPurify` / `mermaid` / `jsPDF` / `html2canvas-pro` / `turndown` / `@retorquere/bibtex-parser` 와 모든 KaTeX woff2 폰트가 단일 `index.html` 에 인라인 / base64 임베드됩니다.
