@@ -53,3 +53,6 @@ bug_history.md
 
 # 不同步到仓库
 CHANGELOG.md
+
+.github/
+*.zip
