@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.2.0 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.2.1 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · يُنطق "em-dex" (/ˌemˈdɛks/) — الحرف M يتبعه "dex"، مقطعان لفظيان.
 

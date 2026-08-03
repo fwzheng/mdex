@@ -984,11 +984,17 @@
   function wrapSelection(before, after, ph) {
     const prev = { v: editor.value, s: editor.selectionStart, e: editor.selectionEnd };
     const s = editor.selectionStart, e = editor.selectionEnd;
-    const sel = editor.value.slice(s, e) || ph;
-    editor.value = editor.value.slice(0, s) + before + sel + (after || "") + editor.value.slice(e);
-    const cs = s + before.length;
-    editor.setSelectionRange(cs, cs + sel.length);
-    commitUndo(prev); // 用编辑前快照入栈(不依赖可能过时的 undoLast,防撤销清空)
+    const raw = editor.value.slice(s, e);
+    // 把选区首尾空白移到标记外：Markdown 行内标记(* ` ~)须紧贴文字，否则 * 文本 * 形式斜体/加粗失效。
+    const rest = raw.replace(/^\s+/, "");        // 去首部空白
+    const lead = raw.slice(0, raw.length - rest.length);
+    const core = rest.replace(/\s+$/, "");        // 再去尾部空白 = 文本核心
+    const trail = rest.slice(core.length);
+    const inner = core || ph;                     // 空选区 / 纯空白 → 占位文本
+    editor.value = editor.value.slice(0, s) + lead + before + inner + (after || "") + trail + editor.value.slice(e);
+    const cs = s + lead.length + before.length;   // 选区核心（标记之内）
+    editor.setSelectionRange(cs, cs + inner.length);
+    commitUndo(prev);
     editor.focus(); scheduleRender();
   }
   function linePrefix(prefix) {
@@ -4576,7 +4582,7 @@
     const rows = (arr) => arr.map((r) => "<tr><td><code>" + r.k + "</code></td><td>" + r.a + "</td></tr>").join("");
     return [
       "<p class=\"pron-line\"><strong>MDeX</strong> · " + s.pPron + "</p>",
-      "<p>" + s.pIntro.replace("{ver}", appVersion || "2.2.0") + "</p>",
+      "<p>" + s.pIntro.replace("{ver}", appVersion || "2.2.1") + "</p>",
       "<h2>" + s.hFeatures + "</h2>", pairs(s.features),
       "<h2>" + s.hShortcuts + "</h2>", "<p>" + s.pShortcut + "</p>",
       "<table><tr><th>" + s.thKey + "</th><th>" + s.thAction + "</th></tr>" + rows(s.shortcuts) + "</table>",
