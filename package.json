@@ -1,6 +1,6 @@
 {
   "name": "mdeditor",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "private": true,
   "license": "Apache-2.0",
   "description": "macOS 可离线 Markdown 阅读编辑器 (Tauri v2)",

@@ -17,24 +17,40 @@ const SRC = readFileSync(join(ROOT, "src", "app.js"), "utf8");
 
 // ---- 源码抽取 ----
 
-// 按 `function name(` 定位起点，花括号深度匹配找到函数体结束，返回完整函数源码。
-// 注意：朴素花括号计数不识别字符串/注释内的括号，故仅用于【函数体内不含 { } 字面量】的纯函数
-// （dirOf/baseName/relPath/trimUndoBytes 均满足）。新增被测函数前请确认此约束。
-function extractFn(name) {
-  const startRe = new RegExp(`function\\s+${name}\\s*\\(`);
-  const m = startRe.exec(SRC);
-  if (!m) throw new Error(`未找到函数 ${name}`);
-  let i = SRC.indexOf("{", m.index);
-  if (i < 0) throw new Error(`${name}: 找不到函数体起始 {`);
-  let depth = 0;
-  for (let j = i; j < SRC.length; j++) {
-    if (SRC[j] === "{") depth++;
-    else if (SRC[j] === "}") {
-      depth--;
-      if (depth === 0) return SRC.slice(m.index, j + 1);
+// 字符串/正则/注释感知的括号扫描：openIdx 指向起始 {，返回匹配 } 的索引（-1 未闭合）。
+// 朴素花括号计数会把字符串/正则/注释里的 { } 误计（如 LaTeX 函数体里的 "\\textbf{...}"、
+// 引用正则 /\{([^}]*)\}/、TEX_ESC_MAP 值 "\\textasciitilde{}"），故必须跳过这些上下文。
+function matchBrace(src, openIdx) {
+  let depth = 0, prev = "(", j = openIdx;   // prev 初始 ( 使首个 / 不误判为除法
+  while (j < src.length) {
+    const c = src[j], c2 = src[j + 1];
+    if (c === "/" && c2 === "/") { j += 2; while (j < src.length && src[j] !== "\n") j++; continue; }
+    if (c === "/" && c2 === "*") { j += 2; while (j < src.length && !(src[j] === "*" && src[j + 1] === "/")) j++; j += 2; prev = "x"; continue; }
+    if (c === '"' || c === "'") { const q = c; j++; while (j < src.length && src[j] !== q) { if (src[j] === "\\") j++; j++; } j++; prev = "x"; continue; }
+    if (c === "`") { j++; while (j < src.length && src[j] !== "`") { if (src[j] === "\\") j++; j++; } j++; prev = "x"; continue; }
+    if (c === "/" && isRegexPrev(prev)) {              // / 在表达式起始位置 → 正则字面量
+      j++; let inCls = false;
+      while (j < src.length) { const r = src[j]; if (r === "\\") { j += 2; continue; } if (r === "[") inCls = true; else if (r === "]") inCls = false; else if (r === "/" && !inCls) break; else if (r === "\n") break; j++; }
+      j++; while (j < src.length && /[A-Za-z]/.test(src[j])) j++; prev = "x"; continue;
     }
+    if (c === "{") { depth++; prev = "{"; j++; continue; }
+    if (c === "}") { depth--; if (depth === 0) return j; prev = "}"; j++; continue; }
+    if (!/\s/.test(c)) prev = c;
+    j++;
   }
-  throw new Error(`${name}: 函数体未闭合`);
+  return -1;
+}
+// / 是否起正则字面量：前一有意义字符属于这些（或无前驱）即正则，否则按除法处理。
+function isRegexPrev(p) { if (p === "(" || p === "") return true; return "(),=:[!&|?{;+-*/%<>^~".includes(p); }
+// 按 `function name(` 定位起点，用 matchBrace（字符串/正则/注释感知）找函数体结束。
+function extractFn(name) {
+  const m = new RegExp(`function\\s+${name}\\s*\\(`).exec(SRC);
+  if (!m) throw new Error(`未找到函数 ${name}`);
+  const ob = SRC.indexOf("{", m.index);
+  if (ob < 0) throw new Error(`${name}: 找不到函数体起始 {`);
+  const cb = matchBrace(SRC, ob);
+  if (cb < 0) throw new Error(`${name}: 函数体未闭合`);
+  return SRC.slice(m.index, cb + 1);
 }
 
 // 抽取单行常量声明（如 const UNDO_BYTE_BUDGET = ...;）。
@@ -43,6 +59,22 @@ function extractConst(name) {
   const m = re.exec(SRC);
   if (!m) throw new Error(`未找到常量 ${name}`);
   return m[0];
+}
+
+// 抽取多行 const 块（对象字面量 / 箭头函数），如 TEX_ESC_MAP（多行对象，值含 "{}"）、texEsc（箭头+含 { } 的正则）。
+// { 起始的用 matchBrace；非 { 起始（箭头/字面量）按单行读到 ;。
+function extractConstBlock(name) {
+  const m = new RegExp(`(?:const|let|var)\\s+${name}\\b\\s*=`).exec(SRC);
+  if (!m) throw new Error(`未找到 const ${name}`);
+  let i = m.index + m[0].length;
+  while (i < SRC.length && /\s/.test(SRC[i])) i++;
+  if (SRC[i] === "{") {
+    const cb = matchBrace(SRC, i);
+    if (cb < 0) throw new Error(`${name}: 块未闭合`);
+    return SRC.slice(m.index, cb + 1) + ";";
+  }
+  const semi = SRC.indexOf(";", i);
+  return SRC.slice(m.index, semi + 1);
 }
 
 // 把若干已抽取片段拼成 IIFE 并 eval，返回其中指定名字。
@@ -125,6 +157,34 @@ eq(
   "BN14888_images/a.jpg",
   "imgRefAfterSave: 失败时不改写成断链 <stem>_images/ 路径（回归点）",
 );
+
+// ---- 测试：LaTeX 导出核心（texInline / texColor / detectTexLangs，BUG-075/037 家族）----
+// texInline 依赖 texEsc(箭头常量) + TEX_ESC_MAP(多行对象) + texEscText + texColor + parseCiteInner；
+// 这些函数体含 { } 字面量（\textbf{} 等）与引用正则 /\{([^}]*)\}/，须用字符串/正则感知抽取。
+const texFns = evalFns([
+  extractConstBlock("TEX_ESC_MAP"), extractConstBlock("texEsc"),
+  extractFn("texEscText"), extractFn("texColor"), extractFn("parseCiteInner"),
+  extractFn("texInline"), extractFn("detectTexLangs"),
+], ["texInline", "texColor", "detectTexLangs"]);
+// texInline：行内 Markdown → LaTeX（加粗/斜体/代码/删除线/数学/链接/引用）
+eq(texFns.texInline("**bold**"), "\\textbf{bold}", "texInline: **加粗** → \\textbf{}");
+eq(texFns.texInline("*it*"), "\\textit{it}", "texInline: *斜体* → \\textit{}");
+eq(texFns.texInline("`code`"), "\\texttt{code}", "texInline: `代码` → \\texttt{}（经 texEsc）");
+eq(texFns.texInline("$x_2$"), "$x_2$", "texInline: 行内数学原样保留（不转义，BUG-075）");
+eq(texFns.texInline("~~s~~"), "\\sout{s}", "texInline: ~~删除线~~ → \\sout{}");
+eq(texFns.texInline("[t](u)"), "\\href{u}{t}", "texInline: [文本](链接) → \\href{}{}");
+eq(texFns.texInline("[@smith2020]"), "\\cite{smith2020}", "texInline: [@key] 引用 → \\cite{}");
+eq(texFns.texInline("plain text"), "plain text", "texInline: 纯文本原样（无 markdown 语法）");
+// texColor：CSS 颜色 → xcolor 参数
+eq(texFns.texColor("#ff0000"), "[HTML]{FF0000}", "texColor: #rrggbb → [HTML]{大写}");
+eq(texFns.texColor("#abc"), "[HTML]{AABBCC}", "texColor: #rgb 展开 → [HTML]{AABBCC}");
+eq(texFns.texColor("rgb(1,2,3)"), "[RGB]{1,2,3}", "texColor: rgb() → [RGB]{}");
+eq(texFns.texColor("red"), "{red}", "texColor: 命名色 → {name}");
+// detectTexLangs：字符集检测决定导言区多语言包（CJK/复杂脚本 → xelatex）
+truthy(texFns.detectTexLangs("中文文档").has("cjk"), "detectTexLangs: CJK 检测");
+truthy(texFns.detectTexLangs("مرحبا").has("arabic"), "detectTexLangs: 阿拉伯检测");
+truthy(texFns.detectTexLangs("Привет").has("cyrillic"), "detectTexLangs: 西里尔检测");
+truthy(texFns.detectTexLangs("hello world").size === 0, "detectTexLangs: 纯拉丁 → 空（走 pdflatex）");
 
 // ---- 汇总 ----
 console.log(`\n${failed === 0 ? "✅ 全部通过" : "✗ 有失败"}：${passed} 通过，${failed} 失败`);

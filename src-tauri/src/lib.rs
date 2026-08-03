@@ -68,6 +68,80 @@ fn canon_key(path: &str) -> String {
         .unwrap_or_else(|_| path.to_string())
 }
 
+/// 敏感目录字面量（S1 加固）。自定义 fs 命令的 path 直接来自前端 webview，一旦发生
+/// DOMPurify/marked 等库的 CVE 导致脚本注入，攻击者可把任意路径交给 std::fs 读写删。
+/// 这里拒绝 markdown 编辑器正常绝不会触碰的"秘密/持久化/系统"目录，把"webview 脚本执行"
+/// 的爆炸半径从"全用户文件系统"收窄到"非敏感路径"。采用黑名单而非根目录白名单：
+/// 用户可在任意位置打开/保存 .md、从任意来源拖入图片，无法锁定单一根目录。
+fn sensitive_literals() -> Vec<PathBuf> {
+    let mut v: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        for s in [".ssh", ".gnupg", ".aws", ".config/gcloud", ".docker", ".kube",
+                  ".config/gh", ".netrc", ".npmrc"] {
+            v.push(home.join(s));
+        }
+        v.push(home.join("Library/LaunchAgents"));
+        v.push(home.join("Library/Keychains"));
+        v.push(home.join("Library/Cookies"));
+    }
+    if let Some(appdata) = std::env::var_os("APPDATA") {
+        // Windows 启动项（持久化）
+        v.push(PathBuf::from(appdata)
+            .join("Microsoft/Windows/Start Menu/Programs/Startup"));
+    }
+    for s in ["/etc", "/private/etc", "/var/db", "/usr", "/sbin", "/bin",
+              "/System", "/boot", "/efi", "C:\\Windows", "C:\\Program Files"] {
+        v.push(PathBuf::from(s));
+    }
+    v
+}
+
+/// 解析目标用于敏感目录比对的规范路径。目标已存在 → 直接 canonicalize；
+/// 目标不存在（新建文件）→ 规范最近的已存在祖先，再把不存在的尾部相对它解析（含 `..` 折叠），
+/// 防止 `/Users/z/Documents/../.ssh/id_rsa` 式遍历绕过。
+fn safe_candidate(p: &std::path::Path) -> PathBuf {
+    use std::path::Component;
+    if let Ok(c) = fs::canonicalize(p) {
+        return c;
+    }
+    let comps: Vec<Component> = p.components().collect();
+    for split in (1..comps.len()).rev() {
+        let ancestor: PathBuf = comps[..split].iter().copied().collect();
+        if let Ok(mut resolved) = fs::canonicalize(&ancestor) {
+            for comp in comps[split..].iter().copied() {
+                match comp {
+                    Component::CurDir => {}
+                    Component::ParentDir => {
+                        resolved.pop();
+                    }
+                    Component::Normal(s) => resolved.push(s),
+                    _ => {} // Prefix/RootDir 不会出现在尾部（祖先已是绝对路径）
+                }
+            }
+            return resolved;
+        }
+    }
+    p.to_path_buf()
+}
+
+/// 校验前端传入的路径不在敏感目录内（含符号链接与 `..` 遍历解析后的真实位置）。
+fn assert_safe_path(raw: &str) -> Result<(), String> {
+    let candidate = safe_candidate(std::path::Path::new(raw));
+    for lit in sensitive_literals() {
+        if candidate.starts_with(&lit) {
+            return Err(format!("拒绝访问受限路径: {raw}"));
+        }
+        // 敏感目录本身可能是符号链接（如 macOS /etc → /private/etc），用其规范形式再比对一次。
+        if let Ok(canon) = fs::canonicalize(&lit) {
+            if canon != lit && candidate.starts_with(&canon) {
+                return Err(format!("拒绝访问受限路径: {raw}"));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// 原子写入：写同目录临时文件 <name>.mdex-tmp-<pid> → fsync → rename 覆盖目标（D1）。
 /// 同目录保证 rename 在同一文件系统上（POSIX 原子；Windows std::fs::rename 内部用
 /// MoveFileEx(REPLACE_EXISTING)）。崩溃/断电/磁盘满时，要么旧文件完好、要么新文件完整，
@@ -540,6 +614,7 @@ async fn pick_save_path(
 /// 自动创建父目录（粘贴图片写到 markdown_images/ 时父目录可能不存在）。
 #[tauri::command]
 fn write_bytes_at(path: String, data: String) -> Result<(), String> {
+    assert_safe_path(&path)?;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(data)
         .map_err(|e| format!("解码失败: {e}"))?;
@@ -601,6 +676,8 @@ fn copy_dir_recursive(from: &std::path::Path, to: &std::path::Path) -> std::io::
 /// 用于草稿保存时把临时图片目录迁移到文档目录下的 <文件名>_images。
 #[tauri::command]
 fn move_dir(from: String, to: String) -> Result<(), String> {
+    assert_safe_path(&from)?;
+    assert_safe_path(&to)?;
     let from_p = std::path::Path::new(&from);
     let to_p = std::path::Path::new(&to);
     if !from_p.exists() {
@@ -619,6 +696,7 @@ fn move_dir(from: String, to: String) -> Result<(), String> {
 /// 删除目录（递归）。用于关闭未保存草稿时清理其临时图片目录。
 #[tauri::command]
 fn remove_dir(path: String) -> Result<(), String> {
+    assert_safe_path(&path)?;
     let p = std::path::Path::new(&path);
     if p.exists() {
         fs::remove_dir_all(p).map_err(|e| format!("删除失败: {e}"))?;
@@ -647,6 +725,8 @@ fn file_mtime(path: String) -> Option<u64> {
 /// 递归复制目录（不删源）。用于「另存为」把图片文件夹拷一份到目标（保留原件）。
 #[tauri::command]
 fn copy_dir(from: String, to: String) -> Result<(), String> {
+    assert_safe_path(&from)?;
+    assert_safe_path(&to)?;
     let from_p = std::path::Path::new(&from);
     let to_p = std::path::Path::new(&to);
     if !from_p.exists() {
@@ -658,6 +738,8 @@ fn copy_dir(from: String, to: String) -> Result<(), String> {
 /// 复制单个文件（自动建父目录）。用于「另存为」拷贝文档目录下的散图。
 #[tauri::command]
 fn copy_file(from: String, to: String) -> Result<(), String> {
+    assert_safe_path(&from)?;
+    assert_safe_path(&to)?;
     let from_p = std::path::Path::new(&from);
     let to_p = std::path::Path::new(&to);
     if !from_p.exists() {
@@ -673,6 +755,7 @@ fn copy_file(from: String, to: String) -> Result<(), String> {
 /// 按完整路径读取（用于「最近打开」等场景）。UTF-8 优先 + 编码兜底 + 去 BOM（D6）。
 #[tauri::command]
 fn read_file_at(path: String) -> Result<String, String> {
+    assert_safe_path(&path)?;
     read_text_lossless(std::path::Path::new(&path)).map_err(|e| format!("读取失败: {e}"))
 }
 
@@ -703,6 +786,7 @@ fn resolve_doc_link(base_dir: String, href: String) -> Option<String> {
 /// 按完整路径写入（原子写，D1）。
 #[tauri::command]
 fn write_file_at(path: String, content: String) -> Result<(), String> {
+    assert_safe_path(&path)?;
     atomic_write(std::path::Path::new(&path), content.as_bytes())
         .map_err(|e| format!("写入失败: {e}"))
 }
@@ -717,8 +801,15 @@ fn read_image_data_url(path: String) -> Result<String, String> {
     let bytes = fs::read(&canon).map_err(|e| format!("读取失败: {e}"))?;
     let mime = detect_image_mime(&canon, &bytes)
         .ok_or_else(|| format!("不支持的图片格式: {}", canon.display()))?;
+    // 拼进预分配的 String（#性能8）：原 format!("data:{mime};base64,{b64}") 不预分配，
+    // 写入时会多次 realloc 并整体拷贝 base64 段（大图可达数十 MB）。这里一次到位，省拷贝。
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-    Ok(format!("data:{mime};base64,{b64}"))
+    let mut url = String::with_capacity(5 + mime.len() + 8 + b64.len()); // "data:" + mime + ";base64," + b64
+    url.push_str("data:");
+    url.push_str(mime);
+    url.push_str(";base64,");
+    url.push_str(&b64);
+    Ok(url)
 }
 
 /// 矢量 PDF：调用 WebviewWindow::print()，触发系统打印对话框（macOS WKWebView 的
@@ -733,7 +824,9 @@ fn print_webview(window: WebviewWindow) -> Result<(), String> {
 fn change_language(app: tauri::AppHandle, lang: String) -> Result<(), String> {
     let menu = build_menu(&app, &lang).map_err(|e| e.to_string())?;
     app.set_menu(menu).map_err(|e| e.to_string())?;
-    // Win/Linux：app.set_menu 不保证覆盖之后创建的窗口，逐窗补一次确保所有窗口菜单同步
+    // Win/Linux：app.set_menu 不保证覆盖之后创建的窗口，逐窗补一次确保所有窗口菜单同步。
+    // 注：tauri::menu::Menu 无 clone/try_clone 且 set_menu 消耗所有权，无法复用同一实例，
+    // 只能逐窗重建（#性能7 受 API 限制未优化；语言切换是低频操作，影响可忽略）。
     for w in app.webview_windows().values() {
         if let Ok(m) = build_menu(&app, &lang) {
             let _ = w.set_menu(m);
@@ -1255,6 +1348,10 @@ fn build_menu(app: &tauri::AppHandle, lang: &str) -> tauri::Result<Menu<tauri::W
 // ai-done / ai-cancelled / ai-error。Key 存前端 localStorage（用户决定），每次随 invoke 传入，
 // Rust 侧不持久化任何凭据。
 
+/// 复用的 HTTP 客户端（#性能5）：连接池/TLS 会话跨 ai_rewrite 调用复用，省每次 DNS/TCP/TLS 握手。
+/// reqwest::Client 内部用 Arc、是 Send+Sync，可安全作进程级 static。
+static AI_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+
 /// 进行中的 AI 任务：job_id → 取消通道。ai_cancel 取出并 drop 该 oneshot::Sender，
 /// select! 的 cancel 分支随即解析 → 中断流式循环。Mutex 守卫只在插入/移除时短暂持有，不跨 await。
 #[derive(Default)]
@@ -1309,11 +1406,18 @@ fn parse_sse_line(line: &str) -> Option<String> {
 /// 等下一块补全后再整体 from_utf8，杜绝跨 TCP 分块的中文乱码。
 fn drain_complete_lines(buf: &mut Vec<u8>) -> Vec<String> {
     let mut lines = Vec::new();
-    while let Some(nl) = buf.iter().position(|&b| b == b'\n') {
-        if let Ok(line) = std::str::from_utf8(&buf[..nl]) {
+    // 游标 start 记已消费偏移，循环末尾一次性 drain（#性能6）：
+    // 原实现每行 buf.drain(0..=nl) 都把尾部整体左移，k 行的块为 O(k·B)；突发大块 SSE 时劣化明显。
+    let mut start = 0;
+    while let Some(rel) = buf[start..].iter().position(|&b| b == b'\n') {
+        let nl = start + rel;
+        if let Ok(line) = std::str::from_utf8(&buf[start..nl]) {
             lines.push(line.trim_end_matches('\r').to_string());
         }
-        buf.drain(0..=nl);
+        start = nl + 1;
+    }
+    if start > 0 {
+        buf.drain(..start); // 只留未结束的半行
     }
     lines
 }
@@ -1375,11 +1479,14 @@ EDIT: 后紧跟内容本身，不要解释/前言/后缀，不要 ```markdown �
 【待编辑文本（编辑类请基于它改写；问答类请基于它回答；若为空则是要在光标处生成新内容）】\n{selected}\n\n\
 【本轮指令】{instruction}"
     );
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(30))
-        .timeout(std::time::Duration::from_secs(300)) // 单轮上限 5 分钟；用户可随时 Esc 取消
-        .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
+    // 复用进程级 Client（#性能5）：连接池/TLS 会话跨调用复用，首次构建后不再重建。
+    let client = AI_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(300)) // 单轮上限 5 分钟；用户可随时 Esc 取消
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new())
+    });
 
     // Anthropic：x-api-key + anthropic-version 鉴权，system 为顶层字段，max_tokens 必填，
     // 端点 {base}/v1/messages（base 已含 /v1 时只追加 /messages）。
@@ -1692,6 +1799,35 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ---- 路径安全校验（assert_safe_path）：合法另存为/草稿图路径不得被误拒，敏感目录须拒 ----
+    #[test]
+    fn assert_safe_path_allows_legit_save_paths() {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/test".into());
+        let cases = vec![
+            "/Users/z/Documents/doc.md".to_string(),
+            "/Users/z/Documents/doc_images/pic.png".to_string(),          // 目标图文件夹尚不存在
+            "/var/folders/xx/T/mdex_tmp/a.png".to_string(),               // $TMPDIR 草稿(macOS symlink→/private/var)
+            format!("{}/Library/Caches/com.mdex.app/mdex_draft_images/1/pic.png", home), // app_cache_dir 草稿
+            format!("{}/Documents/my.md", home),
+            format!("{}/Desktop/proj/fig.png", home),
+            "C:\\Users\\me\\Docs\\img.png".to_string(),
+        ];
+        for p in &cases {
+            assert_eq!(assert_safe_path(p), Ok(()), "误拒合法路径: {}", p);
+        }
+    }
+    #[test]
+    fn assert_safe_path_rejects_sensitive() {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/test".into());
+        for p in &[
+            format!("{}/.ssh/id_rsa", home),
+            "/etc/passwd".to_string(),
+            format!("{}/.aws/credentials", home),
+        ] {
+            assert!(assert_safe_path(p).is_err(), "应拒绝却放行: {}", p);
+        }
+    }
 
     // ---- AI SSE 解析（parse_sse_line / drain_complete_lines）----
     #[test]

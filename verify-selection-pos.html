@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>MDeX 选区像素定位 · 验证 (方案A：镜像 div)</title>
+<!--
+  最小可行验证：在 <textarea> 上用「镜像 div」求选区的像素矩形 + 「选区下方」锚点。
+  目标是为 AI 改写浮层提供定位。此文件独立运行，不依赖 app.js / Tauri，浏览器直接打开即可。
+  核心函数 selectionRect() 零依赖，验证通过后可直接搬进 src/app.js。
+
+  复刻自 app-shell.html #editor 的真实样式：
+    padding 20px 24px / font-size 14px / line-height 1.7 / tab-size 2 /
+    box-sizing border-box / white-space pre-wrap / word-break break-word
+-->
+<style>
+  :root {
+    --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --bg: #0d1117; --bg-alt: #161b22; --fg: #e6edf3; --border: #30363d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font-family: system-ui, sans-serif; padding: 18px 22px; }
+  h3 { margin: 0 0 4px; font-size: 15px; }
+  .hint { color: #9da7b3; font-size: 12px; margin: 0 0 12px; line-height: 1.6; }
+  .hint b { color: #58a6ff; }
+  .hint code { background: var(--bg-alt); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+
+  /* —— 与 app-shell.html #editor / .editor-area 一比一复刻 —— */
+  .editor-area { position: relative; width: 720px; height: 340px;
+                 border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  #editor {
+    flex: 1; width: 100%; border: 0; outline: 0; resize: none; padding: 20px 24px;
+    font-family: var(--mono); font-size: 14px; line-height: 1.7;
+    background: var(--bg); color: var(--fg); tab-size: 2;
+    position: relative; z-index: 1; display: block; height: 100%;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  /* 镜像层：与 #editor 同框(inset:0)、同字体/内边距/换行；不可见但参与布局 */
+  #ai-mirror {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden;
+    box-sizing: border-box; padding: 20px 24px; margin: 0; border: 0;
+    font-family: var(--mono); font-size: 14px; line-height: 1.7; tab-size: 2;
+    white-space: pre-wrap; word-break: break-word; color: transparent; visibility: hidden;
+  }
+  /* 蓝色覆盖框：应精确盖住浏览器原生选区高亮（半透明以便对比对齐） */
+  #overlay { position: absolute; z-index: 3; pointer-events: none;
+             border: 1.5px solid #58a6ff; background: rgba(88,166,255,.18); border-radius:2px; }
+  /* 橙色锚点框：贴在选区正下方，即 AI 浮层将要出现的位置 */
+  #popup-anchor { position: absolute; z-index: 3; pointer-events: none; width: 260px; height: 54px;
+                  border: 1.5px dashed #f0883e; background: rgba(240,136,62,.14); border-radius:6px;
+                  display:flex; align-items:center; justify-content:center;
+                  font-size: 11px; color: #f0883e; font-family: system-ui; }
+
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin: 14px 0 8px; }
+  .bar button { background: var(--bg-alt); color: var(--fg); border:1px solid var(--border);
+                border-radius:5px; padding:5px 10px; font-size:12px; cursor:pointer; }
+  .bar button:hover { border-color:#58a6ff; }
+  #log { margin-top: 12px; font: 12px/1.7 var(--mono); background: var(--bg-alt);
+         border:1px solid var(--border); border-radius:6px; padding:10px 12px;
+         white-space: pre; overflow:auto; max-height: 200px; color:#9da7b3; }
+  #log .k { color:#7ee787; } #log .v { color:#79c0ff; } #log .ok{ color:#f0883e; }
+</style>
+</head>
+<body>
+  <h3>选区像素定位 · 方案 A（镜像 div）验证</h3>
+  <p class="hint">
+    在编辑器里选中任意文字 → <b>蓝色框</b>应精确盖住浏览器的原生选区高亮（证明选区矩形正确）；
+    <b>橙色虚框</b>应贴在选中文字正下方（即 AI 指令浮层的锚点）。<br>
+    下方按钮可一键跑到各典型场景（单行 / 跨软换行 / 多段 / 滚动状态）。按 <code>Esc</code> 取消选区。
+  </p>
+
+  <div class="editor-area" id="area">
+    <div id="ai-mirror"></div>
+    <textarea id="editor" spellcheck="false"></textarea>
+    <div id="overlay" hidden></div>
+    <div id="popup-anchor" hidden>AI 浮层将出现在这里</div>
+  </div>
+
+  <div class="bar">
+    <button data-t="single">① 单行选区</button>
+    <button data-t="wrap">② 跨软换行长行</button>
+    <button data-t="multi">③ 跨段落多行</button>
+    <button data-t="scroll">④ 滚动后选区</button>
+    <button data-t="caret">⑤ 仅光标(无选区)</button>
+    <button data-t="clear">清除标记</button>
+  </div>
+
+  <div id="log">移动光标 / 选区后这里输出测量值…</div>
+
+<script>
+"use strict";
+const editor  = document.getElementById("editor");
+const mirror  = document.getElementById("ai-mirror");
+const overlay = document.getElementById("overlay");
+const anchor  = document.getElementById("popup-anchor");
+const area    = document.getElementById("area");
+const logEl   = document.getElementById("log");
+
+/* ---------- 文本工具 ---------- */
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* ---------- 核心函数（验证通过后可直接搬进 src/app.js） ----------
+ * 求 textarea 中 [start,end) 选区的「可见像素矩形」。
+ * 原理：mirror 与 editor 同框(inset:0)、同字体/内边距/换行，但【不滚动】；
+ *       用 <span> 包住选区，读 getBoundingClientRect() 得到【未滚动】视口坐标，
+ *       再扣除 editor.scrollTop 即为屏幕上真实可见位置。
+ * 返回相对 .editor-area 左上角的坐标（已扣 scrollTop）。
+ */
+function selectionRect(start, end){
+  const v = editor.value;
+  mirror.innerHTML =
+      esc(v.slice(0, start)) +
+      '<span id="__m">' + esc(v.slice(start, end)) + '</span>' +
+      esc(v.slice(end));
+  const m = mirror.querySelector("#__m");
+  const r = m.getBoundingClientRect();
+  const a = area.getBoundingClientRect();
+  return {
+    left:   r.left   - a.left,
+    top:    r.top    - a.top - editor.scrollTop,
+    right:  r.right  - a.left,
+    bottom: r.bottom - a.top - editor.scrollTop,
+    width:  r.width,
+    height: r.height,
+    rawTop: r.top, rawBottom: r.bottom
+  };
+}
+
+/* ---------- 自校准：测镜像行高，应 ≈ 14*1.7 = 23.8px ---------- */
+function measureLineHeight(){
+  mirror.innerHTML = "M\nM";
+  const spans = mirror.innerHTML; // 仅占位
+  mirror.innerHTML = '<span id="__a">X</span>\n<span id="__b">X</span>';
+  const A = mirror.querySelector("#__a").getBoundingClientRect();
+  const B = mirror.querySelector("#__b").getBoundingClientRect();
+  return Math.round((B.top - A.top) * 10) / 10;
+}
+
+/* ---------- 绘制覆盖框 + 锚点 + 日志 ---------- */
+function draw(){
+  const s = editor.selectionStart, e = editor.selectionEnd;
+  if (document.activeElement !== editor && s === 0 && e === 0) { clearAll(); return; }
+  const R = selectionRect(s, e);
+  const isEmpty = (s === e);
+
+  // 蓝色覆盖框（空选区时画成 2px 细光标条）
+  overlay.hidden = false;
+  overlay.style.left = R.left + "px";
+  overlay.style.top  = R.top + "px";
+  overlay.style.width  = (isEmpty ? 2 : R.width) + "px";
+  overlay.style.height = R.height + "px";
+
+  // 橙色锚点：贴在选区底部正下方；若靠近编辑器底部则翻到选区上方
+  anchor.hidden = false;
+  const flipUp = (R.bottom + 4 + 54) > area.clientHeight; // 会溢出底部→上翻
+  anchor.style.left = R.left + "px";
+  anchor.style.top  = (flipUp ? (R.top - 4 - 54) : (R.bottom + 4)) + "px";
+
+  // 日志
+  const lineH = measureLineHeight();
+  logEl.innerHTML =
+    `<span class="k">selectionStart</span>=<span class="v">${s}</span>   ` +
+    `<span class="k">selectionEnd</span>=<span class="v">${e}</span>   ` +
+    `<span class="k">选中字数</span>=<span class="v">${e - s}</span>\n` +
+    `<span class="k">scrollTop</span>=<span class="v">${editor.scrollTop}</span>   ` +
+    `<span class="k">镜像行高</span>=<span class="v">${lineH}px</span> (期望≈23.8)\n` +
+    `<span class="k">选区矩形(相对编辑器,扣scroll)</span> = ` +
+    `{ left:<span class="v">${Math.round(R.left)}</span>, top:<span class="v">${Math.round(R.top)}</span>, ` +
+    `w:<span class="v">${Math.round(R.width)}</span>, h:<span class="v">${Math.round(R.height)}</span> }\n` +
+    `<span class="k">弹窗锚点</span> = ( <span class="v">${Math.round(R.left)}</span>, ` +
+    `<span class="v">${Math.round(flipUp ? R.top - 58 : R.bottom + 4)}</span> ) ` +
+    `<span class="ok">${flipUp ? "[上翻避免溢出]" : ""}</span>\n` +
+    `<span class="ok">→ 肉眼校验：蓝框是否精确盖住原生选区高亮？橙框是否贴在选区正下方？</span>`;
+}
+function clearAll(){ overlay.hidden = true; anchor.hidden = true; logEl.textContent = "（已清除）"; }
+
+/* ---------- 事件 ---------- */
+editor.addEventListener("input", draw);
+editor.addEventListener("keyup", draw);
+editor.addEventListener("mouseup", draw);
+editor.addEventListener("scroll", draw);
+document.addEventListener("selectionchange", () => { if (document.activeElement === editor) draw(); });
+editor.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { editor.setSelectionRange(editor.selectionEnd, editor.selectionEnd); draw(); } });
+
+/* ---------- 测试场景 ---------- */
+const SAMPLE = [
+  "# 选区定位验证样本",
+  "",
+  "【测试1·单行】在这句话里选中「短选区」三个字，蓝框应正好盖住它，橙框贴在其下方。",
+  "",
+  "【测试2·软换行】这是一段非常长的没有换行符的中文段落，它会在编辑器宽度内自动折行显示成多行，请用鼠标选中其中横跨两到三个视觉行的连续文字，验证镜像 div 对软换行的处理是否与原生 textarea 完全一致，这是 textarea 定位里最容易出错的一种情况所以专门留了这段超长文本供你反复测试对齐效果。",
+  "",
+  "【测试3·跨段落】选中下面这整块：",
+  "```js",
+  "function hello(name) {",
+  "  return `Hi, ${name}`;",
+  "}",
+  "```",
+  "代码块里的选区也要能正确定位，包括缩进对齐。",
+  "",
+  "【测试4·滚动】把编辑器滚动到下方这段，再选中文字。下方有大量填充行用于制造滚动：",
+  ...Array.from({length: 40}, (_, i) => `填充行 ${i + 1}：用于撑出滚动区域，验证 scrollTop 扣除是否正确。`),
+  "【到底部】选中这句时，橙框应自动上翻（避免溢出编辑器底部）。"
+].join("\n");
+editor.value = SAMPLE;
+
+function findByText(needle){ const i = SAMPLE.indexOf(needle); return i >= 0 ? i : 0; }
+function sel(start, end){ editor.focus(); editor.setSelectionRange(start, end); draw(); }
+
+document.querySelector(".bar").addEventListener("click", (ev) => {
+  const t = ev.target.dataset.t; if (!t) return;
+  if (t === "clear") { editor.setSelectionRange(0,0); editor.blur(); clearAll(); return; }
+  if (t === "single"){ const i = findByText("短选区"); sel(i, i + 3); }
+  if (t === "wrap")  { const i = findByText("这是一段非常长的没有换行符的中文段落"); sel(i, i + 64); }
+  if (t === "multi") { const i = findByText("【测试3·跨段落】"); const j = SAMPLE.indexOf("包括缩进对齐。") + "包括缩进对齐。".length; sel(i, j); }
+  if (t === "scroll"){ const i = findByText("【到底部】"); editor.scrollTop = 9999; sel(i, i + 10); }
+  if (t === "caret") { const i = findByText("短选区"); sel(i, i); }
+});
+
+draw(); // 首帧
+</script>
+</body>
+</html>

@@ -796,16 +796,10 @@
       renderVisible();
     } else {
       vClear();
-      preview.innerHTML = html;
-      // 非虚拟化：直接在 DOM 上标记 data-src-offset（template 上的标记不会随 innerHTML 带过来）
-      const pvChildren = preview.children;
-      for (let i = 0; i < pvChildren.length && i < srcBlockOffsets.length; i++) {
-        const so = srcBlockOffsets[i];
-        const eo = i + 1 < srcBlockOffsets.length ? srcBlockOffsets[i + 1] : editor.value.length;
-        pvChildren[i].setAttribute("data-src-offset", so);
-        pvChildren[i].setAttribute("data-src-end", eo);
-        tagFineInBlock(pvChildren[i], so, eo);
-      }
+      // 复用上方已解析并标记好 data-src-offset/end（含 tagFineInBlock 的 li/tr 细粒度偏移）的
+      // template：cloneNode(true) 保留属性，appendChild 直接挂载，避免对同一 html 二次 innerHTML
+      // 解析（原"二次解析 + 二次标注"循环随之删除）。
+      preview.appendChild(tpl.content.cloneNode(true));
       // 代码高亮：懒加载——只高亮进入视口的代码块（IntersectionObserver）。
       highlightCodeLazy();
       wrapDisplayMath(preview);
@@ -988,26 +982,32 @@
 
   /* ---------- 编辑辅助 ---------- */
   function wrapSelection(before, after, ph) {
+    const prev = { v: editor.value, s: editor.selectionStart, e: editor.selectionEnd };
     const s = editor.selectionStart, e = editor.selectionEnd;
     const sel = editor.value.slice(s, e) || ph;
     editor.value = editor.value.slice(0, s) + before + sel + (after || "") + editor.value.slice(e);
     const cs = s + before.length;
     editor.setSelectionRange(cs, cs + sel.length);
+    commitUndo(prev); // 用编辑前快照入栈(不依赖可能过时的 undoLast,防撤销清空)
     editor.focus(); scheduleRender();
   }
   function linePrefix(prefix) {
+    const prev = { v: editor.value, s: editor.selectionStart, e: editor.selectionEnd };
     const s = editor.selectionStart, v = editor.value;
     const ls = v.lastIndexOf("\n", s - 1) + 1;
     editor.value = v.slice(0, ls) + prefix + v.slice(ls);
     editor.setSelectionRange(s + prefix.length, s + prefix.length);
+    commitUndo(prev);
     editor.focus(); scheduleRender();
   }
   function insertBlock(text, f, t) {
+    const prev = { v: editor.value, s: editor.selectionStart, e: editor.selectionEnd };
     const s = editor.selectionStart, v = editor.value;
     const nl = s > 0 && v[s - 1] !== "\n" ? "\n" : "";
     editor.value = v.slice(0, s) + nl + text + v.slice(s);
     const base = s + nl.length;
     editor.setSelectionRange(base + (f || 0), base + (t || 0));
+    commitUndo(prev);
     editor.focus(); scheduleRender();
   }
 
@@ -1109,17 +1109,37 @@
       bytes -= (dropped.v ? dropped.v.length : 0);
     }
   }
+  // 把当前编辑器状态立即入撤销栈。程序化编辑(wrapSelection/insertBlock/linePrefix)直接调用——
+  // 它们改 editor.value 不触发 input 事件，而 undoSnapshot 绑在 input 上，导致工具栏格式化(加粗/链接/表格等)
+  // 不入栈、Ctrl+Z 与回退按钮撤销不了。pushUndo 先清掉待触发的防抖定时，立即落栈。
+  function pushUndo() {
+    clearTimeout(undoTimer);
+    const v = editor.value; // editor.value 是 textarea getter，缓存一次复用（#性能4）
+    if (v !== undoLast.v) {
+      undoStack.push(undoLast);
+      if (undoStack.length > 500) undoStack.shift();
+      trimUndoBytes(undoStack); // C4: 按字节预算封顶
+      redoStack = [];
+    }
+    undoLast = { v, s: editor.selectionStart, e: editor.selectionEnd };
+  }
+  // 用户输入触发：200ms 防抖合并（连续输入=一步）；定时到再 pushUndo。
   function undoSnapshot() {
     clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => {
-      if (editor.value !== undoLast.v) {
-        undoStack.push(undoLast);
-        if (undoStack.length > 500) undoStack.shift();
-        trimUndoBytes(undoStack); // C4: 按字节预算封顶
-        redoStack = [];
-      }
-      undoLast = { v: editor.value, s: editor.selectionStart, e: editor.selectionEnd };
-    }, 200); // 200ms 合并：连续快速输入=一步，停顿>200ms=新的一步（细粒度）
+    undoTimer = setTimeout(pushUndo, 200); // 200ms 合并：连续快速输入=一步，停顿>200ms=新的一步（细粒度）
+  }
+  // 程序化编辑(wrapSelection/insertBlock/linePrefix)专用：把调用方在【编辑前】捕获的快照 prev 入栈，
+  // undoLast 设为编辑后。直接用 prev 而非全局 undoLast——后者可能因文档载入/切换未同步而过时(如空值)，
+  // 入栈会导致 Ctrl+Z 把文档清空。用 prev 保证撤销目标=真实编辑前内容。
+  function commitUndo(prev) {
+    clearTimeout(undoTimer);
+    if (prev.v !== editor.value) { // 有实质变化才入栈
+      undoStack.push(prev);
+      if (undoStack.length > 500) undoStack.shift();
+      trimUndoBytes(undoStack); // C4: 按字节预算封顶
+      redoStack = [];
+    }
+    undoLast = { v: editor.value, s: editor.selectionStart, e: editor.selectionEnd };
   }
   function doUndo() {
     if (!undoStack.length) return;
@@ -1277,8 +1297,8 @@
     const setStatus = (msg) => { const s = $("ai-status"); if (s) s.textContent = msg || ""; };
     // 显式控制底栏按钮显隐（编辑区的 apply/insert 由 renderEditZone 按是否有选区管理）
     function setBar(o) {
-      $("ai-send").hidden = o.send === false;
-      $("ai-discard").hidden = o.discard === false;
+      const s = $("ai-send"); if (s) s.hidden = o.send === false;
+      // 「关闭」按钮已移除（改用右上角 ×）；discard 参数保留以兼容既有调用，不再生效。
     }
     // 对话区追加一条消息；返回该 DOM（供流式更新）
     function appendChat(role, text, note) {
@@ -1326,7 +1346,8 @@
     function renderEditZone() {
       const zone = $("ai-edit-zone"), body = $("ai-edit-body");
       const show = !!selRange || !!editText;
-      zone.hidden = !show;
+      zone.hidden = false;                      // 标签行常驻：纯提问时也显示(AI 名 + ×)
+      zone.classList.toggle("has-edit", show);  // 有编辑内容才显示正文 + 编辑动作按钮
       if (show) {
         if (editViewMode === "render") {
           const g = ++editBodyGen;
@@ -1382,7 +1403,7 @@
       $("ai-chat").innerHTML = "";
       renderEditZone();
       setBar({ send: true, discard: false });
-      setStatus(t("aiPh"));
+      setStatus(""); // 不再在头部显示提示；输入框 placeholder 仍由 aiPh 提供
       buildAiSel();
       placePop();
       const _an = $("ai-active-name"); if (_an) _an.textContent = currentApiLabel();
@@ -1667,21 +1688,21 @@
     // —— 绑定（DOM 已就绪：本脚本在 body 末尾内联执行）——
     const rb = document.querySelector('[data-act="ai-rewrite"]');
     if (rb) rb.addEventListener("click", openPop);
-    $("ai-pop-close").addEventListener("click", closePop);
+    $("ai-pop-close").addEventListener("click", closePop); // 右上角 × 关闭（底部「关闭」已移除）
     $("ai-send").addEventListener("click", send);
     $("ai-apply").addEventListener("click", applyResult);
     $("ai-insert").addEventListener("click", insertResult);
     $("ai-edit-undo").addEventListener("click", undoEdit);
     $("ai-edit-redo").addEventListener("click", redoEdit);
     $("ai-edit-view").addEventListener("click", () => { editViewMode = (editViewMode === "render") ? "diff" : "render"; renderEditZone(); });
-    $("ai-discard").addEventListener("click", closePop);
-    // 浮层可拖动：按住头部拖动定位（点 × 关闭按钮不触发拖动），并夹在视口内
-    const popHead = pop.querySelector(".ai-pop-head");
+    // 「关闭」按钮已移除；关闭走右上角 × 或 Esc。
+    // 浮层可拖动：原顶部头部行已移除，改按住「编辑区标签条」拖动定位（点其上按钮不触发拖动），并夹在视口内
+    const popHead = pop.querySelector("#ai-edit-zone .ai-zone-label");
     if (popHead) {
       popHead.style.cursor = "move";
       let dragging = false, ox = 0, oy = 0;
       popHead.addEventListener("mousedown", (e) => {
-        if (e.target.closest(".ai-pop-x")) return;          // × 按钮不触发拖动
+        if (e.target.closest("button")) return;          // 标签上的按钮（回退/前进/渲染/应用/插入）不触发拖动
         dragging = true;
         const pr = pop.getBoundingClientRect();
         ox = e.clientX - pr.left; oy = e.clientY - pr.top;
@@ -1880,9 +1901,10 @@
   function loadTab(tab) {
     clearColSel();
     if (!tab) { editor.value = ""; updateStats(); updateCursor(); return; }
-    resetUndo(); // 切标签→重置撤销/重做栈（每个标签独立 undo 上下文）
     editor.value = tab.content;
     editor.setSelectionRange(tab.selStart || 0, tab.selEnd || 0);
+    resetUndo(); // 切标签→重置撤销/重做栈；必须在载入内容之后，否则 undoLast 基线为空/旧值，
+                 // 程序化编辑(如 Ctrl+K 链接)的 pushUndo 会把空基线入栈，Ctrl+Z 把文档清空
     document.title = tab.name + " — MDeX";
     // 延后一帧再渲染预览：先让编辑器文本绘制出来（大文件下用户立刻看到内容），
     // 随后才进入较重的预览渲染，避免打开时整窗卡住几秒。
@@ -3692,10 +3714,12 @@
     // 不抢焦点：setSelectionRange 在 textarea 未聚焦时仍能设置选区并滚动到可见，
     // 保留焦点在搜索框，否则每输入一个字符就把后续按键灌进正文（旧 bug）。
     editor.setSelectionRange(pos, pos + len);
-    // 滚动到可见
-    const line = editor.value.slice(0, pos).split("\n").length;
-    const lineHeight = 14 * 1.7;
-    editor.scrollTop = (line - 1) * lineHeight - editor.clientHeight / 2;
+    // 滚动到可见：用 offToEditorY（编辑器 offset→像素 Y，经 #editor-yprobe 实测视觉行位置，已计入
+    // 软折行与当前字号）。原实现用「逻辑行号 × 硬编码 14×1.7」——长段落的软折行与用户字号缩放
+    // 均会让该值偏离真实像素位置，匹配越靠后（上方折行段落越多）偏差越大：首条能居中、后续大多
+    // 落到视口下方甚至不可见。搜索时 textarea 未聚焦（避免按键灌入正文），浏览器原生「滚动选区
+    // 到可见」不触发，故必须用实测 Y 手动滚到位（与编辑↔预览滚动同步同源，BUG-060/104）。
+    editor.scrollTop = offToEditorY(pos) - editor.clientHeight / 2;
     $("search-count").textContent = (searchIdx + 1) + "/" + searchMatches.length;
     renderEditorHighlight(); // 刷新高亮：当前条 current 闪一闪
     highlightPreview();
@@ -3722,7 +3746,14 @@
     $("search-count").textContent = "0/0";
     toast(t("replaceAll") + " ✓");
   }
-  searchInput.addEventListener("input", () => doSearch(1));
+  // 搜索输入 debounce（#性能2）：原每次按键都 doSearch→renderEditorHighlight 全量重建
+  // editor.value 转义 innerHTML，连输 "hello" 触发 5 次。80ms trailing 合并：停顿才搜、连击只算一次。
+  // 回车/上一条/下一条按钮仍即时响应（它们直接调 doSearch，不经此 debounce）。
+  let searchInputTimer = 0;
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchInputTimer);
+    searchInputTimer = setTimeout(() => doSearch(1), 80);
+  });
   searchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); doSearch(e.shiftKey ? -1 : 1); }
     else if (e.key === "Escape") { e.preventDefault(); closeSearch(); }
@@ -4545,7 +4576,7 @@
     const rows = (arr) => arr.map((r) => "<tr><td><code>" + r.k + "</code></td><td>" + r.a + "</td></tr>").join("");
     return [
       "<p class=\"pron-line\"><strong>MDeX</strong> · " + s.pPron + "</p>",
-      "<p>" + s.pIntro.replace("{ver}", appVersion || "2.1.1") + "</p>",
+      "<p>" + s.pIntro.replace("{ver}", appVersion || "2.2.0") + "</p>",
       "<h2>" + s.hFeatures + "</h2>", pairs(s.features),
       "<h2>" + s.hShortcuts + "</h2>", "<p>" + s.pShortcut + "</p>",
       "<table><tr><th>" + s.thKey + "</th><th>" + s.thAction + "</th></tr>" + rows(s.shortcuts) + "</table>",
@@ -4558,7 +4589,8 @@
       "<div class=\"contact\"><span class=\"name\">" + s.contactName + "</span><br><a href=\"mailto:fwzheng@bit.edu.cn\">fwzheng@bit.edu.cn</a></div>",
     ].join("");
   }
-  // 文献引用帮助：按「情形」分组介绍，中英两版；其余界面语言复用英文版  const HELP_STRINGS = window.HELP_DATA.HELP_STRINGS;
+  // 文献引用帮助：按「情形」分组介绍，中英两版；其余界面语言复用英文版
+  const HELP_STRINGS = window.HELP_DATA.HELP_STRINGS;
   function helpContent() { return buildHelp(HELP_STRINGS[curLang] || HELP_STRINGS.en); }
   function openHelp() {
     $("help-title").textContent = t("helpIntro");
@@ -4809,7 +4841,7 @@
         const html = e && e.payload;
         if (typeof html !== "string" || !html) return;
         const tpl = document.createElement("template");
-        tpl.innerHTML = html.trim();
+        tpl.innerHTML = sanitizeViewerContent(html.trim());
         const el = tpl.content.firstElementChild;
         if (el) updateContent(el);
       });
@@ -4886,6 +4918,18 @@
   }
   /* ---------- 初始化 ---------- */
   // 图查看器独立窗口模式：隐藏编辑器 UI，取后端暂存内容（svg/img）渲染查看器（铺满整个窗口）
+  // 查看器内容净化（S1）：mermaid <svg> 或用户 <img> 的 outerHTML 经 DOMPurify 过一道，
+  // 剥除 <script>/on*= 事件处理器/javascript: URI 等，防御未来 DOMPurify/marked 等 CVE 导致
+  // 的脚本注入在查看器窗口（CSP 之外的纵深防御）。保留 mermaid 所需 <style> 与 <foreignObject>
+  // （含内嵌 HTML，流程图/类图/状态图标签）——svg+html 双 profile 显式放行 foreignObject，
+  // 实测不破坏渲染、不破坏 <img> data URL。DOMPurify 作全局 vendor 内联；极端未加载时原样返回。
+  function sanitizeViewerContent(html) {
+    if (!window.DOMPurify) return String(html);
+    return window.DOMPurify.sanitize(String(html), {
+      USE_PROFILES: { svg: true, html: true },
+      ADD_TAGS: ["foreignObject"],
+    });
+  }
   function initViewerWindow(contentHtml) {
     isViewerWindow = true; // 标记为查看器窗口：关窗拦截据此放行（不依赖 winLabel 检测）
     document.documentElement.classList.add("mv-win");
@@ -4895,7 +4939,7 @@
     setT("mv-center", mv.center); setT("mv-fullscreen", mv.fullscreen); setT("mv-close", mv.close);
     const h = $("mv-hint"); if (h) h.textContent = mv.hint;
     const tpl = document.createElement("template");
-    tpl.innerHTML = String(contentHtml).trim();
+    tpl.innerHTML = sanitizeViewerContent(String(contentHtml).trim());
     const el = tpl.content.firstElementChild;   // svg 或 img
     if (el && openViewer) openViewer(el);
   }
@@ -4990,6 +5034,7 @@
     if (cur) {
       editor.value = cur.content;
       if (cur.selStart || cur.selEnd) editor.setSelectionRange(cur.selStart, cur.selEnd);
+      resetUndo(); // 首屏载入文档后重置撤销基线=当前内容；否则 undoLast 为初始空值，首次撤销会把文档清空
     }
     applyLang();            // 应用界面语言（含工具栏/状态栏/占位符/主题按钮文字）
     if (initFontZoom) initFontZoom(); // 应用编辑区/预览区字体缩放（须在首帧 render 前，否则首测字号错）

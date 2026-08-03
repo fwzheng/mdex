@@ -155,6 +155,8 @@ if (samples && samples.dbg) {
     '| pvH:', samples.dbg.pvH, '| edH:', samples.dbg.edH, '| probe 节点类型:', samples.dbg.probeNodeType);
 }
 const sampleRows = samples ? samples.out : [];
+// 失败汇总：任何一项不通过都让进程非零退出（此前无论结果都 exit 0,无法 gating）。
+let test2Fail = !samples;   // evaluate 抛异常 → 无样本 → 判失败
 
 // correctOffs 二分：off 落在哪个块号（独立基准，不依赖 DOM 的 data-src-offset）
 function blockIdx(off) {
@@ -188,6 +190,7 @@ if (sampleRows && sampleRows.length) {
     const slope = den ? num / den : 0;
     accumVerdict = `中段平均|块号差|=${mean.toFixed(2)}  斜率=${slope.toFixed(3)} 块/块  ` +
       (Math.abs(slope) > 0.2 && mean > 1 ? '⚠ 越往后越偏（累积错位）' : '✓ 无累积错位');
+    test2Fail = test2Fail || (Math.abs(slope) > 0.2 && mean > 1);
   }
   console.log(`  → 最大|块号差|=${maxAbs}`);
   console.log(`  累积性: ${accumVerdict}`);
@@ -195,3 +198,7 @@ if (sampleRows && sampleRows.length) {
 
 console.log('============================================================');
 await browser.close();
+// 测试1:块对应错位或 offset 非递增即失败;测试2:累积错位(斜率>0.2 且 平均|差|>1)即失败。
+const failed = (bad > 0 || monotonic > 0) || test2Fail;
+console.log(failed ? '❌ e2e 失败' : '✅ e2e 通过');
+process.exit(failed ? 1 : 0);

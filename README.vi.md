@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.1.1 (macOS · Windows · Linux · Sẵn sàng ngoại tuyến · Tauri v2)
+# MDeX v2.2.0 (macOS · Windows · Linux · Sẵn sàng ngoại tuyến · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 

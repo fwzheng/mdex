@@ -82,29 +82,35 @@ async function build() {
   const helpJs = await readFile(join(ROOT, "src", "help.js"), "utf8");
   const combinedApp = `"use strict";\n${i18nJs}\n${helpJs}\n${appJs}`;
 
-  // ===== CSS =====
-  const hljsLight = await read("highlight.js/github.css");
-  const hljsDark = scopeTheme(await read("highlight.js/github-dark.css"), "html.dark");
-  const katex = await inlineKatexFonts(await read("katex/katex.min.css"));
+  // ===== CSS =====（并行读取 #性能12；转换仍串行，因依赖读取结果）
+  const [hljsLightRaw, hljsDarkRaw, katexCssRaw] = await Promise.all([
+    read("highlight.js/github.css"),
+    read("highlight.js/github-dark.css"),
+    read("katex/katex.min.css"),
+  ]);
+  const hljsLight = hljsLightRaw;
+  const hljsDark = scopeTheme(hljsDarkRaw, "html.dark");
+  const katex = await inlineKatexFonts(katexCssRaw);
   const vendorCss = `\n<!--VENDOR CSS (highlight.js + KaTeX, fonts inlined as base64) -->\n<style>\n${hljsLight}\n${hljsDark}\n${katex}\n</style>\n`;
 
-  // ===== JS (顺序很重要：库在前，应用脚本在后) =====
-  const purify = await read("purify.min.js");
-  const marked = await read("marked.min.js");
-  const katexJs = await read("katex/katex.min.js");
-  const autoRender = await read("katex/auto-render.min.js");
-  const hljsJs = await read("highlight.js/highlight.min.js");
-  // 仅用于「另存为 → PDF」导出（离线渲染预览为 PDF）。不在普通编辑/渲染路径加载逻辑里使用。
-  // 用 html2canvas-pro（支持 oklch/color-mix/color() 等现代 CSS 颜色），
-  // 原版 html2canvas 1.4.1 在 WKWebView 下遇 color(srgb…) 计算色会抛 "unsupported color function"。
-  const jspdfJs = await read("jspdf.umd.min.js");
-  const svg2pdfJs = await read("svg2pdf.umd.min.js");
-  const html2canvasJs = await read("html2canvas-pro.min.js");
-  // HTML→Markdown 转换（档位二）。turndown + GFM 插件（表格/任务列表/删除线）。
-  const turndownJs = await read("turndown.js");
-  const turndownGfmJs = await read("turndown-plugin-gfm.js");
-  const bibtexJs = await read("bibtex-parser.min.js");
-  const mermaidJs = await read("mermaid.min.js");
+  // ===== JS (顺序很重要：库在前，应用脚本在后) =====（并行读取 #性能12）
+  // 说明：jsPDF/html2canvas-pro 仅供「另存为→PDF」导出；html2canvas-pro 支持 oklch/color-mix/color()
+  //   （原版 1.4.1 在 WKWebView 下遇 color(srgb…) 计算色会抛 "unsupported color function"）。
+  //   turndown + GFM 插件用于 HTML→Markdown 转换（表格/任务列表/删除线）。
+  const [purify, marked, katexJs, autoRender, hljsJs, jspdfJs, svg2pdfJs, html2canvasJs, turndownJs, turndownGfmJs, bibtexJs, mermaidJs] = await Promise.all([
+    read("purify.min.js"),
+    read("marked.min.js"),
+    read("katex/katex.min.js"),
+    read("katex/auto-render.min.js"),
+    read("highlight.js/highlight.min.js"),
+    read("jspdf.umd.min.js"),
+    read("svg2pdf.umd.min.js"),
+    read("html2canvas-pro.min.js"),
+    read("turndown.js"),
+    read("turndown-plugin-gfm.js"),
+    read("bibtex-parser.min.js"),
+    read("mermaid.min.js"),
+  ]);
   const vendorJs =
     `\n<!--VENDOR JS (DOMPurify, marked, KaTeX, auto-render, highlight.js, jsPDF, html2canvas-pro, turndown, bibtex-parser, mermaid) -->\n` +
     `<script>${purify}</script>\n` +
