@@ -1240,6 +1240,11 @@
     const hasCfg = () => { const c = cfg(); return !!(c.endpoint && c.key && c.model); };
 
     const pop = $("ai-pop");
+    // AI 独立窗口模式：本窗口是否为 ai-panel-* 独立 OS 窗口。是→不读 editor、apply 走 IPC、关浮层=关OS窗口。
+    const isAiPanelWindow = winLabel.startsWith("ai-panel-");
+    let cursorMode = false; // 光标处（无选区）打开模式：显示编辑区占位 + "在光标处插入"按钮（生成内容后可用）
+    let manualEditH = 0; // A 区手动拖动(分隔条)设的高度；0=未手动。layoutEditBody 取 max(manualEditH, 内容高)
+    let aiCtxBefore = "", aiCtxAfter = ""; // AI 窗口模式：打开时主窗口传入的上下文（替代 editor.value 切片）
     let jobSeq = 0, job = null, testing = false;
     let selRange = null, acc = "";
     let pendingRange = null; // 右键时于 contextmenu 捕获的选区（彼时编辑区聚焦、选区完整）
@@ -1254,6 +1259,38 @@
     let editViewMode = "diff"; // 编辑区视图："diff"（源码+diff 高亮）| "render"（渲染预览）
     let editBodyGen = 0; // 编辑区渲染态的代际守卫（mermaid 异步，切视图时作废旧的）
     let editingId = null, deleteConfirmTimer = null; // 预设列表：当前编辑项 id；删除二次确认定时器（v2.1.0）
+
+    // —— A/B 内容定高 + 窗口贴合：仅面板窗口 ai-panel-* 生效 ——
+    // 安全不变量(BUG-130)：onResized 回调绝不调 setSize；仅 maybeFitWindow(内容事件/分隔条拖动触发)才 setSize。
+    //   A/B 均 flex:none 内容驱动、与窗口尺寸解耦 → setSize 引起的 resize 不改变 A/B 内容 → 反馈循环无法形成。
+    let userResized = false; // 用户手拖过 OS 窗口→永久关自动贴合
+    let progResize = false;  // 自家 setSize 在飞→其 onResized 回声不算用户拖动
+    let sepDragging = false; // 正在拖 A-B 分隔条：期间跳过 maybeFitWindow 的 setSize(由拖动自己 setSize 改窗口)，但 min-size 仍更新
+    let sepProgTimer = 0;    // 分隔条拖动中 progResize 的清除句柄(连续 mousemove 不断重置，拖完 300ms 后清)
+    let fitArmed = false;    // 初始保护期：挂 onResized 后 1s 内置 true 之前，resize 视为 OS/布局沉淀(非用户拖动)，不锁自动贴合
+    let bGrowTimer = 0;      // maybeFitWindow 防抖句柄
+    let _fitRAFPending = false;   // scheduleFit 的 rAF 节流标志
+    // rAF 节流触发 maybeFitWindow：流式输出(B1 逐渐增高)/A 区异步长高/RO 都用它，每帧最多 1 次，窗口紧跟内容。
+    function scheduleFit() { if (_fitRAFPending) return; _fitRAFPending = true; requestAnimationFrame(() => { _fitRAFPending = false; maybeFitWindow(); }); }
+    let bResizeObs = null;   // A 区+B 区 ResizeObserver→重贴合(捕获异步增高)
+    let _fitLogged = 0;      // 诊断：maybeFitWindow 前 N 次显示实测值(定位贴合问题后删)
+    // 取当前 Tauri 窗口对象（同 closePop 的取法，集中一处复用）
+    function aiWin() {
+      try {
+        const wm = T && (T.window || (T.webviewWindow || {}));
+        const cw = wm.getCurrentWindow ? wm.getCurrentWindow() : (wm.getCurrentWebviewWindow ? wm.getCurrentWebviewWindow() : null);
+        return cw || null;
+      } catch (_) { return null; }
+    }
+    // 逻辑尺寸构造器：withGlobalTauri 下挂在全局；位置因版本而异，逐个探测
+    function getLogicalSizeCtor() {
+      try {
+        if (T && T.window && typeof T.window.LogicalSize === "function") return T.window.LogicalSize;
+        if (T && T.webviewWindow && typeof T.webviewWindow.LogicalSize === "function") return T.webviewWindow.LogicalSize;
+        if (T && T.core && typeof T.core.LogicalSize === "function") return T.core.LogicalSize;
+      } catch (_) {}
+      return null;
+    }
 
     const aiEsc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -1351,7 +1388,7 @@
     // 编辑区：有选区 或 已有编辑内容 时显示；diff 高亮（与原选区比）；按是否有选区决定 apply/insert
     function renderEditZone() {
       const zone = $("ai-edit-zone"), body = $("ai-edit-body");
-      const show = !!selRange || !!editText;
+      const show = !!selRange || !!editText || cursorMode;
       zone.hidden = false;                      // 标签行常驻：纯提问时也显示(AI 名 + ×)
       zone.classList.toggle("has-edit", show);  // 有编辑内容才显示正文 + 编辑动作按钮
       if (show) {
@@ -1364,9 +1401,12 @@
         }
         $("ai-apply").hidden = !selRange;
         $("ai-insert").hidden = !!selRange;
+        $("ai-insert").disabled = !editText;   // 光标处模式：未生成内容前禁用"在光标处插入"
         const vb = $("ai-edit-view"); if (vb) vb.textContent = (editViewMode === "render") ? t("aiViewSrc") : t("aiViewRender");
       }
       updateUndoRedoBtns();
+      layoutEditBody();   // A 区内容驱动高度(到 10 行)
+      relayout();         // B 区重排：面板→layoutB(B1+B2)，页内→layoutInput(A 区变→可用 B 变)
     }
     // 编辑区回退/前进：在多轮改写状态间切换
     function updateUndoRedoBtns() {
@@ -1385,6 +1425,203 @@
       editHistory.push(editText);
       editText = editFuture.pop();
       renderEditZone();
+    }
+
+    // AI 独立窗口：用主窗口传入的选区数据初始化浮层（不读 editor、不画 mark、不 placePop）。
+    function applyAiPanelData(data) {
+      if (data && typeof data === "object") {
+        if (data.start != null && data.end != null && data.start !== data.end) {
+          selRange = { start: data.start, end: data.end }; cursorPos = 0;
+          origSelText = data.selText || ""; cursorMode = false;
+        } else { selRange = null; cursorPos = data.cursorPos || 0; origSelText = ""; cursorMode = true; }
+        aiCtxBefore = data.ctxBefore || ""; aiCtxAfter = data.ctxAfter || "";
+      }
+      messages = []; editText = origSelText; acc = ""; job = null;
+      routeMode = "unknown"; curInstruction = ""; curBubble = null;
+      editHistory = []; editFuture = []; editViewMode = "diff";
+      const inp = $("ai-input"); if (inp) inp.value = "";
+      const chat = $("ai-chat"); if (chat) chat.innerHTML = "";
+      renderEditZone(); setBar({ send: true }); setStatus("");
+      const _an = $("ai-active-name"); if (_an) _an.textContent = currentApiLabel();
+      if (inp) inp.focus();
+      const _eb = $("ai-edit-body"); if (_eb) { _eb.style.height = ""; _eb.style.maxHeight = ""; } manualEditH = 0;
+      relayout();         // B 区重排(面板 B1+B2 / 页内 B2)
+    }
+
+    // B2(输入)内容高度测量：1~10 行(BUG-122 上限含 padding；BUG-126 空 textarea 的 scrollHeight 不含
+    // 1 行→用 max(1行, scrollHeight) 兜底)。抽出让 layoutInput(页内浮层) 与 layoutB(面板窗口) 复用。
+    // 注意：临时 height:auto 测 scrollHeight 后恢复原值，不污染调用方。
+    function measureInputContent(inp) {
+      const prev = inp.style.height;
+      inp.style.height = "auto";
+      const scrollH = inp.scrollHeight;
+      const cs = getComputedStyle(inp);
+      const lineH = parseFloat(cs.lineHeight) || 20;
+      const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      const minH = parseFloat(cs.minHeight) || 0;   // CSS min-height(如 calc(1.5em+14px))：空内容时输入框的【实际渲染高】，必须计入——否则 b2c 偏小→阈值偏小→窗口缩过头→dialog 装不下 input-row 被 overflow:hidden 裁成一条缝
+      inp.style.height = prev;
+      return Math.max(minH, lineH + pad, Math.min(scrollH, lineH * 10 + pad));   // max(CSS 最小高, 1 行, 内容)，上限 10 行
+    }
+    // B2(输入)高度：内容驱动(页内浮层模式用)。面板窗口改由 layoutB 统一分配 B1+B2。
+    function layoutInput() {
+      const inp = $("ai-input");
+      if (!inp) return;
+      inp.style.height = measureInputContent(inp) + "px";
+    }
+
+    // A 区(edit-body)高度：内容驱动，到 10 行止，第 11 行出滚动条
+    function layoutEditBody() {
+      const body = $("ai-edit-body");
+      if (!body) return;
+      body.style.height = "auto";
+      const scrollH = body.scrollHeight;
+      const cs = getComputedStyle(body);
+      const lineH = parseFloat(cs.lineHeight) || 20;
+      const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      body.style.height = Math.max(manualEditH, Math.min(scrollH, lineH * 10 + pad)) + "px";   // max(手动高度, 内容高)，上限 10 行：内容不满手动高度时保留手动，超过则 auto 增高
+    }
+
+    // —— A 区内容定高(flex:none,在顶部,label 永不裁)；B 区(dialog) flex:1 吃窗口剩余(拖大窗口 B 长) ——
+    //   B 内：chat flex:1(随窗口长/空时缩到 0/超出滚动) + input flex:none(内容 1~10 行)。
+    //   layoutB 只设 input 高(chat 走 CSS flex)；maybeFitWindow 把窗口贴合到 A+输入+chat 地板(min{10行,内容})。
+    // 循环安全(BUG-130)：A(flex:none)与 input 内容不随窗口变；setSize 引起的 resize 不改它们→RO 不会因自家 setSize 重触发。
+    function layoutB() {
+      if (!isAiPanelWindow) return;
+      const inp = $("ai-input");
+      const chat = $("ai-chat");
+      if (!inp) return;
+      inp.style.height = measureInputContent(inp) + "px";   // B2 输入：内容驱动 1~10 行
+      // B1(chat)：无消息时直接 display:none → B1 恒 0，不依赖窗口尺寸量准(根治"B1 初始非 0")；有消息时恢复显示、flex:1 生长
+      if (chat) chat.style.display = (chat.children.length > 0) ? "" : "none";
+    }
+
+    // 派发：面板→layoutB(设 input 高)，页内→layoutInput(同义，B1 走 CSS)
+    function relayout() { if (isAiPanelWindow) layoutB(); else layoutInput(); }
+
+    // 内容事件入口：先按内容定 A/B 高，再让窗口贴合。debounce 150ms 合并连续输入。
+    function onBContentChange() {
+      relayout();
+      if (!isAiPanelWindow) return;
+      clearTimeout(bGrowTimer);
+      bGrowTimer = setTimeout(maybeFitWindow, 150);
+    }
+    // 直接【量】内容高：临时让 dialog 按内容定高(flex:none)、chat 按 mode 表现，然后【求和各子元素外高】。
+    // 不用 pop.offsetHeight——它在面板布局下被父/flex 撑成窗口高、不返回真实内容高(曾导致 need 恒=窗口高)。
+    // offsetHeight 天然含 border+padding，再加 margin；display:none 的子元素计 0。所有边距/按钮高度自动算准。
+    // mode: "min"=chat 计 0(B=输入行,窗口最小高/拖拽下限)；"fit"=chat 计 min(内容,10行)(贴合)。
+    function measureContentHeight(mode) {
+      const dlg = /** @type {HTMLElement|null} */ (pop.querySelector(".ai-dialog"));
+      const chat = $("ai-chat");
+      const editZone = $("ai-edit-zone");
+      const resizer = /** @type {HTMLElement|null} */ (pop.querySelector(".ai-resizer"));
+      if (!dlg) return 0;
+      const sf = dlg.style.flex, sm = dlg.style.minHeight;
+      const cm = chat ? chat.style.maxHeight : "", cd = chat ? chat.style.display : "", cf = chat ? chat.style.flex : "";
+      try {
+        dlg.style.flex = "none";        // dialog 按内容定高(=chat+status+input-row 自然和)
+        dlg.style.minHeight = "0";
+        const chatHasContent = !!(chat && chat.children.length > 0);
+        if (chat && (mode === "min" || !chatHasContent)) chat.style.display = "none";          // chat 计 0：min 模式 或 空对话
+        else if (chat) {
+          // 有内容：chat 改 flex:none(内容定高，否则 flex:1 1 0 在内容定高 dialog 里 basis=0 塌成 0→needH 不含 chat→窗口不长)
+          chat.style.flex = "none";
+          const cs = getComputedStyle(chat); const lh = parseFloat(cs.lineHeight) || 20; const pd = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+          chat.style.maxHeight = (lh * 10 + pd) + "px";   // chat 内容定高，上限 10 行(超出滚动)
+        }
+        void dlg.offsetHeight;          // 触发 reflow，让上面 style 生效后再读
+        const outer = (el) => { if (!el) return 0; const cs = getComputedStyle(el); if (cs.display === "none") return 0; return el.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0); };
+        const popCS = getComputedStyle(pop);
+        const popPadV = (parseFloat(popCS.paddingTop) || 0) + (parseFloat(popCS.paddingBottom) || 0);
+        const popBdrV = (parseFloat(popCS.borderTopWidth) || 0) + (parseFloat(popCS.borderBottomWidth) || 0);
+        return outer(editZone) + outer(resizer) + outer(dlg) + popPadV + popBdrV;
+      } finally {
+        dlg.style.flex = sf; dlg.style.minHeight = sm;
+        if (chat) { chat.style.maxHeight = cm; chat.style.display = cd; chat.style.flex = cf; }
+      }
+    }
+    // 窗口贴合/最小：needH=measureContentHeight("fit")，minWinH=measureContentHeight("min")。
+    // userResized(手拖过窗口)后不再自动贴合(但 min 仍更新)；sepDragging(拖分隔条)期间由拖动自己 setSize。
+    async function maybeFitWindow(forceShrink) {
+      if (!isAiPanelWindow) return;
+      const dlg = /** @type {HTMLElement|null} */ (pop.querySelector(".ai-dialog"));
+      if (!dlg) return;
+      const cw = aiWin();
+      // dialog 最小高 = 实测输入行 + dialog 自身边框：拖窗口变小时 dialog 停在此→clientHeight≥输入行→B2 一行不被裁。
+      const row = /** @type {HTMLElement|null} */ (dlg.querySelector(".ai-input-row"));
+      if (row) { const _db = (parseFloat(getComputedStyle(dlg).borderTopWidth) || 0) + (parseFloat(getComputedStyle(dlg).borderBottomWidth) || 0); dlg.style.minHeight = (row.offsetHeight + _db) + "px"; }
+      // (a) 窗口最小高 = A + 输入行 + 边距(chat=0)。不受 userResized 影响——拖窗口下缘向上时 OS 在「A 不变+B 一行」拦截。
+      const minWinH = measureContentHeight("min");
+      // 窗口最小尺寸：宽度用固定小值(300，允许横向缩窄；勿用当前宽——否则只能拉宽不能缩窄)，高度=needH(动态)。
+      if (cw) setWinMinSize(cw, 300, minWinH).catch(() => {});
+      // (b) 自动贴合：撑大始终生效，缩回仅"未手动拖窗口"时(含 init)。
+      //   - 撑大(needH>curH)：始终——内容(A/B2/chat)超过窗口就长，即使用户手拖过(B2 增多行也长)。
+      //   - 缩回(needH<curH)：仅 !userResized——init/未拖时缩到内容(→B1=0)；用户手动调大过的尺寸予以尊重。
+      if (sepDragging) return;                                  // 分隔条拖动期间由其自己 setSize
+      const needH = measureContentHeight("fit");
+      const curH = window.innerHeight;
+      // 诊断拆解：看 need 由什么组成(aH=A区, row=输入行, chatKids=chat子元素数, status=状态行, dlgMin=dialog最小高)
+      const _ez = $("ai-edit-zone"), _chat = $("ai-chat"), _st = $("ai-status");
+      const aHd = (_ez && _ez.offsetParent !== null) ? _ez.offsetHeight : 0;
+      const chatKids = _chat ? _chat.children.length : -1;
+      const statusHd = (_st && _st.offsetParent !== null) ? _st.offsetHeight : 0;
+      _fitDbg(`need=${needH} min=${minWinH} cur=${curH} aH=${aHd} row=${row ? row.offsetHeight : 0} chatKids=${chatKids} status=${statusHd} dlgMin=${dlg.style.minHeight} uR=${userResized ? 1 : 0}`);
+      if (!cw || typeof cw.setSize !== "function") return;
+      const grow = needH > curH + 1;
+      const shrink = (forceShrink || !userResized) && needH < curH - 1;   // forceShrink: init 强制缩回(B1=0)，不受 userResized 影响
+      if (!grow && !shrink) return;                             // 已贴合 或 用户手动定了更大尺寸(尊重)
+      const newW = Math.round(window.innerWidth);                                            // 宽不变(仅贴合高)
+      progResize = true;
+      setTimeout(() => { progResize = false; }, 300);            // 300ms 内的 onResized 视为自家 setSize 回声
+      const res = await setWinSize(cw, newW, needH);             // 多路径重试 + 日志(见 setWinSize)，返回结果
+      // 验证 setSize 设的是内尺寸还是外尺寸：读 setSize 后的 innerHeight，若 < needH 一截，说明设的是外尺寸(含标题栏)
+      const afterInner = window.innerHeight;
+      _fitDbg(`need=${needH} cur=${curH}→${needH} afterInner=${afterInner} aH=${aHd} row=${row ? row.offsetHeight : 0} dlgMin=${dlg.style.minHeight} ${grow ? "grow" : "shrink"} ${res}`);
+    }
+
+    // (诊断可见覆盖条已移除——问题定位完成。_fitDbg 保留为空实现，调用点暂留，后续可清。)
+    function _fitDbg(_msg) { /* no-op */ }
+
+    // setSize 实际调用(3 路径)。h 是【传给 setSize 的目标值】(调用方负责加 offset 补偿)。
+    let _setSizeOkLogged = false;
+    async function doSetSizeRaw(cw, w, h) {
+      const log = typeof console !== "undefined" ? console : null;
+      const Ctor = getLogicalSizeCtor();
+      if (Ctor) { try { await cw.setSize(new Ctor(w, h)); if (!_setSizeOkLogged && log) { log.info("[AI panel] setSize OK via LogicalSize"); _setSizeOkLogged = true; } return "ok:LogicalSize"; } catch (e) { if (log) log.warn("[AI panel] setSize(LogicalSize) failed:", e); } }
+      try { await invoke("plugin:window|set_size", { label: cw.label, value: { Logical: { width: w, height: h } } }); if (!_setSizeOkLogged && log) { log.info("[AI panel] setSize OK via invoke-Logical"); _setSizeOkLogged = true; } return "ok:invoke-Logical"; } catch (e) { if (log) log.warn("[AI panel] invoke set_size(Logical) failed:", e); }
+      const dpr = window.devicePixelRatio || 1;
+      try { await invoke("plugin:window|set_size", { label: cw.label, value: { Physical: { width: Math.round(w * dpr), height: Math.round(h * dpr) } } }); if (!_setSizeOkLogged && log) { log.info("[AI panel] setSize OK via invoke-Physical"); _setSizeOkLogged = true; } return "ok:invoke-Physical"; } catch (e) { if (log) log.warn("[AI panel] invoke set_size(Physical) failed:", e); }
+      return "FAIL";
+    }
+    // Tauri setSize/setMinSize 实测让 webview 内尺寸 = 目标 − offset(标题栏 ~32px；outerSize/innerSize 都报 webview 测不出)。
+    // ensureChrome 用锁探测一次(setSize(当前+80)→等3帧→读 innerHeight→offset)，避免并发探测竞态(曾测成 0 覆盖 32)。
+    let winChrome = -1, _chromeP = null;
+    function ensureChrome(cw) {
+      if (winChrome >= 0) return Promise.resolve();
+      if (_chromeP) return _chromeP;
+      _chromeP = (async () => {
+        const w0 = Math.round(window.innerWidth), h0 = window.innerHeight;
+        await doSetSizeRaw(cw, w0, h0 + 80);                         // 探测：撑大 80
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))));   // 等 3 帧让 resize 传到 innerHeight
+        const inner1 = window.innerHeight;
+        winChrome = Math.max(0, (h0 + 80) - inner1);                 // offset = 目标外尺寸 − 实际内尺寸
+        if (typeof console !== "undefined") console.info("[AI panel] setSize/min offset measured =", winChrome, "(probe", h0 + 80, "→ inner", inner1, ")");
+      })();
+      return _chromeP;
+    }
+    // setSize 包装：加 offset，让 webview 内尺寸 = h。
+    async function setWinSize(cw, w, h) {
+      await ensureChrome(cw);
+      return await doSetSizeRaw(cw, w, Math.round(h + Math.max(0, winChrome)));
+    }
+    // setMinSize 包装：同样加 offset(set_min_size 也是外尺寸语义)，让最小内尺寸 = h。
+    async function setWinMinSize(cw, w, h) {
+      await ensureChrome(cw);
+      const off = Math.max(0, winChrome), hh = Math.round(h + off);
+      const Ctor = getLogicalSizeCtor();
+      if (Ctor && typeof cw.setMinSize === "function") {
+        try { await cw.setMinSize(new Ctor(w, hh)); return; } catch (e) { if (typeof console !== "undefined") console.warn("[AI panel] setMinSize failed:", e); }
+      }
+      try { await invoke("plugin:window|set_min_size", { label: cw.label, value: { Logical: { width: w, height: hh } } }); return; } catch (e) { if (typeof console !== "undefined") console.warn("[AI panel] invoke set_min_size failed:", e); }
     }
 
     function openPop(rangeOverride) {
@@ -1418,22 +1655,64 @@
     function closePop() {
       if (job && !testing) { invoke("ai_cancel", { jobId: job }).catch(() => {}); }
       job = null; acc = ""; selRange = null; curInstruction = ""; curBubble = null; routeMode = "unknown";
+      if (isAiPanelWindow) {
+        // 独立窗口：× / Esc → 关闭整个 OS 窗口（后端 Destroyed 清理 pending）
+        try {
+          const wm = T.window || (T.webviewWindow || {});
+          const cw = wm.getCurrentWindow ? wm.getCurrentWindow() : (wm.getCurrentWebviewWindow ? wm.getCurrentWebviewWindow() : null);
+          if (cw && cw.close) { cw.close(); return; }
+        } catch (_) {}
+      }
       if (typeof renderEditorHighlight === "function") renderEditorHighlight(); // 清掉 hl 里的 AI 选区 mark（无搜索则置空）
       pop.hidden = true;
+    }
+
+    // 主窗口：打开/聚焦 AI 独立窗口（Tauri，单例由后端 open_ai_panel 保证）；浏览器降级走页内 openPop。
+    async function openAiPanelWindow(rangeOverride) {
+      if (curViewMode === "preview") { toast(t("aiPreviewOnly")); return; }
+      if (!hasCfg()) { toast(t("aiNotConfigured")); openSettings(); return; }
+      const r = (rangeOverride && rangeOverride.start !== rangeOverride.end)
+        ? rangeOverride
+        : { start: editor.selectionStart, end: editor.selectionEnd };
+      // 设 selRange/cursorPos 并画标记到主窗口 hl——AI 独立窗口打开后编辑器失焦、原生 caret 消失，
+      // 用 hl 上的标记(选区高亮 / 光标闪烁竖线)让用户看清 AI 将改写/插入的位置。
+      if (r.start !== r.end) { selRange = { start: r.start, end: r.end }; cursorPos = 0; }
+      else { selRange = null; cursorPos = r.start; }
+      buildAiSel();
+      let payload;
+      if (r.start !== r.end) {
+        const v = editor.value;
+        payload = { start: r.start, end: r.end, selText: v.slice(r.start, r.end),
+          ctxBefore: v.slice(Math.max(0, r.start - 600), r.start), ctxAfter: v.slice(r.end, r.end + 600) };
+      } else { payload = { cursorPos: r.start, ctxBefore: "", ctxAfter: "" }; }
+      try { await invoke("open_ai_panel", { payload: JSON.stringify(payload) }); }
+      catch (e) { toast(t("aiErrPrefix") + String(e)); }
+    }
+    // 统一入口：AI 窗口内 no-op；Tauri 主窗口 → 独立窗口；浏览器/dev → 页内浮层。
+    function openAiEntryPoint(rangeOverride) {
+      if (isAiPanelWindow) return;
+      if (isTauri) openAiPanelWindow(rangeOverride);
+      else openPop(rangeOverride);
     }
 
     async function send() {
       const instruction = $("ai-input").value.trim();
       if (!instruction) return;
-      $("ai-input").value = "";
+      $("ai-input").value = ""; relayout();   // 新一轮：B2 清空→重排(面板 B1+B2 / 页内 B2)
       curInstruction = instruction;
       appendChat("user", instruction);
+      onBContentChange();   // 用户消息入对话区→B1c 变→重排+按需撑高
       acc = ""; routeMode = "unknown"; curBubble = null; job = "ai-" + (++jobSeq);
       setBar({ send: false, discard: true });
       setStatus(t("aiThinking"));
-      const c = cfg(), v = editor.value;
-      const ctxBefore = selRange ? v.slice(Math.max(0, selRange.start - 600), selRange.start) : "";
-      const ctxAfter = selRange ? v.slice(selRange.end, selRange.end + 600) : "";
+      const c = cfg();
+      let ctxBefore, ctxAfter;
+      if (isAiPanelWindow) { ctxBefore = selRange ? aiCtxBefore : ""; ctxAfter = selRange ? aiCtxAfter : ""; }
+      else {
+        const v = editor.value;
+        ctxBefore = selRange ? v.slice(Math.max(0, selRange.start - 600), selRange.start) : "";
+        ctxAfter = selRange ? v.slice(selRange.end, selRange.end + 600) : "";
+      }
       try {
         await invoke("ai_rewrite", {
           jobId: job, provider: c.provider, endpoint: c.endpoint, apiKey: c.key, model: c.model, temperature: c.temp,
@@ -1476,6 +1755,13 @@
     // 应用到文档：替换原选区（一次 AI 编辑 = 一次 ⌘Z 撤销）
     function applyResult() {
       if (!selRange || !editText) return;
+      if (isAiPanelWindow) {
+        invoke("apply_ai_edit", { payload: JSON.stringify({ kind: "apply", start: selRange.start, end: selRange.end, newText: editText }) });
+        toast(t("aiApplied"));
+        editHistory = []; editFuture = []; editText = ""; selRange = null; origSelText = "";
+        renderEditZone(); setStatus("");
+        return;
+      }
       const s = selRange.start, e = selRange.end, text = editText;
       undoStack.push({ v: editor.value, s, e });
       if (undoStack.length > 500) undoStack.shift();
@@ -1490,6 +1776,12 @@
     // 在光标处插入（无选区模式）
     function insertResult() {
       if (!editText) return;
+      if (isAiPanelWindow) {
+        invoke("apply_ai_edit", { payload: JSON.stringify({ kind: "insert", pos: cursorPos, text: editText }) });
+        toast(t("aiApplied"));
+        editHistory = []; editFuture = []; editText = ""; renderEditZone(); setStatus("");
+        return;
+      }
       const p = cursorPos, text = editText;
       undoStack.push({ v: editor.value, s: p, e: p });
       if (undoStack.length > 500) undoStack.shift();
@@ -1521,6 +1813,7 @@
         if (!curBubble) curBubble = appendChat("assistant", "");
         curBubble.textContent = acc;
         setStatus("");
+        scheduleFit();   // 流式输出 B1 逐渐增高→rAF 节流让窗口随之长(到 10 行止，之后 chat 内部滚动)
       }
     }
     async function onDone(ev) {
@@ -1537,6 +1830,7 @@
       curInstruction = ""; curBubble = null;
       setStatus("");
       setBar({ send: true, discard: true });
+      onBContentChange();   // 回复完成→B1c 变(含 chat 路由 renderMdInto 渲染)→重排+按需撑高
     }
     function onCancelled(ev) {
       const p = ev && ev.payload; if (!p || p.job_id !== job) return;
@@ -1596,10 +1890,41 @@
     }
     // 老用户迁移：首次开设置时若无预设、但有旧 md-ai-endpoint，把当前 cfg() 导为「默认」预设
     function migrateIfNeeded() {
-      if (loadPresets().length) return;
-      const cur = cfg();
-      const p = { id: pid(), name: t("aiPresetDefault"), provider: cur.provider, endpoint: cur.endpoint, model: cur.model, temp: cur.temp, key: cur.key };
-      savePresets([p]); setActiveId(p.id);
+      let presets = loadPresets();
+      if (!presets.length) {
+        // 新装：默认两个预设（均不含 key，用户自行填入）：OpenAI + deepseek（都用 OpenAI 兼容接口）。
+        // ai_rewrite 自动拼 {endpoint}/chat/completions → OpenAI base 含 /v1，deepseek base 用根域。
+        const cur = cfg();
+        const openai = { id: pid(), name: "OpenAI", provider: "openai",
+          endpoint: cur.endpoint || "https://api.openai.com/v1",
+          model: cur.model || "gpt-4o-mini", temp: isNaN(cur.temp) ? 0.7 : cur.temp, key: cur.key || "" };
+        const deepseek = { id: pid(), name: "deepseek", provider: "openai",
+          endpoint: "https://api.deepseek.com", model: "deepseek-v4-flash", temp: 0.7, key: "" };
+        savePresets([openai, deepseek]); setActiveId(openai.id);
+        syncMirror(openai);
+        return;
+      }
+      // 老用户迁移（幂等——已有对应预设则不动，故每次 openSettings 跑也安全）：
+      // ① 只有一个、未填 key、名字仍是「默认」(任一语言翻译) → 视为未改动：改名 OpenAI + 补 deepseek
+      // ② 否则（已填 key 或多个预设=已配置过 API）→ 缺 OpenAI 补 OpenAI、缺 deepseek 补 deepseek，不动用户已有
+      const DEFAULT_NAMES = new Set(Object.values(I18N).map((l) => l && l.aiPresetDefault).filter(Boolean));
+      const p0 = presets[0];
+      const onlyDefault = presets.length === 1 && DEFAULT_NAMES.has(p0.name) && !(p0.key && String(p0.key).trim());
+      const mkOpenAI = () => ({ id: pid(), name: "OpenAI", provider: "openai", endpoint: "https://api.openai.com/v1", model: "gpt-4o-mini", temp: 0.7, key: "" });
+      const mkDeepseek = () => ({ id: pid(), name: "deepseek", provider: "openai", endpoint: "https://api.deepseek.com", model: "deepseek-v4-flash", temp: 0.7, key: "" });
+      let changed = false;
+      if (onlyDefault) {
+        p0.name = "OpenAI"; p0.provider = p0.provider || "openai";
+        if (!p0.endpoint) p0.endpoint = "https://api.openai.com/v1";
+        if (!p0.model) p0.model = "gpt-4o-mini";
+        presets.push(mkDeepseek());
+        changed = true;
+      } else {
+        const hasAI = (name, dom) => presets.some((p) => p.name === name || (p.endpoint || "").includes(dom));
+        if (!hasAI("OpenAI", "openai.com")) { presets.push(mkOpenAI()); changed = true; }
+        if (!hasAI("deepseek", "deepseek.com")) { presets.push(mkDeepseek()); changed = true; }
+      }
+      if (changed) savePresets(presets);
     }
     function renderPresetList() {
       const list = $("ai-preset-list"); if (!list) return;
@@ -1693,7 +2018,7 @@
 
     // —— 绑定（DOM 已就绪：本脚本在 body 末尾内联执行）——
     const rb = document.querySelector('[data-act="ai-rewrite"]');
-    if (rb) rb.addEventListener("click", openPop);
+    if (rb) rb.addEventListener("click", () => openAiEntryPoint());
     $("ai-pop-close").addEventListener("click", closePop); // 右上角 × 关闭（底部「关闭」已移除）
     $("ai-send").addEventListener("click", send);
     $("ai-apply").addEventListener("click", applyResult);
@@ -1709,6 +2034,15 @@
       let dragging = false, ox = 0, oy = 0;
       popHead.addEventListener("mousedown", (e) => {
         if (e.target.closest("button")) return;          // 标签上的按钮（回退/前进/渲染/应用/插入）不触发拖动
+        if (isAiPanelWindow) {
+          // 独立窗口：拖动整个 OS 窗口（startDragging，权限 core:window:allow-start-dragging 已在）
+          try {
+            const wm = T.window || (T.webviewWindow || {});
+            const cw = wm.getCurrentWindow ? wm.getCurrentWindow() : (wm.getCurrentWebviewWindow ? wm.getCurrentWebviewWindow() : null);
+            if (cw && cw.startDragging) { e.preventDefault(); cw.startDragging(); }
+          } catch (_) {}
+          return;
+        }
         dragging = true;
         const pr = pop.getBoundingClientRect();
         ox = e.clientX - pr.left; oy = e.clientY - pr.top;
@@ -1752,10 +2086,23 @@
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
       else if (e.key === "Escape") { e.preventDefault(); closePop(); }
     });
+    // 输入框随内容变化：页内模式仅 B2 内容驱动增高；面板模式走 onBContentChange(layoutB 重分配 B1+B2 + 按需撑高窗口)
+    $("ai-input").addEventListener("input", () => { onBContentChange(); });
+    // 面板模式 B1/B2 由 layoutB(ResizeObserver 驱动)分配；页内模式仍走纯 CSS flex。均不在 resize 回调里 setSize(BUG-130)
+    // 点对话框(chat/状态/输入行)任意位置 → 聚焦输入框并把光标置末尾，不必精确点到 textarea 本身；
+    // 不阻止默认行为，保留对 AI 回复文字的正常选中复制。
+    const dlg = pop.querySelector(".ai-dialog");
+    if (dlg) dlg.addEventListener("mousedown", (e) => {
+      if (e.target.id === "ai-input" || e.target.closest("#ai-send")) return; // 点输入框/发送按钮自身不重复处理
+      const inp = $("ai-input");
+      // preventDefault 必需：WebKit 点 div(chat) 时 mousedown 默认会把焦点转到 body，覆盖 inp.focus()。
+      // 代价是 chat 内文字无法用鼠标选中（点击只为聚焦输入框）；如需复制可改用键盘或后续加精细判断。
+      if (inp) { e.preventDefault(); inp.focus(); const v = inp.value || ""; inp.setSelectionRange(v.length, v.length); }
+    });
     // 编辑器：Cmd/Ctrl+I 开关浮层；Esc 关闭
     editor.addEventListener("keydown", (e) => {
       const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === "j") { e.preventDefault(); pop.hidden ? openPop() : closePop(); }
+      if (mod && e.key.toLowerCase() === "j") { e.preventDefault(); openAiEntryPoint(); }
       else if (e.key === "Escape" && !pop.hidden) { e.preventDefault(); closePop(); }
     });
     // 右键迷你菜单（有选区才弹，仅 AI 改写；无选区不拦截，保留原生复制/粘贴）
@@ -1772,7 +2119,7 @@
         showCtx(e.clientX, e.clientY);
       }
     });
-    $("ai-ctx-item").addEventListener("click", () => { hideCtx(); openPop(pendingRange); });
+    $("ai-ctx-item").addEventListener("click", () => { hideCtx(); openAiEntryPoint(pendingRange); });
     document.addEventListener("mousedown", (e) => { if (!ctx.hidden && !ctx.contains(e.target)) hideCtx(); });
     window.addEventListener("blur", hideCtx);
     // Esc 关闭设置面板
@@ -1786,6 +2133,102 @@
       T.event.listen("ai-error", onError);
       // 原生菜单「AI 设置」→ 打开设置面板（handleMenu 不识别此 id，由本模块自行处理）
       T.event.listen("menu-action", (e) => { if (String(e && e.payload) === "ai-settings") openSettings(); });
+      // 主窗口模式：接收 AI 独立窗口点"应用/插入"的请求，写回 editor（复用 applyResult/insertResult 的 editor 操作）
+      if (!isAiPanelWindow) {
+        // AI 辅助窗口关闭 → 清掉 hl 上的选区/光标标记(防残留)
+        T.event.listen("ai-panel-closed", () => { if (typeof renderEditorHighlight === "function") renderEditorHighlight(); });
+        T.event.listen("apply-ai-edit", (e) => {
+          let d = null; try { d = JSON.parse(String(e && e.payload)); } catch (_) {}
+          if (!d || typeof d !== "object") return;
+          if (d.kind === "apply" && typeof d.start === "number" && typeof d.end === "number") {
+            const s = d.start, en = d.end, text = String(d.newText != null ? d.newText : "");
+            undoStack.push({ v: editor.value, s, e: en });
+            if (undoStack.length > 500) undoStack.shift();
+            try { trimUndoBytes(undoStack); } catch (_) {}
+            redoStack = [];
+            editor.value = editor.value.slice(0, s) + text + editor.value.slice(en);
+            undoLast = { v: editor.value, s, e: s + text.length };
+            editor.setSelectionRange(s, s + text.length);
+            editor.focus(); scheduleRender();
+            toast(t("aiApplied"));
+          } else if (d.kind === "insert" && typeof d.pos === "number") {
+            const p = d.pos, text = String(d.text != null ? d.text : "");
+            undoStack.push({ v: editor.value, s: p, e: p });
+            if (undoStack.length > 500) undoStack.shift();
+            try { trimUndoBytes(undoStack); } catch (_) {}
+            redoStack = [];
+            editor.value = editor.value.slice(0, p) + text + editor.value.slice(p);
+            undoLast = { v: editor.value, s: p, e: p + text.length };
+            editor.setSelectionRange(p, p + text.length);
+            editor.focus(); scheduleRender();
+            toast(t("aiApplied"));
+          }
+        });
+      }
+      // AI 独立窗口模式：启动时取选区数据初始化浮层 + 监听主窗口推来的新选区（单例聚焦时更新）
+      if (isAiPanelWindow) {
+        // #ai-pop 原嵌套在 .main>.editor-area 内，html.ai-panel-win 隐藏 .main 会连它一起 display:none
+        // （position:fixed 能逃逸 overflow 裁剪，但逃不掉祖先 display:none）→ 故先 reparent 到 body。
+        if (pop.parentElement && pop.parentElement !== document.body) document.body.appendChild(pop);
+        // 编辑区↔对话区分隔条：拖动直接改 .ai-edit-body 的 max-height（编辑区可见高度），
+        // 内容超出则内部滚动；.ai-dialog(flex:1) 自动吃剩余 → 两区同时变化
+        const editZone = $("ai-edit-zone");
+        if (editZone) {
+          const resizer = document.createElement("div");
+          resizer.className = "ai-resizer";
+          editZone.after(resizer);
+          const rzBody = () => editZone.querySelector(".ai-edit-body");
+          let rz = false, sy = 0, sh = 0, startWinH = 0, startEZ = 0;
+          resizer.addEventListener("mousedown", (e) => {
+            rz = true; sy = e.clientY; const b = rzBody(); sh = b ? b.offsetHeight : 100; startWinH = window.innerHeight; startEZ = editZone ? editZone.offsetHeight : 0; sepDragging = true; e.preventDefault();
+          });
+          document.addEventListener("mousemove", (e) => {
+            if (!rz) return; const b = rzBody(); const delta = e.clientY - sy;
+            // 改 body 固定 height（非 max-height，内容不足也能拉高 A）
+            if (b) { const h = Math.max(0, sh + delta); b.style.height = h + "px"; b.style.maxHeight = "none"; manualEditH = h; }
+            // 窗口跟 A 的【实际】缩放量(读 editZone.offsetHeight，受 edit-body min-height 钳位)，非原始 delta：
+            //   否则 A 缩到 min 后窗口仍按 delta 继续缩 → 窗口比 A+B 还小 → B 被下缘遮盖/弹窗消失。
+            //   window = startWinH + (newA - startEZ) → dialog = startDialog(恒定) → B 不变。
+            const cw = aiWin();
+            if (cw && typeof cw.setSize === "function") {
+              const newA = editZone ? editZone.offsetHeight : 0;
+              progResize = true;
+              setWinSize(cw, Math.round(window.innerWidth), Math.round(startWinH + (newA - startEZ))).catch(() => {});
+              clearTimeout(sepProgTimer); sepProgTimer = setTimeout(() => { progResize = false; }, 300);
+            }
+          });
+          // 松开分隔条：A 区高度已定 → 更新窗口 min(=新 A+B2 一行) + 贴合
+          document.addEventListener("mouseup", () => { if (rz) { rz = false; sepDragging = false; maybeFitWindow(); } });
+        }
+        document.documentElement.classList.add("ai-panel-win");
+        pop.hidden = false;
+        // A 区(flex:none)内容会异步增高(diff/mermaid)——初始 maybeFitWindow 可能测偏小。用 RO 监听 A 区，增高时重贴合。
+        // 监听 A 区 + 输入行 + 状态行(均为 flex:none/与窗口解耦)，内容/按钮渲染增高时重贴合。
+        // 关键(BUG-130)：【绝不监听 dialog】——dialog 现为 flex:1 随窗口变，监听它会在每次 setSize 后重触发→反馈循环。
+        if (typeof ResizeObserver !== "undefined") {
+          // 用模块级 scheduleFit(rAF 节流)：A 区异步长高/流式 B1 增高时窗口紧跟。
+          bResizeObs = new ResizeObserver(scheduleFit);
+          const _ez = $("ai-edit-zone"); if (_ez) bResizeObs.observe(_ez);
+          const _row = pop.querySelector(".ai-input-row"); if (_row) bResizeObs.observe(_row);   // 发送按钮渲染/输入行高变→重贴合
+          const _st = $("ai-status"); if (_st) bResizeObs.observe(_st);                          // 状态行显隐→重贴合
+        }
+        // 用户手拖 OS 窗口 → 永久关自动贴合。fitArmed 保护期(挂后 1s)：arm 前的 resize(OS 居中/DPI/布局沉淀)不算用户拖动。
+        const cw0 = aiWin();
+        if (cw0 && typeof cw0.onResized === "function") {
+          try { cw0.onResized(() => { if (fitArmed && !progResize) userResized = true; }); } catch (_) {}
+        }
+        setTimeout(() => { fitArmed = true; }, 1000);   // 保护期结束：此后未由自家 setSize 引起的 resize 才算用户拖动
+        (async () => {
+          let data = null;
+          try { const raw = await invoke("take_ai_panel_content"); data = raw ? JSON.parse(raw) : null; } catch (_) {}
+          if (data) { applyAiPanelData(data); }
+          else { renderEditZone(); setBar({ send: true }); setStatus(""); const inp = $("ai-input"); if (inp) inp.focus(); }
+          relayout(); maybeFitWindow(true);   // 初始：立即按内容定 A/B 高 + 强制缩回贴合(forceShrink，确保 B1=0，不受 userResized 影响)
+        })();
+        T.event.listen("ai-panel-payload", (e) => {
+          try { applyAiPanelData(JSON.parse(String(e && e.payload))); } catch (_) {}
+        });
+      }
     }
   })();
 
@@ -4281,7 +4724,7 @@
     // 全部处理完才放行；用户取消任一则中止关窗。API 不可用时优雅降级（行为同改前：直接关 + pagehide 刷盘）。
     // 结构性根因修法：viewer 窗口（mermaid-*）根本【不注册】本拦截器——而非注册后运行时判断。
     // 处理器内仍保留 isViewerWindow 兜底，覆盖"winLabel 检测失败（viewer 误判为 main）仍注册"的边界。
-    if (!winLabel.startsWith("mermaid-")) {
+    if (!winLabel.startsWith("mermaid-") && !winLabel.startsWith("ai-panel-")) {
     let windowCloseConfirmed = false;
     try {
       const wm = T.window || (T.webviewWindow || {});
@@ -4967,6 +5410,10 @@
     if (vc) { initViewerWindow(vc); return; }
     // viewer 窗口（mermaid-*）即便 vc 异常取空，也绝不恢复主窗口会话——否则恢复出的 dirty 标签会阻塞其关闭
     if (winLabel.startsWith("mermaid-")) { isViewerWindow = true; return; }
+    // AI 独立窗口（ai-panel-*）：不恢复会话/不开文件；浮层初始化由 AiModule 自行处理（取 take_ai_panel_content）
+    // 补调 applyLang()：init 在此处短路 return 会跳过后面的 applyLang()，导致 #ai-input 的 data-i18n-ph
+    // placeholder（及文案）没被设置 → 输入框无浅色提示。此处 curLang 已于上方从 localStorage 读出。
+    if (winLabel.startsWith("ai-panel-")) { try { applyLang(); } catch (_) {} return; }
     const wf = isTauri ? await invoke("take_window_file").catch(() => null) : null;
     if (wf) {
       isFileWindow = true;

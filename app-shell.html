@@ -129,12 +129,12 @@
     display: flex; justify-content: space-between; align-items: center;
   }
 
-  /* overflow-y:scroll 恒显滚动条：内容区宽度不再随"是否溢出"漂移，与 #editor-hl 的滚动条占位
-     逐像素对齐（BUG-056 对齐清单遗漏的"滚动条占位"项；否则软换行长行换行宽度不同 → 行数/
-     scrollHeight 不同 → scrollTop 像素同步在长文档末尾累积偏移，AI 选区阴影跳到下一行）。 */
+  /* overflow-y:auto + scrollbar-gutter:stable：滚动条仅在内容溢出时出现(用户要求"内容少时不显")，
+     但 gutter(滚动条占位)始终保留 → 内容宽度恒定、不随"是否溢出"漂移 → 与 #editor-hl/#editor-yprobe
+     逐像素对齐(BUG-056/102 不回归)。等价于旧的 overflow-y:scroll 的"占位恒定"，只是滚动条本身按需显现。 */
   #editor {
     flex: 1; width: 100%; border: 0; outline: 0; resize: none; padding: 20px 24px;
-    overflow-y: scroll;
+    overflow-y: auto; scrollbar-gutter: stable;
     font-family: var(--mono); font-size: 14px; line-height: 1.7;
     background: var(--bg); color: var(--fg); tab-size: 2;
     position: relative; z-index: 1;
@@ -142,22 +142,22 @@
   #editor.colsel-active { caret-color: transparent; }
   /* 编辑器搜索高亮覆盖层：与 textarea 同字体/内边距/行高，叠在上方；文字透明，仅 <mark> 显底色 */
   .editor-area { position: relative; flex: 1; min-height: 0; display: flex; }
-  /* overflow 与 #editor 一致（恒显滚动条）：两层可用文本宽度逐像素相等，软换行行数/scrollHeight
+  /* overflow/gutter 与 #editor 一致(auto+stable)：两层可用文本宽度逐像素相等，软换行行数/scrollHeight
      一致，hl.scrollTop=editor.scrollTop 像素同步才在长文档末尾不再累积偏移。滚动条与 #editor
      几何完全重合、pointer-events:none 不拦截交互（详见 #editor 的 overflow 注释）。 */
   #editor-hl {
     position: absolute; inset: 0; z-index: 2; pointer-events: none;
-    overflow-x: hidden; overflow-y: scroll;
+    overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable;
     box-sizing: border-box; padding: 20px 24px; margin: 0; border: 0;
     font-family: var(--mono); font-size: 14px; line-height: 1.7; tab-size: 2;
     white-space: pre-wrap; word-break: break-word; color: transparent;
   }
   /* 编辑器 Y 探测镜像层：与 #editor 同框/字体/换行/滚动条占位，visibility:hidden 不显示但参与布局，
      用 Range 测每个源码行的真实像素 Y（含折行），供滚动同步“像素→偏移”查表（替代按字符宽估算，
-     解决中文折行算不准）。overflow-y:scroll 与 #editor 对齐内容宽（BUG-102）。 */
+     解决中文折行算不准）。overflow/gutter 与 #editor 对齐内容宽(BUG-102)。 */
   #editor-yprobe {
     position: absolute; inset: 0; z-index: 0; pointer-events: none; visibility: hidden;
-    overflow-x: hidden; overflow-y: scroll;
+    overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable;
     box-sizing: border-box; padding: 20px 24px; margin: 0; border: 0;
     font-family: var(--mono); font-size: 14px; line-height: 1.7; tab-size: 2;
     white-space: pre-wrap; word-break: break-word;
@@ -166,7 +166,8 @@
   #editor-hl mark.search-mark.current { background: rgba(255, 152, 0, .9); animation: search-flash .9s ease-out; }
   #editor-hl mark.ai-sel { background: rgba(88,166,255,.22); color: transparent; border-radius: 2px; }
   /* 插入模式（无选区）：零宽 mark 显示成蓝色光标竖条，提示插入位置 */
-  #editor-hl mark.ai-sel:empty { display: inline-block; width: 2px; height: 1.3em; background: var(--accent); color: var(--accent); vertical-align: -0.25em; border-radius: 1px; }
+  #editor-hl mark.ai-sel:empty { display: inline-block; width: 3px; height: 1.5em; background: var(--accent); color: var(--accent); vertical-align: -0.3em; border-radius: 1px; box-shadow: 0 0 5px var(--accent); animation: ai-caret-blink 1.05s steps(2,start) infinite; }   /* 光标处打开(cursorMode)：闪烁竖线让用户看清 AI 将插入的位置(独立窗口夺焦后原生 caret 消失) */
+  @keyframes ai-caret-blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
   #preview mark.search-mark { background: rgba(255, 213, 79, .5); border-radius: 2px; }
   #preview mark.search-mark.current { background: rgba(255, 152, 0, .85); animation: search-flash .9s ease-out; }
   @keyframes search-flash {
@@ -395,6 +396,39 @@
      应用内 × 与之重复(Windows/Linux 还会同处右上角叠放),故仅在 mv-win 模式隐藏;
      浏览器/dev 的页内弹窗(无系统关闭)仍保留 ×。 */
   html.mv-win .mv-close { display: none !important; }
+
+  /* AI 辅助弹窗作为独立 OS 窗口时（html.ai-panel-win）：隐藏编辑器外壳，#ai-pop 铺满整个窗口。
+     #ai-pop[hidden]{display:none} 已存在(BUG-114)，AI 窗口 JS 显式 hidden=false 即显示。 */
+  html.ai-panel-win .toolbar,
+  html.ai-panel-win .main,
+  html.ai-panel-win .statusbar,
+  html.ai-panel-win .empty-state { display: none !important; }
+  html.ai-panel-win #ai-pop {
+    position: static; top: auto; left: auto;
+    width: 100%; height: 100%; flex: 1 1 auto; box-sizing: border-box;
+    max-width: none; max-height: none;
+    min-width: 0; min-height: 0; border: 1px solid var(--border); border-radius: 0; box-shadow: none; margin: 0;
+    padding: 2px 6px 6px;   /* 顶贴紧（标签行上方留白收紧）；border-box 让 padding 含在 100% 内不溢出 */
+  }
+  html.ai-panel-win #ai-pop-close { display: none !important; }   /* 独立窗口已有系统标题栏关闭按钮，应用内 × 重复 */
+  /* 对话区 flex:1 撑满 → 上下拖窗口边界时对话区跟随变大变小；编辑区高度由分隔条调整 */
+  html.ai-panel-win #ai-pop .ai-dialog { flex: 1 1 0; min-height: calc(1.5em + 22px); justify-content: flex-end; }   /* B=dlg 吃窗口剩余→拖大 B 长；min-height=输入行全高：窗口再小也绝不小于输入行→B2 永不被裁；justify-end：chat 空时输入框贴底(多余空间留上方) */
+  html.ai-panel-win #ai-pop .ai-dialog .ai-chat { flex: 1 1 0; min-height: 0; overflow-y: auto; }   /* B1=chat 吃 dialog 剩余；空对话缩到 0；dialog 不够时先压 chat 到 0，再不够才轮到 A 让步 */
+  html.ai-panel-win #ai-pop .ai-dialog .ai-chat:empty { padding: 0; }   /* B1 无内容时去 padding */
+  html.ai-panel-win #ai-pop .ai-zone { margin-bottom: 3px; }
+  /* #ai-edit-zone 用基础规则 flex:none(内容定高、绝不收缩)：空间不够时 A 不让步、不压缩，保持不动(用户要求) */
+  html.ai-panel-win #ai-pop .ai-zone-label { margin-bottom: 0; }
+  html.ai-panel-win #ai-pop .ai-edit-body { padding: 5px 6px; max-height: none; min-height: 26px; overflow-y: auto; }   /* 高度由 layoutEditBody 按内容设(上限 10 行)，超出滚动 */
+  html.ai-panel-win #ai-pop .ai-edit-zone:not(.has-edit) .ai-edit-body { display: block; }   /* 无选区时 body 也显示（覆盖基础 display:none），不缩成一条缝 */
+  html.ai-panel-win #ai-pop #ai-input::placeholder { color: var(--fg-muted); opacity: .5; }   /* B2 提示语统一为浅灰半透 */
+  html.ai-panel-win #ai-pop #ai-edit-body:empty::before { content: "AI编辑区"; color: var(--fg-muted); opacity: .5; }   /* A 区占位与 B2 提示语同色同透明度 */
+  /* 编辑区↔对话区分隔条：默认透明（不画无用的分隔线），仅作拖动热区；hover 淡色提示可上下拖 */
+  html.ai-panel-win .ai-resizer { flex: none; height: 5px; margin: 0; cursor: ns-resize; background: transparent; }
+  html.ai-panel-win .ai-resizer:hover { background: rgba(128,128,128,.18); }
+  /* B2(输入)高度由 layoutInput 按内容驱动(1~10 行，第 11 行起滚动)；input-row flex:none 固定底部永不被遮(纯 CSS 方案) */
+  html.ai-panel-win #ai-pop #ai-input { min-height: calc(1.5em + 14px); max-height: none; overflow-y: auto; }   /* min-height 兜底至少 1 行(防空 textarea 渲染成缝) */
+  html.ai-panel-win #ai-pop .ai-input-row { padding: 6px 6px 2px 9px; }   /* 进一步收紧底部留白 */
+  html.ai-panel-win #ai-pop #ai-send { flex: none; padding: 4px 5px; height: 28px; align-self: center; border: 1px solid rgba(88,166,255,.45); background: rgba(88,166,255,.18); color: var(--accent); border-radius: 10px; font-weight: 600; font-size: 12px; }   /* 缩窄左右留白(不改字号)+固定高+chip 配色 */
 
   /* ---------- 编辑区/预览区字体缩放控件（pane-head 右侧 −/百分比/+，各自独立）---------- */
   .pane-head-right { display: flex; align-items: center; gap: 10px; }

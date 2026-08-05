@@ -40,6 +40,8 @@ struct WindowState {
     pending: Mutex<HashMap<String, String>>,
     /// 查看器窗口待取的内容（SVG/<img>，key=窗口 label "mermaid-<N>"，前端 take_viewer_content 取走）
     viewer_content: Mutex<HashMap<String, String>>,
+    /// AI 独立窗口待取的选区数据（JSON，key=窗口 label "ai-panel-<N>"，前端 take_ai_panel_content 取走）
+    ai_panel_content: Mutex<HashMap<String, String>>,
     main_taken: AtomicBool,
     next_id: Mutex<u64>,
     lang: Mutex<String>,
@@ -312,6 +314,70 @@ fn take_viewer_content(window: WebviewWindow, state: tauri::State<WindowState>) 
 fn emit_viewer_update(target: String, content: String, app: tauri::AppHandle) -> bool {
     if app.get_webview_window(&target).is_some() {
         let _ = app.emit_to(&target, "viewer-update", content);
+        true
+    } else {
+        false
+    }
+}
+
+/// AI 辅助弹窗独立窗口：主窗口把选区数据(JSON)暂存，新建独立 OS 窗口加载 index.html，
+/// 启动后用 take_ai_panel_content 取走（避冷启动 emit 丢失，同 viewer 范式 BUG-067）。
+/// 单例：已有 ai-panel-* 窗口则聚焦它并把新选区定向推过去（不新开），否则开新窗。窗口居中
+/// 出现（不接收屏幕坐标——getBoundingClientRect 是 CSS 像素而窗口定位用物理像素，HiDPI 下
+/// 换算易错；居中最稳，用户可自由拖出主界面到任意位置）。
+#[tauri::command]
+fn open_ai_panel(
+    payload: String,
+    app: tauri::AppHandle,
+    state: tauri::State<WindowState>,
+) -> Result<String, String> {
+    // 单例：已开 ai-panel 窗口 → 聚焦 + 推新选区（不新开）
+    for (label, win) in app.webview_windows() {
+        if label.starts_with("ai-panel-") {
+            let _ = win.show();
+            let _ = win.set_focus();
+            let _ = app.emit_to(&label, "ai-panel-payload", payload);
+            return Ok(label);
+        }
+    }
+    let label = {
+        let mut idg = state.next_id.lock().unwrap();
+        *idg += 1;
+        format!("ai-panel-{}", *idg)
+    };
+    state
+        .ai_panel_content
+        .lock()
+        .unwrap()
+        .insert(label.clone(), payload);
+    tauri::webview::WebviewWindowBuilder::new(
+        &app,
+        &label,
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("MDeX AI")
+    .inner_size(380.0, 200.0)       // 紧凑起始；JS maybeFitWindow 按内容贴合(撑大或缩到最小)。不设大默认窗——贴合必须真正生效
+    .min_inner_size(300.0, 120.0)   // 最小高度放宽：允许缩到紧凑(仅输入框档)
+    .center()
+    .focused(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+    Ok(label)
+}
+
+/// AI 独立窗口启动后取走选区数据（JSON，取后清空）。返回 None 表示本窗口非 AI 窗口。
+#[tauri::command]
+fn take_ai_panel_content(window: WebviewWindow, state: tauri::State<WindowState>) -> Option<String> {
+    let label = window.label().to_string();
+    state.ai_panel_content.lock().unwrap().remove(&label)
+}
+
+/// AI 独立窗口点"应用/插入"：把编辑数据(JSON)定向推给主窗口执行 editor 写回。
+/// 返回 false 表示主窗口已关闭。emit_to 仅投递给 main，不广播（BUG-039）。
+#[tauri::command]
+fn apply_ai_edit(payload: String, app: tauri::AppHandle) -> bool {
+    if app.get_webview_window("main").is_some() {
+        let _ = app.emit_to("main", "apply-ai-edit", payload);
         true
     } else {
         false
@@ -1640,6 +1706,7 @@ pub fn run() {
             open: Mutex::new(HashMap::new()),
             pending: Mutex::new(HashMap::new()),
             viewer_content: Mutex::new(HashMap::new()),
+            ai_panel_content: Mutex::new(HashMap::new()),
             main_taken: AtomicBool::new(false),
             next_id: Mutex::new(0),
             lang: Mutex::new("zh".into()),
@@ -1665,6 +1732,9 @@ pub fn run() {
             open_viewer_window,
             take_viewer_content,
             emit_viewer_update,
+            open_ai_panel,
+            take_ai_panel_content,
+            apply_ai_edit,
             draft_images_base,
             move_dir,
             remove_dir,
@@ -1714,11 +1784,22 @@ pub fn run() {
                 if let Some(st) = window.app_handle().try_state::<WindowState>() {
                     st.pending.lock().unwrap().remove(&label);
                     st.viewer_content.lock().unwrap().remove(&label);
+                    st.ai_panel_content.lock().unwrap().remove(&label);
                     st.open.lock().unwrap().retain(|_, v| *v != label);
                     // 若销毁的正是焦点窗口，清空焦点记录（回退到 is_focused/main）
                     let mut f = st.focused.lock().unwrap();
                     if f.as_deref() == Some(label.as_str()) {
                         *f = None;
+                    }
+                }
+                // AI 辅助窗口关闭 → 通知主窗口清掉 hl 上的选区/光标标记
+                if label.starts_with("ai-panel-") {
+                    let _ = window.app_handle().emit_to("main", "ai-panel-closed", label.clone());
+                }
+                // 主窗口关闭 = 用户退出程序 → 关闭所有子窗口(ai-panel/file/mermaid)，否则它们会残留、app 不退出
+                if label == "main" {
+                    for (lbl, w) in window.app_handle().webview_windows() {
+                        if lbl != "main" { let _ = w.close(); }
                     }
                 }
             }
