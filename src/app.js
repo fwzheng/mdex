@@ -835,7 +835,19 @@
     if (tag === "H3") return 34;
     if (tag === "H4" || tag === "H5" || tag === "H6") return 30;
     if (tag === "HR") return 24;
-    if (tag === "PRE") return 40 + Math.max(1, (el.textContent.match(/\n/g) || []).length) * 18;
+    if (tag === "PRE") {
+      // 折行粗估：基线 nl(源码换行数) + 超宽源码行补视觉行。显示宽度 CJK/全角=2、约 60 宽度/行
+      // （仅虚拟化初始估算；滚入视口后 offsetHeight 实测覆盖，见 renderVisible）。
+      const text = el.textContent || "";
+      const nl = (text.match(/\n/g) || []).length;
+      let extra = 0;
+      for (const ln of text.split("\n")) {
+        const cjk = (ln.match(/[　-鿿가-힯＀-￯]/g) || []).length;
+        const w = ln.length + cjk;              // CJK/全角按 2 宽度
+        if (w > 60) extra += Math.ceil(w / 60) - 1;
+      }
+      return 40 + (Math.max(1, nl) + extra) * 18;
+    }
     if (tag === "UL" || tag === "OL") return 20 + Math.max(1, el.querySelectorAll("li").length) * 28;
     if (tag === "TABLE") return 20 + Math.max(1, el.querySelectorAll("tr").length) * 30;
     if (tag === "BLOCKQUOTE") return 36 + Math.max(1, el.querySelectorAll("p").length) * 28;
@@ -2218,6 +2230,28 @@
           try { cw0.onResized(() => { if (fitArmed && !progResize) userResized = true; }); } catch (_) {}
         }
         setTimeout(() => { fitArmed = true; }, 1000);   // 保护期结束：此后未由自家 setSize 引起的 resize 才算用户拖动
+        // 右键菜单：设为主/取消主 AI 窗口(主窗口跟随新选区替换上下文；非主窗口独立保内容、Ctrl+J 弹新窗)
+        pop.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          if (typeof console !== "undefined") console.info("[AI panel] contextmenu fired at", e.clientX, e.clientY);
+          const old = document.getElementById("__aiCtx"); if (old) old.remove();
+          // 先弹菜单(不等 invoke)，再异步查状态更新文字
+          const m = document.createElement("div"); m.id = "__aiCtx";
+          m.style.cssText = "position:fixed;z-index:99999;background:var(--bg-alt);border:1px solid var(--border);border-radius:6px;padding:4px 0;box-shadow:0 4px 12px rgba(0,0,0,.2);font:13px system-ui;min-width:170px;";
+          m.style.left = e.clientX + "px"; m.style.top = e.clientY + "px";
+          const item = document.createElement("div");
+          item.textContent = "设为主AI窗口";
+          item.style.cssText = "padding:7px 16px;cursor:pointer;color:var(--fg);";
+          item.addEventListener("mouseenter", () => { item.style.background = "var(--bg)"; });
+          item.addEventListener("mouseleave", () => { item.style.background = "transparent"; });
+          let curMain = false;
+          item.addEventListener("click", async () => { m.remove(); await invoke("set_ai_panel_main", { label: winLabel, isMain: !curMain }); });
+          m.appendChild(item); document.body.appendChild(m);
+          // 异步查状态更新文字(invoke 失败则保持默认"设为")
+          invoke("is_ai_panel_main", { label: winLabel }).then((isMain) => { curMain = !!isMain; item.textContent = curMain ? "✓ 主AI窗口（点击取消）" : "设为主AI窗口"; }).catch((e) => { if (typeof console !== "undefined") console.warn("[AI panel] is_ai_panel_main failed:", e); });
+          // 点击外部关闭
+          setTimeout(() => { const c = (ev) => { if (!m.contains(ev.target)) { m.remove(); document.removeEventListener("mousedown", c); } }; document.addEventListener("mousedown", c); }, 0);
+        });
         (async () => {
           let data = null;
           try { const raw = await invoke("take_ai_panel_content"); data = raw ? JSON.parse(raw) : null; } catch (_) {}
@@ -4500,6 +4534,10 @@
       else if (e.key === "ArrowLeft") colSel.ec = Math.max(0, colSel.ec - 1);
       else colSel.ec = colSel.ec + 1;
       drawColSel();
+      // 滚动到选区末行(超出现口时)
+      const _m2 = edMetrics(), _tgt = colSel.er * _m2.lh + _m2.padT;
+      if (_tgt < editor.scrollTop) editor.scrollTop = _tgt - _m2.padT;
+      else if (_tgt + _m2.lh > editor.scrollTop + editor.clientHeight) editor.scrollTop = _tgt + _m2.lh - editor.clientHeight;
       return;
     }
     if (colSel) {
@@ -4545,6 +4583,7 @@
      注：按等宽字宽算列像素位置，文档内 Tab 会令对齐略有偏差（本编辑器 Tab 插入 2 空格，故罕见）。 */
   let colSel = null;        // {sr,sc,er,ec} 0 基行列
   let colDrag = false;
+  let _colMx = 0, _colMy = 0, _colScrollRAF = 0;   // 列选拖拽自动滚动
   let _cw = 0, _measurer = null, _m = null;
   function charW() {
     if (!_cw) {
@@ -4647,7 +4686,26 @@
     else colSel = { sr: row, sc: col, er: row, ec: col };             // Alt+拖拽：新建
     colDrag = true; drawColSel();
   });
-  document.addEventListener("mousemove", (e) => { if (!colDrag || !colSel) return; const { row, col } = ptToRC(e.clientX, e.clientY); colSel.er = row; colSel.ec = col; drawColSel(); });
+  document.addEventListener("mousemove", (e) => {
+    if (!colDrag || !colSel) return;
+    _colMx = e.clientX; _colMy = e.clientY;
+    const { row, col } = ptToRC(_colMx, _colMy); colSel.er = row; colSel.ec = col; drawColSel();
+    // 自动滚动：鼠标超出编辑器上/下边缘时，rAF 循环滚动 + 更新选区
+    if (!_colScrollRAF) {
+      _colScrollRAF = requestAnimationFrame(function _csLoop() {
+        if (!colDrag) { _colScrollRAF = 0; return; }
+        const r = editor.getBoundingClientRect(), lh = edMetrics().lh;
+        let dir = 0;
+        if (_colMy < r.top + 20) dir = -1;
+        else if (_colMy > r.bottom - 10) dir = 1;
+        if (dir && editor.scrollTop + dir * lh >= 0 && editor.scrollTop + editor.clientHeight + dir * lh <= editor.scrollHeight + lh) {
+          editor.scrollTop += dir * lh;
+          const rc = ptToRC(_colMx, _colMy); colSel.er = rc.row; colSel.ec = rc.col; drawColSel();
+          _colScrollRAF = requestAnimationFrame(_csLoop);
+        } else { _colScrollRAF = 0; }
+      });
+    }
+  });
   document.addEventListener("mouseup", () => { colDrag = false; });
   editor.addEventListener("scroll", () => { if (colSel) drawColSel(); });
   editor.addEventListener("blur", () => { if (colSel) clearColSel(); });

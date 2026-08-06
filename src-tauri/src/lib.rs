@@ -42,6 +42,8 @@ struct WindowState {
     viewer_content: Mutex<HashMap<String, String>>,
     /// AI 独立窗口待取的选区数据（JSON，key=窗口 label "ai-panel-<N>"，前端 take_ai_panel_content 取走）
     ai_panel_content: Mutex<HashMap<String, String>>,
+    /// 当前"主 AI 窗口"的 label(用户右键设置)；主窗口跟随新选区(替换上下文)，非主窗口独立保内容
+    ai_panel_main: Mutex<Option<String>>,
     main_taken: AtomicBool,
     next_id: Mutex<u64>,
     lang: Mutex<String>,
@@ -332,14 +334,20 @@ fn open_ai_panel(
     state: tauri::State<WindowState>,
 ) -> Result<String, String> {
     // 单例：已开 ai-panel 窗口 → 聚焦 + 推新选区（不新开）
-    for (label, win) in app.webview_windows() {
-        if label.starts_with("ai-panel-") {
-            let _ = win.show();
-            let _ = win.set_focus();
-            let _ = app.emit_to(&label, "ai-panel-payload", payload);
-            return Ok(label);
+    // 有"主 AI 窗口" -> 新选区发给它(替换上下文)，不新开
+    {
+        let main = state.ai_panel_main.lock().unwrap().clone();
+        if let Some(ml) = &main {
+            if let Some(win) = app.get_webview_window(ml) {
+                let _ = win.show();
+                let _ = win.set_focus();
+                let _ = app.emit_to(ml, "ai-panel-payload", payload);
+                return Ok(ml.clone());
+            }
+            *state.ai_panel_main.lock().unwrap() = None;
         }
     }
+    // 无主窗口 -> 开新窗口(非主，独立保内容)
     let label = {
         let mut idg = state.next_id.lock().unwrap();
         *idg += 1;
@@ -360,6 +368,7 @@ fn open_ai_panel(
     .min_inner_size(300.0, 120.0)   // 最小高度放宽：允许缩到紧凑(仅输入框档)
     .center()
     .focused(true)
+    .always_on_top(true)          // AI 辅助窗口始终浮在主窗口之上(点击主窗口不会被遮到后面)
     .build()
     .map_err(|e| e.to_string())?;
     Ok(label)
@@ -370,6 +379,20 @@ fn open_ai_panel(
 fn take_ai_panel_content(window: WebviewWindow, state: tauri::State<WindowState>) -> Option<String> {
     let label = window.label().to_string();
     state.ai_panel_content.lock().unwrap().remove(&label)
+}
+
+/// 设置/取消某 AI 窗口为"主窗口"(主窗口跟随新选区、替换上下文；非主窗口独立保内容)。
+#[tauri::command]
+fn set_ai_panel_main(label: String, is_main: bool, state: tauri::State<WindowState>) -> Result<(), String> {
+    let mut m = state.ai_panel_main.lock().unwrap();
+    if is_main { *m = Some(label); } else if m.as_deref() == Some(&label) { *m = None; }
+    Ok(())
+}
+
+/// 查询某 AI 窗口是否为"主窗口"(前端右键菜单显示用)。
+#[tauri::command]
+fn is_ai_panel_main(label: String, state: tauri::State<WindowState>) -> bool {
+    state.ai_panel_main.lock().unwrap().as_deref() == Some(&label)
 }
 
 /// AI 独立窗口点"应用/插入"：把编辑数据(JSON)定向推给主窗口执行 editor 写回。
@@ -1707,6 +1730,7 @@ pub fn run() {
             pending: Mutex::new(HashMap::new()),
             viewer_content: Mutex::new(HashMap::new()),
             ai_panel_content: Mutex::new(HashMap::new()),
+            ai_panel_main: Mutex::new(None),
             main_taken: AtomicBool::new(false),
             next_id: Mutex::new(0),
             lang: Mutex::new("zh".into()),
@@ -1734,6 +1758,8 @@ pub fn run() {
             emit_viewer_update,
             open_ai_panel,
             take_ai_panel_content,
+            set_ai_panel_main,
+            is_ai_panel_main,
             apply_ai_edit,
             draft_images_base,
             move_dir,
