@@ -54,6 +54,77 @@
 
 ---
 
+## 📦 安装
+
+### Prebuilt downloads
+Download the installer for your platform from either source:
+
+- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
+- **Mirror site**: <https://www.spinss.cn/>
+
+Platforms: macOS (`.dmg`, arm64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
+
+---
+
+### macOS
+
+1. Open the `.dmg` file, **drag `MDeX.app` into `/Applications`**.
+2. The app is **unsigned** (not notarized). On macOS 12+ - **especially macOS 26 (Tahoe)** - launching it fails with **"MDeX.app is damaged and can't be opened."** This is Gatekeeper, not real damage. Fix (choose one):
+
+   **Option A - Terminal (recommended):**
+   ```bash
+   xattr -cr /Applications/MDeX.app
+   codesign --force --deep --sign - /Applications/MDeX.app
+   ```
+   > `com.apple.provenance` (new in macOS 26) is SIP-protected and can't be permanently removed; re-signing resets the signature so Gatekeeper lets it run.
+
+   **Option B - Finder right-click:**
+   In Finder, **right-click** (or Control-click) `MDeX.app` -> **Open** -> confirm "Open" in the dialog. This bypasses the double-click Gatekeeper check.
+
+   **Option C - System Settings:**
+   Double-click the app (let it be blocked), then go to **System Settings -> Privacy & Security**, scroll down, click **"Open Anyway"** next to the "MDeX.app was blocked" message.
+
+3. Launch with `open /Applications/MDeX.app` or double-click. The first launch may still prompt once - confirm via **System Settings -> Privacy & Security -> Open Anyway**, or right-click -> **Open**.
+
+> **Note:** Every time you update MDeX (reinstall a new version), repeat step 2. The only permanent fix is Apple Notarization ($99/year Developer certificate).
+
+---
+
+### Windows
+
+1. Download `MDeX_x.x.x_win.exe` and double-click to run.
+2. **SmartScreen** may show "Windows protected your PC" (because the app is unsigned). Click **"More info"** -> **"Run anyway"**.
+3. Follow the NSIS installer wizard to complete installation.
+4. Launch from the Start Menu or desktop shortcut.
+
+> If Windows Defender quarantines the file, restore it: **Windows Security -> Virus & threat protection -> Protection history -> Allow on device**.
+
+---
+
+### Linux
+
+**Debian / Ubuntu (.deb):**
+```bash
+sudo dpkg -i MDeX_x.x.x_amd64.deb
+# If missing dependencies:
+sudo apt-get install -f
+```
+Then launch from the application menu or run `mdex` in terminal.
+
+**Fedora / RHEL (.rpm):**
+```bash
+sudo rpm -i MDeX_x.x.x_x86_64.rpm
+```
+
+**AppImage (all distros):**
+```bash
+chmod +x MDeX_x.x.x_amd64.AppImage
+./MDeX_x.x.x_amd64.AppImage
+```
+> If AppImage won't launch, install FUSE: `sudo apt install libfuse2` (Debian/Ubuntu) or `sudo dnf install fuse` (Fedora).
+
+---
+
 ## ⌨️ 快捷键
 
 macOS 用 `⌘`，Windows / Linux 用 `Ctrl`。
@@ -108,31 +179,6 @@ macOS 用 `⌘`，Windows / Linux 用 `Ctrl`。
 - 严格的 CSP（仅本机 IPC，无外网）；文件全部本地读写，不上传。
 - 验证：关闭 Wi-Fi / 拔网线后启动，公式、图片、代码高亮、Mermaid 均正常。
 - `dist/index.html` 中仍可见约十几处 `https://github.com/…` 字样，它们全部位于 `marked` / `highlight.js` 等**许可证与来源注释**里，是纯文本，**不会发起任何网络请求**；为尊重开源许可证未强行删除。
-
----
-
-## 📦 安装
-
-### 下载预编译包
-从任一来源下载对应平台的安装包:
-
-- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
-- **备用站点**: <https://www.spinss.cn/>
-
-macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
-
-### macOS 打开未签名程序（绕过 Gatekeeper）
-
-本程序**未做**开发者签名 / 公证（离线场景通常无法联网公证）。在 macOS 12+，**尤其是 macOS 26（Tahoe）** 上，从 `.dmg` 直接运行、或刚复制出来的副本会报 **"MDeX.app is damaged and can't be opened"（已损坏，无法打开）**——这是 Gatekeeper 拦截，并非真的损坏。在终端执行：
-
-1. **先把 `MDeX.app` 从 `.dmg` 拖到 `/Applications`（应用程序）**——切勿直接在 dmg 里双击运行（会触发 App Translocation 与 `com.apple.provenance` 属性，这才是 macOS 26 上「已损坏」的真因）。
-2. 清除属性并重新签名：
-   ```bash
-   xattr -cr /Applications/MDeX.app
-   codesign --force --deep --sign - /Applications/MDeX.app
-   ```
-   > `com.apple.provenance` 受 SIP 保护，**即使 `sudo` 也删不掉**；重新签名会重置签名链，使 Gatekeeper 放行。`spctl` 对 ad-hoc 签名会显示 `rejected`——属正常，**不影响** `open` 启动。
-3. 用 `open /Applications/MDeX.app` 启动（或双击）。首次打开可能仍提示一次——到「系统设置 → 隐私与安全性 → 仍要打开」确认，或右键 `.app` →「打开」。
 
 ---
 

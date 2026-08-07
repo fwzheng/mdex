@@ -72,11 +72,13 @@ async function measureAt(scrollFrac) {
     const pr = pv.getBoundingClientRect();
     const midAbs = pr.top + pv.clientHeight / 2;
     let pOff = -1, pText = '', pTag = '';
-    for (let k = 0; k < pv.children.length; k++) {
-      const rr = pv.children[k].getBoundingClientRect();
+    // 窗口化/虚拟化下 preview = [vSpacerTop, .vcontent, vSpacerBottom]；块在 .vcontent 里，否则直接 preview
+    const proot = pv.querySelector('.vcontent') || pv;
+    for (let k = 0; k < proot.children.length; k++) {
+      const rr = proot.children[k].getBoundingClientRect();
       if (rr.top > midAbs) break;        // 已越过中心 -> 上一块即是
-      pOff = parseInt(pv.children[k].getAttribute('data-src-offset') || '', 10);
-      pTag = pv.children[k].tagName; pText = (pv.children[k].textContent || '').replace(/\s+/g, ' ').slice(0, 20);
+      pOff = parseInt(proot.children[k].getAttribute('data-src-offset') || '', 10);
+      pTag = proot.children[k].tagName; pText = (proot.children[k].textContent || '').replace(/\s+/g, ' ').slice(0, 20);
     }
     return { eOff, pOff, pText, pTag, edScroll: sd.scrollTop, pvScroll: pv.scrollTop, maxE };
   }, scrollFrac);

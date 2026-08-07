@@ -55,6 +55,77 @@ A interface é disponibilizada em **17 idiomas**: English, 简体中文, França
 
 ---
 
+## 📦 Instalação
+
+### Prebuilt downloads
+Download the installer for your platform from either source:
+
+- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
+- **Mirror site**: <https://www.spinss.cn/>
+
+Platforms: macOS (`.dmg`, arm64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
+
+---
+
+### macOS
+
+1. Open the `.dmg` file, **drag `MDeX.app` into `/Applications`**.
+2. The app is **unsigned** (not notarized). On macOS 12+ - **especially macOS 26 (Tahoe)** - launching it fails with **"MDeX.app is damaged and can't be opened."** This is Gatekeeper, not real damage. Fix (choose one):
+
+   **Option A - Terminal (recommended):**
+   ```bash
+   xattr -cr /Applications/MDeX.app
+   codesign --force --deep --sign - /Applications/MDeX.app
+   ```
+   > `com.apple.provenance` (new in macOS 26) is SIP-protected and can't be permanently removed; re-signing resets the signature so Gatekeeper lets it run.
+
+   **Option B - Finder right-click:**
+   In Finder, **right-click** (or Control-click) `MDeX.app` -> **Open** -> confirm "Open" in the dialog. This bypasses the double-click Gatekeeper check.
+
+   **Option C - System Settings:**
+   Double-click the app (let it be blocked), then go to **System Settings -> Privacy & Security**, scroll down, click **"Open Anyway"** next to the "MDeX.app was blocked" message.
+
+3. Launch with `open /Applications/MDeX.app` or double-click. The first launch may still prompt once - confirm via **System Settings -> Privacy & Security -> Open Anyway**, or right-click -> **Open**.
+
+> **Note:** Every time you update MDeX (reinstall a new version), repeat step 2. The only permanent fix is Apple Notarization ($99/year Developer certificate).
+
+---
+
+### Windows
+
+1. Download `MDeX_x.x.x_win.exe` and double-click to run.
+2. **SmartScreen** may show "Windows protected your PC" (because the app is unsigned). Click **"More info"** -> **"Run anyway"**.
+3. Follow the NSIS installer wizard to complete installation.
+4. Launch from the Start Menu or desktop shortcut.
+
+> If Windows Defender quarantines the file, restore it: **Windows Security -> Virus & threat protection -> Protection history -> Allow on device**.
+
+---
+
+### Linux
+
+**Debian / Ubuntu (.deb):**
+```bash
+sudo dpkg -i MDeX_x.x.x_amd64.deb
+# If missing dependencies:
+sudo apt-get install -f
+```
+Then launch from the application menu or run `mdex` in terminal.
+
+**Fedora / RHEL (.rpm):**
+```bash
+sudo rpm -i MDeX_x.x.x_x86_64.rpm
+```
+
+**AppImage (all distros):**
+```bash
+chmod +x MDeX_x.x.x_amd64.AppImage
+./MDeX_x.x.x_amd64.AppImage
+```
+> If AppImage won't launch, install FUSE: `sudo apt install libfuse2` (Debian/Ubuntu) or `sudo dnf install fuse` (Fedora).
+
+---
+
 ## ⌨️ Atalhos
 
 Use `⌘` no macOS, `Ctrl` no Windows / Linux.
@@ -109,31 +180,6 @@ Clique em "Salvar como" e escolha um formato:
 - CSP estrito (apenas IPC local, sem WAN); todos os arquivos são lidos / gravados localmente, nada é enviado.
 - Verifique: desligue o Wi-Fi / desconecte o cabo e inicie — matemática, imagens, realce de código e Mermaid seguem funcionando.
 - O `dist/index.html` ainda mostra cerca de uma dúzia de strings `https://github.com/…`; todas elas residem dentro de **comentários de licença / fonte** de `marked` / `highlight.js` etc. — texto puro que **nunca dispara uma requisição`; mantidos intactos para respeitar as licenças open-source.
-
----
-
-## 📦 Instalação
-
-### Downloads pré-compilados
-Baixe o instalador para sua plataforma de qualquer uma das fontes:
-
-- **GitHub Releases**: <https://github.com/fwzheng/mdex/releases>
-- **Site espelho**: <https://www.spinss.cn/>
-
-macOS (`.dmg`, universal arm64 + x86_64), Windows (`.exe`, NSIS installer), Linux (`.deb` / `.rpm` / `.AppImage`).
-
-### Abrindo o aplicativo não assinado no macOS (contornar o Gatekeeper)
-
-Este aplicativo **não** é assinado pelo desenvolvedor / não tem notarização (cenários offline normalmente não conseguem notarizar online). No macOS 12+, **especialmente macOS 26 (Tahoe)**, iniciá-lo direto do `.dmg` — ou de um build recém-copiado — falha com **"MDeX.app is damaged and can't be opened."** Isso é o Gatekeeper, não dano real. Corrija no Terminal:
-
-1. **Primeiro arraste `MDeX.app` do `.dmg` para `/Applications`** — nunca o execute direto do dmg (isso aciona App Translocation e o atributo `com.apple.provenance`, a verdadeira causa de "danificado" no macOS 26).
-2. Limpe os atributos e assine novamente:
-   ```bash
-   xattr -cr /Applications/MDeX.app
-   codesign --force --deep --sign - /Applications/MDeX.app
-   ```
-   > `com.apple.provenance` é protegido pelo SIP e **não pode** ser removido nem com `sudo`; reassinar reinicia a assinatura para que o Gatekeeper permita a execução. `spctl` ainda reporta `rejected` para assinatura ad hoc — esperado, e isso **não** bloqueia `open`.
-3. Inicie com `open /Applications/MDeX.app` (ou duplo clique). O primeiro início ainda pode pedir confirmação uma vez — confirme em **Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**, ou clique com o botão direito no app → **Abrir**.
 
 ---
 

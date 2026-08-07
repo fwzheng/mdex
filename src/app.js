@@ -687,6 +687,14 @@
   let winStart = -1, winEnd = -1; // 大文档窗口化：当前渲染窗口 [winStart, winEnd)；-1=非窗口模式
   let winRecenterRaf = 0;
   let winRenderActive = 0; // 正在异步重渲窗口的计数器；>0 时冻结 syncAnchors（防用旧窗口偏移把预览定位错）
+  // 窗口化全文 spacer 骨架（Phase1 MVP）：让 >200KB 大文档预览滚动条覆盖全文、能连续滚到文末。
+  // winSkel=全文块骨架[{off,end,raw,est,measured}]；winPrefix=累积前缀和（同 vprefix 语义）；
+  // winDriver=当前窗口驱动方（"editor"默认/"preview"用户拖预览）。全程 if(winSkel.length) 守卫，
+  // 注释掉 buildWinSkelByLines 调用即退回"无 spacer 窗口化"（滚动条只覆盖窗口，但同步不坏）。
+  let winSkel = [];
+  let winPrefix = [0];
+  let winSkelDocLen = -1; // 骨架对应文档长度，复用守卫（文档没变不重建）
+  let winLazyRaf = 0;
 
   /* ---------- mermaid（流程图/时序图等）----------
      ```mermaid 代码块在 render() 里预渲染为 SVG，写回 html 字符串——这样实时预览、
@@ -765,6 +773,10 @@
       return;
     }
     previewDirty = false;
+    // 进入新渲染：清窗口化状态（防大→小文档 / MD↔HTML 切换残留 winStart≥0 误走窗口化分支；
+    // 大文档 787 renderWindow reset 会立即 buildWinSkelByLines 重建，渐进 renderWindow(false) 由 scroll
+    // 监听直接调、不经 render，winStart 不受影响）
+    winStart = -1; winEnd = -1; winSkel = []; winPrefix = [0];
     const at0 = activeTab();
     if (at0 && at0.type === "html") {
       // HTML 模式：直接净化渲染，跳过 marked/extractMath（避免 $ 被误判为公式、Markdown 语法误伤）
@@ -978,23 +990,27 @@
       kids[i].setAttribute("data-src-end", eo);
       tagFineInBlock(kids[i], so, eo);
     }
-    if (mode === "prepend") { const f = preview.firstChild; for (const k of kids) preview.insertBefore(k, f); }
-    else { for (const k of kids) preview.appendChild(k); }
-    highlightCodeLazy(); wrapDisplayMath(preview);
+    // 窗口化（winStart≥0 且已建 spacer 骨架）挂进 vContent；否则（小文档全量）挂 preview。
+    const host = (winStart >= 0 && winSkel.length && vContent) ? vContent : preview;
+    if (mode === "prepend") { const f = host.firstChild; for (const k of kids) host.insertBefore(k, f); }
+    else { for (const k of kids) host.appendChild(k); }
+    highlightCodeLazy(); wrapDisplayMath(host);
     const at = activeTab();
-    if (at && at.type === "html") renderMathAuto(preview);
-    if (isTauri && at) resolveImages(preview, at.dir || "");
+    if (at && at.type === "html") renderMathAuto(host);
+    if (isTauri && at) resolveImages(host, at.dir || "");
     if (searchBar && !searchBar.hidden) highlightPreview();
+    if (host === vContent) { winMeasuresFill(); updateWindowSpacers(); } // 扩窗后实测回填 + 同步 spacer 高度
   }
   // 滑动式窗口：裁掉远离 cLine 的整块（保 cLine 两侧 ~2×halfWin 行），避免窗口无限增长。
   function trimWindowFar(cLine, halfWin) {
     const ls = editorLineStarts, ev = editor.value, buf = halfWin * 2;
     const trimLineTop = cLine - buf, trimLineBot = cLine + buf;
+    const host = vContent || preview; // 窗口化块挂在 vContent 里（spacer 三段结构）
     if (trimLineTop > 0) {
       const trimOff = ls[trimLineTop] || 0;
       if (trimOff > winStart) {
-        const kids = Array.from(preview.children);
-        for (const k of kids) if ((parseInt(k.getAttribute("data-src-offset")) || 0) < trimOff) preview.removeChild(k);
+        const kids = Array.from(host.children);
+        for (const k of kids) if ((parseInt(k.getAttribute("data-src-offset")) || 0) < trimOff) host.removeChild(k);
         srcBlockOffsets = srcBlockOffsets.filter((o) => o >= trimOff);
         if (srcBlockOffsets.length) winStart = srcBlockOffsets[0];
       }
@@ -1002,21 +1018,32 @@
     if (trimLineBot < ls.length) {
       const trimOff = ls[trimLineBot] || ev.length;
       if (trimOff < winEnd) {
-        const kids = Array.from(preview.children);
+        const kids = Array.from(host.children);
         let firstRemoved = null;
-        for (const k of kids) { const o = parseInt(k.getAttribute("data-src-offset")) || 0; if (o >= trimOff) { if (firstRemoved === null) firstRemoved = o; preview.removeChild(k); } }
+        for (const k of kids) { const o = parseInt(k.getAttribute("data-src-offset")) || 0; if (o >= trimOff) { if (firstRemoved === null) firstRemoved = o; host.removeChild(k); } }
         srcBlockOffsets = srcBlockOffsets.filter((o) => o < trimOff);
         if (firstRemoved !== null) winEnd = firstRemoved;
       }
     }
+    updateWindowSpacers(); // 裁剪后窗口起止变 → 重设 spacer 高度
   }
   // 浏览：渲染编辑区中心窗口
   async function renderWindow(alwaysRender) {
     if (!editorLineStarts.length) return;
     const ev = editor.value, ls = editorLineStarts;
-    const centerOff = editorYToOff(editor.scrollTop + editor.clientHeight / 2);
+    const center = editor.scrollTop + editor.clientHeight / 2;
+    const centerOff = editorYToOff(center);
     const cLine = lineOfOffset(centerOff);
     if (centerOff < 0) return; // editorYToOff 失败（posAtCoords null）-> 不重渲，避免误判大跳转重置到文档开头
+    // posAtCoords 异常校验：cm.lineBlockAtHeight 算视口真实行偏移范围 [topOff,botOff]——基于 CM 行块树(高度→行块，
+    // 不依赖 DOM hit-test)，比 posAtCoords/coordsAtPos 稳定(后两者 WKWebView 下都走 hit-test/measure，深处可能同时
+    // 异常使 coordsAtPos 守卫失效)。centerOff 出范围(±1 视口余量)→posAtCoords 把中段错映射到偏前/开头 off→不 reset 到开头。
+    // lineBlockAtHeight 含折行高度精确，折行文档不误判（旧 cLine×editorLh 靠逻辑行估高，折行低估→误判不扩窗→预览卡/跳）。
+    if (cm && cm.lineBlockAtHeight) {
+      const topOff = cm.lineBlockAtHeight(editor.scrollTop).from;
+      const botOff = cm.lineBlockAtHeight(editor.scrollTop + editor.clientHeight).from;
+      if (centerOff < topOff - editor.clientHeight || centerOff > botOff + editor.clientHeight) return;
+    }
     const visibleLines = Math.max(20, Math.round((editor.clientHeight || 600) / editorLH));
     const halfWin = Math.min(400, Math.round(visibleLines * 3)); // 窗口 ~6 视口
     // 大跳转/首渲/强制：重置（重新居中、替换）--中心远离当前窗口（>3 窗口距）
@@ -1026,9 +1053,10 @@
       const b0 = (cLine + halfWin + 1 < ls.length) ? ls[cLine + halfWin + 1] : ev.length;
       const wb = expandToBlockBounds(ev, a0, b0);
       winStart = wb.start; winEnd = wb.end;
+      buildWinSkelByLines(); // 构建全文骨架（reset/大跳转时一次；渐进扩窗不重建）
       winRenderActive++;
       try { const g = ++renderGen; const { html, offsets } = await runWindowPipeline(ev, winStart, winEnd);
-        if (g !== renderGen) return; srcBlockOffsets = offsets; renderIntoPreview(html); positionWindow(); updateWindowPos(cLine);
+        if (g !== renderGen) return; srcBlockOffsets = offsets; renderIntoPreview(html); positionWindow(centerOff); updateWindowPos(cLine);
       } catch (e) { console.log("renderWindow", e); } finally { winRenderActive--; }
       return;
     }
@@ -1063,14 +1091,16 @@
       }
       trimWindowFar(cLine, halfWin);
       buildPreviewBlockY();
-      positionWindow(); // eOff 钉预览中央（扩展/裁剪后统一重设，画面稳定不跳）
+      positionWindow(centerOff); // eOff 钉预览中央（扩展/裁剪后统一重设，画面稳定不跳）
       updateWindowPos(cLine);
     } catch (e) { console.log("renderWindow", e); } finally { winRenderActive--; }
   }
-  function positionWindow() { // 把编辑区中心对应的预览块居中
+  function positionWindow(forceOff) { // 把编辑区中心对应的预览块居中
+    if (scrollSrc === "preview") return; // 预览驱动（编辑器正被同步滚动）→ 不强制居中，否则把预览 yank 回编辑器中心
     scrollSrc = "editor"; // 防预览滚动回环
-    const centerOff = editorYToOff(editor.scrollTop + editor.clientHeight / 2);
-    const y = previewOffsetToY(centerOff); // 实时 DOM 实测（同点击路径）
+    const centerOff = forceOff != null ? forceOff : editorYToOff(editor.scrollTop + editor.clientHeight / 2);
+    if (centerOff < 0) return;
+    const y = previewOffsetToY(centerOff); // vContent 覆盖时实测；不覆盖时 offToPreviewY 钳窗口内(vContent 末,实测,不空白)，renderWindow 完成后 positionWindow(centerOff) 精确对齐
     if (y != null && isFinite(y)) preview.scrollTop = Math.max(0, y - (preview.clientHeight || 600) / 2);
   }
   function updateWindowPos(centerLine) { // 状态栏位置指示（窗口模式）
@@ -1142,7 +1172,7 @@
     const children = Array.from(tpl.content.children);
     for (let i = 0; i < children.length && i < srcBlockOffsets.length; i++) {
       const so = srcBlockOffsets[i];
-      const eo = i + 1 < srcBlockOffsets.length ? srcBlockOffsets[i + 1] : editor.value.length;
+      const eo = i + 1 < srcBlockOffsets.length ? srcBlockOffsets[i + 1] : (winStart >= 0 ? winEnd : editor.value.length); // 窗口化最后块 end=winEnd（实际窗口末），非文末——否则该块 off..文末 跨整篇，previewOffsetToY 命中时插值分母=百万→y≈块顶，预览死钉该块顶不动（目录/大段后尤其明显）
       children[i].setAttribute("data-src-offset", so);
       children[i].setAttribute("data-src-end", eo);
       tagFineInBlock(children[i], so, eo); // 列表/表格：给 li/tr 打细粒度偏移
@@ -1159,14 +1189,25 @@
       // 复用上方已解析并标记好 data-src-offset/end（含 tagFineInBlock 的 li/tr 细粒度偏移）的
       // template：cloneNode(true) 保留属性，appendChild 直接挂载，避免对同一 html 二次 innerHTML
       // 解析（原"二次解析 + 二次标注"循环随之删除）。
-      preview.appendChild(tpl.content.cloneNode(true));
-      // 代码高亮：懒加载——只高亮进入视口的代码块（IntersectionObserver）。
-      highlightCodeLazy();
-      wrapDisplayMath(preview);
-      // HTML 模式：渲染 $...$ 数学公式（MD 模式已在 html 字符串里预渲染，不需要）
-      const at = activeTab();
-      if (at && at.type === "html") renderMathAuto(preview);
-      if (isTauri && at) resolveImages(preview, at.dir || "");
+      if (winStart >= 0 && winSkel.length) {
+        // 窗口化：建 spacer 三段，块挂 vContent（vClear 已清 preview 并把 vSpacerTop/Content/Bottom 置 null）
+        winSetup();
+        vContent.appendChild(tpl.content.cloneNode(true));
+        highlightCodeLazy(); wrapDisplayMath(vContent);
+        const at = activeTab();
+        if (at && at.type === "html") renderMathAuto(vContent);
+        if (isTauri && at) resolveImages(vContent, at.dir || "");
+        winMeasuresFill(); updateWindowSpacers();
+      } else {
+        preview.appendChild(tpl.content.cloneNode(true));
+        // 代码高亮：懒加载——只高亮进入视口的代码块（IntersectionObserver）。
+        highlightCodeLazy();
+        wrapDisplayMath(preview);
+        // HTML 模式：渲染 $...$ 数学公式（MD 模式已在 html 字符串里预渲染，不需要）
+        const at = activeTab();
+        if (at && at.type === "html") renderMathAuto(preview);
+        if (isTauri && at) resolveImages(preview, at.dir || "");
+      }
     }
     updateStats();
     buildPreviewBlockY(); // 测预览块顶 Y（非虚拟化每次渲染测一次缓存；虚拟化用 vprefix，此处空操作）
@@ -1239,6 +1280,177 @@
     preview.innerHTML = ""; // 清空所有内容（全量 html 或 spacer 结构），避免模式切换时残留
     vSpacerTop = vContent = vSpacerBottom = null;
     vblocks = []; vheights = []; vprefix = [0]; vRangeStart = vRangeEnd = -1;
+    // 注意：不清 winSkel/winPrefix（全文骨架独立于 DOM 挂载；render 非窗口化路径已负责清，避免
+    // 这里清掉后 renderIntoPreview 的 winStart>=0&&winSkel.length 守卫瞬时失效）
+  }
+
+  /* ---------- 窗口化全文 spacer 骨架（大文档预览连续滚到文末，Phase1 MVP）----------
+     窗口化(>200KB)原本只挂编辑器中心窗口的块、preview 无全文高度 → 滚动条只覆盖窗口、滚不到文末。
+     这里给窗口化加 vSpacerTop+vContent+vSpacerBottom 三段（复用虚拟化的 spacer 变量），vContent 只挂
+     当前窗口已 parse 块（保留窗口化性能），spacer 用全文骨架 winSkel/winPrefix 撑起。骨架 MVP 按 \n\n
+     切块 + estBlockByRaw 估高（零 lexer 成本，规避 BUG-141 全文 parse 慢）。全程 if(winSkel.length) 守卫。 */
+  // 按源码 raw 文本估块高（不依赖 DOM，常量与 estimateFromNode 对齐）。供 buildWinSkelByLines 用。
+  function estBlockByRaw(raw) {
+    const s = raw.trim();
+    if (!s) return 20;
+    const lines = s.split("\n");
+    if (/^# /.test(s)) return 52;
+    if (/^## /.test(s)) return 42;
+    if (/^### /.test(s)) return 34;
+    if (/^#{4,6} /.test(s)) return 30;
+    if (/^```|^~~~/.test(s)) {                       // 代码块：nl + CJK 折行（同 estimateFromNode PRE 分支）
+      const nl = (s.match(/\n/g) || []).length;
+      let extra = 0;
+      for (const ln of lines) {
+        const cjk = (ln.match(/[　-鿿가-힯＀-￯]/g) || []).length;
+        const w = ln.length + cjk;
+        if (w > 60) extra += Math.ceil(w / 60) - 1;
+      }
+      return 40 + (Math.max(1, nl) + extra) * 18;
+    }
+    if (/^\|.*\|/.test(s) && lines.length > 1) return 20 + Math.max(1, lines.length) * 30;  // 表格
+    if (/^[ \t]*([-*+]|\d+\.)[ \t]/.test(s)) {       // 列表：项数×28
+      const items = lines.filter((t) => /^[ \t]*([-*+]|\d+\.)[ \t]/.test(t)).length;
+      return 20 + Math.max(1, items) * 28;
+    }
+    if (/^> /.test(s)) {                             // 引用
+      const ps = Math.max(1, lines.filter((t) => t.trim()).length);
+      return 36 + ps * 28;
+    }
+    if (/^!\[.*\]\(|<img/i.test(s)) return 312;      // 图片块：MVP 占位 300+margin，滚入实测回填修正
+    const tlen = s.length;                           // 散文：行数×26 + 长文补偿
+    return 28 + Math.max(1, lines.length) * 26 + (tlen > 200 ? Math.floor((tlen - 200) / 40) * 24 : 0);
+  }
+  // 构建全文块骨架（MVP：按 \n\n 切块 + estBlockByRaw 估高）。切块基准与 runWindowPipeline split 兜底、
+  // render 批化 split(/(\n\n+)/) 一致（绝对偏移）。注：窗口 parse 用 marked.lexer 切块可能比 \n\n 略细
+  // （松散列表），故骨架块边界与窗口块非严格一一对应——仅影响 spacer 精度（滚入实测回填修正），不影响滚到文末。
+  function buildWinSkelByLines() {
+    const v = editor.value;
+    // 文档没变则复用骨架（保留 measured 实测值），避免连续滚动每次 reset 全文重算（1.2MB ~几百 ms，
+    // 是超长文本连续滚动中段预览空白的瓶颈）。文档变（编辑/换文档）才重建。
+    if (winSkel.length && winSkelDocLen === v.length) return;
+    winSkel = []; winPrefix = [0];
+    let pos = 0;
+    for (const part of v.split(/(\n\n+)/)) {
+      if (part.trim()) {
+        const est = estBlockByRaw(part);
+        winSkel.push({ off: pos, end: pos + part.length, raw: part, est, measured: null });
+      }
+      pos += part.length;
+    }
+    for (let i = 0; i < winSkel.length; i++) winPrefix.push(winPrefix[i] + (winSkel[i].measured || winSkel[i].est));
+    winSkelDocLen = v.length;
+  }
+  // 源偏移 off 所在骨架块的前缀高度（该块顶部在全文的 Y）。
+  function winPrefixOf(off) {
+    if (!winSkel.length) return 0;
+    let lo = 0, hi = winSkel.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (winSkel[mid].off <= off) lo = mid + 1; else hi = mid; }
+    return winPrefix[Math.max(0, lo - 1)] || 0;
+  }
+  // 全文 Y → 源偏移（预览驱动用；不依赖 posAtCoords，规避 BUG-144 "重置到开头"级联）。
+  function winYToOff(y) {
+    if (!winSkel.length) return 0;
+    let lo = 0, hi = winSkel.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if ((winPrefix[mid + 1] || winPrefix[mid]) <= y) lo = mid + 1; else hi = mid; }
+    const i = Math.max(0, Math.min(winSkel.length - 1, lo));
+    const b = winSkel[i], top = winPrefix[i], h = (b.measured || b.est) || 1;
+    return Math.round(b.off + Math.max(0, Math.min(1, (y - top) / h)) * (b.end - b.off));
+  }
+  // 源偏移 → 全文 Y（编辑器驱动定位 spacer 下窗口 / spacer 高度计算用）。
+  function winOffToY(off) {
+    if (!winSkel.length) return 0;
+    let lo = 0, hi = winSkel.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (winSkel[mid].off <= off) lo = mid + 1; else hi = mid; }
+    const i = Math.max(0, lo - 1);
+    const b = winSkel[i], top = winPrefix[i], h = (b.measured || b.est) || 1;
+    const frac = b.end > b.off ? Math.max(0, Math.min(1, (off - b.off) / (b.end - b.off))) : 0;
+    return top + frac * h;
+  }
+  // 建窗口化 spacer 三段（复用虚拟化的 vSpacerTop/vContent/vSpacerBottom 变量，结构一致）。
+  function winSetup() {
+    vSpacerTop = document.createElement("div");
+    vContent = document.createElement("div");
+    vContent.className = "vcontent";
+    vSpacerBottom = document.createElement("div");
+    preview.appendChild(vSpacerTop);
+    preview.appendChild(vContent);
+    preview.appendChild(vSpacerBottom);
+  }
+  // 实测 vContent 内已挂块的渲染高度，回填 winSkel.measured，重算 winPrefix（修正 spacer 精度，仿
+  // renderVisible offsetHeight 实测回填）。srcBlockOffsets（窗口内块偏移）与 vContent 子节点一一对应。
+  function winMeasuresFill() {
+    if (!winSkel.length || !vContent) return;
+    const kids = vContent.children;
+    let changed = false;
+    for (let k = 0; k < kids.length && k < srcBlockOffsets.length; k++) {
+      const so = srcBlockOffsets[k];
+      let lo = 0, hi = winSkel.length;            // 二分找 off≤so 的骨架块（lexer vs \n\n 切块错位时取最近）
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (winSkel[mid].off <= so) lo = mid + 1; else hi = mid; }
+      const idx = Math.max(0, lo - 1);
+      const h = kids[k].offsetHeight;
+      if (h && Math.abs(h - (winSkel[idx].measured || winSkel[idx].est)) > 1) { winSkel[idx].measured = h; changed = true; }
+    }
+    if (changed) { winPrefix = [0]; for (let i = 0; i < winSkel.length; i++) winPrefix.push(winPrefix[i] + (winSkel[i].measured || winSkel[i].est)); }
+  }
+  // 设窗口化三段 spacer 高度：top=窗口起点前缀；bottom=全文总高 - 窗口终点 Y（winEnd=文末时 bottom→0，能滚到文末）。
+  function updateWindowSpacers() {
+    if (!winSkel.length || !vSpacerTop) return;
+    const total = winPrefix[winPrefix.length - 1] || 0;
+    vSpacerTop.style.height = winPrefixOf(winStart) + "px";
+    vSpacerBottom.style.height = Math.max(0, total - winOffToY(winEnd)) + "px";
+  }
+  // 预览驱动：滚到未 parse 区时懒解析该段。是否需要解析以「视口中心是否已被 vContent 覆盖」为准
+  // （DOM 实测，准），而非骨架 off 判断（累积误差会误判已在窗口内 → 视口停在空白 spacer）。
+  // 替换 vContent 后用 previewOffsetToY 实测 Y 重定位（非骨架 winOffToY），保证视口对齐实际内容。
+  async function renderWindowLazy() {
+    if (!winSkel.length || !vContent) return;
+    const ev = editor.value, ls = editorLineStarts;
+    if (!ls.length) return;
+    const ch = preview.clientHeight || 600;
+    const pvRect = preview.getBoundingClientRect();
+    const midAbs = pvRect.top + ch / 2;
+    // 视口中心是否已被 vContent 块覆盖（实测，不受骨架估高累积误差影响）
+    let inVc = false;
+    for (const k of vContent.children) { const r = k.getBoundingClientRect(); if (midAbs >= r.top && midAbs < r.bottom) { inVc = true; break; } }
+    if (inVc) return; // 视口已有内容，无需懒解析（细粒度同步由 syncAnchors 处理）
+    const targetOff = winYToOff(preview.scrollTop + ch / 2); // 骨架估算目标 off（仅决定解析哪段，偏差由实测重定位吸收）
+    const cLine = lineOfOffset(targetOff);
+    const visibleLines = Math.max(20, Math.round(ch / editorLH));
+    const halfWin = Math.min(200, Math.round(visibleLines * 2)); // 预览驱动用较小窗口(~4视口)：parse 快、拖动跟手少空白；编辑器驱动走 renderWindow 用 ~6 视口
+    const a0 = ls[Math.max(0, cLine - halfWin)] || 0;
+    const b0 = (cLine + halfWin + 1 < ls.length) ? ls[cLine + halfWin + 1] : ev.length;
+    const wb = expandToBlockBounds(ev, a0, b0);
+    winRenderActive++;
+    try {
+      const g = ++renderGen;
+      const { html, offsets } = await runWindowPipeline(ev, wb.start, wb.end);
+      if (g !== renderGen) return;
+      winStart = wb.start; winEnd = wb.end; srcBlockOffsets = offsets;
+      vContent.innerHTML = "";
+      mountSliceBlocks(html, offsets, "append", wb.end); // 复用：标记+挂 vContent+实测回填+更新 spacer
+      scrollSrc = "preview"; // renderWindowLazy 只在 preview 驱动触发(preview scroll 监听 scrollSrc!=="editor")，须保持 preview 驱动状态：preview scroll→preview→editor(editor 跟重定位)，editor scroll→scrollSrc="preview"→不触发 editor→preview。旧设"editor"会让 editor(被 preview→editor 推着滚)的 scroll 事件触发 editor→preview，把 preview 反向拉回 editor 位置(content)=跳回。
+      // 重定位须基于"preview 当前位置"而非 enter 时骨架估算的 anchorOff：renderWindowLazy 是 async，await runWindowPipeline 期间用户继续滚 preview→preview.scrollTop 已变；
+      // 且骨架 winMeasuresFill 在 marked.lexer 切块(窗口内 content 被切成中末段)与 \n\n 骨架块(全 content)不对齐时把"部分实测高"回填给"全块"→骨架 content 高严重偏差→winYToOff 偏→enter targetOff/anchorOff 偏→重定位把 preview 拉回偏前位置(用户感"跳回")。
+      // 改实测：previewYToOffDom 读 preview 中心当前 DOM 命中的源 off（替换 vContent 后新内容已挂），重定位到该 off 实测 Y（≈当前 preview 位置，不跳）；未命中(已滚出 parse 段)则不重定位(保持 preview，下次 renderWindowLazy 重新 parse)。
+      const curOff = previewYToOffDom(preview.scrollTop + ch / 2);
+      if (curOff >= 0 && curOff >= winStart && curOff <= winEnd) {
+        // 仅用实测 realY 重定位，且偏差<1视口才设：替换 vContent 后同 off 的 Y≈原位，大偏差说明 curOff 落窗口边/已滚出
+        // (realY=null：curOff=winE 边界无块含此 off)。旧回退 winOffToY(骨架)在 chapter1(公式/代码)严重低估 off→Y
+        // (off20770 骨架估9706 vs 实际12772，低24%)→preview 回跳3000px→触发 editor→preview 级联(用户感"跳回")。
+        // realY 无效/偏差大→不重定位，保持 preview，下帧 renderWindowLazy 重新 parse 正确段。
+        const realY = previewOffsetToY(curOff);
+        if (realY != null && isFinite(realY)) {
+          const newPv = Math.max(0, realY - ch / 2);
+          if (Math.abs(newPv - preview.scrollTop) < ch) preview.scrollTop = newPv;
+        }
+      }
+      updateWindowPos(cLine);
+    } catch (e) { console.log("renderWindowLazy", e); } finally { winRenderActive--; }
+  }
+  function scheduleWindowLazyParse() {
+    if (winLazyRaf) return;
+    winLazyRaf = requestAnimationFrame(() => { winLazyRaf = 0; renderWindowLazy(); });
   }
   function renderVisible() {
     if (!vblocks.length || !vContent) return;
@@ -4167,6 +4379,7 @@
 
   /* ---------- 同步滚动 ---------- */
   let scrollSrc = null, scrollReset;
+  let lastPvSnapSt = -1; // syncAnchors 预览驱动方向感知防抖：上次 preview 中心(判断前进/后退)
   let lastPreviewH = 0; // 上次预览 scrollHeight；图片/mermaid 等异步渲染改变高度会使 Y 缓存过期 → syncAnchors 检测变化则重测
   let imgLoadT = 0; // 图片 load 后重测 Y 缓存的防抖定时器
   /* ---- 编辑↔预览 双向定位（点击 + 滚动同步）----
@@ -4205,6 +4418,22 @@
   function pbyLen() { const a = vblocks.length ? vprefix : previewBlockY; return a ? a.length : 0; }
   function buildPreviewBlockY() {
     if (vblocks.length) { fineYCache = []; return; }   // 虚拟化：由 vprefix 提供，无需测
+    if (winSkel.length && vContent) {                  // 窗口化：由 winPrefix 提供全文，fineYCache 重建自 vContent（含 spacer 偏移）
+      winMeasuresFill(); updateWindowSpacers();
+      const pvTop = preview.getBoundingClientRect().top, sts = preview.scrollTop, baseY = winPrefixOf(winStart);
+      const fine = [];
+      const all = vContent.querySelectorAll("[data-src-offset]");
+      for (let i = 0; i < all.length; i++) {
+        const el = /** @type {HTMLElement} */ (all[i]);
+        const o = parseInt(el.getAttribute("data-src-offset") || "", 10);
+        if (isNaN(o)) continue;
+        const en = parseInt(el.getAttribute("data-src-end") || "", 10);
+        const r = el.getBoundingClientRect();
+        fine.push({ off: o, end: isNaN(en) ? null : en, top: baseY + (r.top - pvTop + sts), h: r.height });
+      }
+      fineYCache = fine; previewBlockY = [];
+      return;
+    }
     if (!srcBlockOffsets.length) { previewBlockY = []; fineYCache = []; return; }
     const pvTop = preview.getBoundingClientRect().top, sts = preview.scrollTop;
     const arr = [], kids = preview.children;
@@ -4241,6 +4470,7 @@
         return best.end != null ? Math.round(best.off + frac * (best.end - best.off)) : best.off;
       }
     }
+    if (winSkel.length) return winYToOff(y); // 窗口化：fineYCache 未覆盖（窗口外）→ 全文骨架映射
     const n = pbyLen(); if (!n || !srcBlockOffsets.length) return -1;
     if (y <= pby(0)) return srcBlockOffsets[0] || 0;
     if (y >= pby(n - 1)) return srcBlockOffsets[srcBlockOffsets.length - 1] || editor.value.length;
@@ -4252,7 +4482,12 @@
     return Math.round(bs + frac * (be - bs));
   }
   function offToPreviewY(off) { // 源偏移 → 预览内容 Y（优先 fineYCache 实测细粒度，回退块顶+字符比/行比）
-    if (winStart >= 0 && srcBlockOffsets.length) off = Math.max(srcBlockOffsets[0], Math.min(srcBlockOffsets[srcBlockOffsets.length - 1], off)); // 窗口模式：钳到窗口内防越界
+    if (winSkel.length) { // 窗口化：窗口外钳到窗口内（vContent 覆盖，走下方 fineYCache/pby 实测），不回退骨架 winOffToY（否则视口落空白 spacer）
+      if (off < winStart) off = winStart;
+      else if (off > winEnd) off = winEnd;
+    } else if (winStart >= 0 && srcBlockOffsets.length) {
+      off = Math.max(srcBlockOffsets[0], Math.min(srcBlockOffsets[srcBlockOffsets.length - 1], off)); // 旧窗口钳（无骨架时防越界）
+    }
     if (fineYCache.length) {
       let best = null;
       for (let i = 0; i < fineYCache.length; i++) {
@@ -4306,14 +4541,19 @@
     }
     return offToPreviewY(off);
   }
-  // 预览内容 Y → 源偏移（DOM 实测：elementFromPoint 命中该 Y 的最细单元；精确且 cheap，仅 1 次 rect）
+  // 预览内容 Y → 源偏移（DOM 实测：elementFromPoint 命中该 Y 的最细单元；精确且 cheap）
   function previewYToOffDom(contentY) {
     const pvRect = preview.getBoundingClientRect();
     const viewY = contentY - preview.scrollTop + pvRect.top; // 内容 Y → 视口 Y
-    const el = document.elementFromPoint(pvRect.left + 8, viewY); // 左侧附近，避开滚动条
-    if (el) {
+    // 水平多点探测：#preview 是 <article> 自带左右 padding，固定 left+8 落 padding → elementFromPoint 命中
+    // #preview 自身(无 data-src-offset，closest 向上找祖先也无)→ 全程返 -1 → 回退 previewYToOff(骨架/fineYCache，
+    // content 单大块估高抖动)→ editor 跳。改在中/1/4/3/4 探测，越过 padding 命中真实内容块；右 3/4 仍避滚动条。
+    const xs = [pvRect.left + pvRect.width / 2, pvRect.left + pvRect.width * 0.25, pvRect.left + pvRect.width * 0.75];
+    for (let xi = 0; xi < xs.length; xi++) {
+      const el = document.elementFromPoint(xs[xi], viewY);
+      if (!el) continue;
       const unit = el.closest("[data-src-offset]");
-      if (unit && preview.contains(unit)) {
+      if (unit && unit !== preview && preview.contains(unit)) {
         const r = unit.getBoundingClientRect();
         const st = parseInt(unit.getAttribute("data-src-offset") || "", 10);
         if (!isNaN(st)) {
@@ -4323,7 +4563,26 @@
         }
       }
     }
-    return -1; // 未命中（块间空白/虚拟化未挂载）→ 调用方回退
+    // 几何回退：块间隙(段落 margin)elementFromPoint 全落空 → 旧返 -1 回退骨架(估高抖→editor 跳)。
+    // 实测各 [data-src-offset] 块 Y：含 viewY 的最细块内插值；间隙则上下块跨段线性插值。永不回退骨架，保证 off 单调。
+    const all = preview.querySelectorAll("[data-src-offset]");
+    let hit = null, above = null, below = null;
+    for (let i = 0; i < all.length; i++) {
+      const r = all[i].getBoundingClientRect();
+      if (r.height <= 0) continue;
+      const st = parseInt(all[i].getAttribute("data-src-offset") || "", 10);
+      if (isNaN(st)) continue;
+      const enRaw = parseInt(all[i].getAttribute("data-src-end") || "", 10);
+      const rec = { st, en: (!isNaN(enRaw) && enRaw > st) ? enRaw : null, top: r.top, bot: r.bottom, h: r.height };
+      if (viewY >= r.top && viewY < r.bottom) { if (!hit || st > hit.st) hit = rec; }
+      else if (r.top <= viewY) { if (!above || r.top > above.top) above = rec; }
+      else { if (!below || r.top < below.top) below = rec; }
+    }
+    if (hit) { const f = hit.h > 0 ? (viewY - hit.top) / hit.h : 0; return hit.en != null ? hit.st + f * (hit.en - hit.st) : hit.st; }
+    if (above && below) { const aEnd = above.en != null ? above.en : above.st; const span = below.top - above.bot; const f = span > 0 ? (viewY - above.bot) / span : 0; return aEnd + f * (below.st - aEnd); }
+    if (above) return above.en != null ? above.en : above.st;
+    if (below) return below.st;
+    return -1; // 无任何已挂载块（虚拟化未挂载/空预览）→ 调用方回退
   }
   function editorYToOff(y) { // 编辑器像素 Y → 源偏移（CM：posAtCoords 像素级精确）
     if (!cm) return 0;
@@ -4333,30 +4592,85 @@
     if (pos == null) pos = cm.posAtCoords({ x: rect.left + 30, y: vy }); // 左 padding 内偶发 null -> 试文本区
     return pos == null ? -1 : pos;
   }
-  function offToEditorY(off) { // 源偏移 -> 编辑器像素 Y（CM：coordsAtPos 像素级精确；屏外返 -1，调用方跳过--勿用 lineBlockAt 估算，会因缓存过期级联狂跳）
+  function offToEditorY(off) { // 源偏移 -> 编辑器像素 Y
     if (!cm) return 0;
     const clamped = Math.max(0, Math.min(off, cm.state.doc.length));
-    const c = cm.coordsAtPos(clamped);
-    if (!c) return -1; // off 在编辑器视口外 -> 无效，syncAnchors 跳过（编辑器不跟预览滚到窗口远端，但不跳）
     const sd = cm.scrollDOM;
-    return c.top - sd.getBoundingClientRect().top + sd.scrollTop;
+    // lineBlockAt 高度树 Y（单调稳定，已 webkit 实测；屏外也准）：用于交叉校验 coordsAtPos
+    let yL = -1;
+    if (cm.lineBlockAt) {
+      const blk = cm.lineBlockAt(clamped);
+      if (blk && isFinite(blk.top)) {
+        const frac = (blk.to > blk.from && blk.height > 0) ? (clamped - blk.from) / (blk.to - blk.from) : 0;
+        yL = blk.top + frac * blk.height;
+      }
+    }
+    const c = cm.coordsAtPos(clamped);
+    if (c) {
+      const yC = c.top - sd.getBoundingClientRect().top + sd.scrollTop;
+      // coordsAtPos 视口边/行边界偶发非单调 glitch(跳邻行，实测中间帧 +469px=18行)→ editor 先被推高再拉回=跳动。
+      // lineBlockAt 校验：偏差≥1 块高(coordsAtPos 落到别的块)取 lineBlockAt；<1 块高(块内一致)取 coordsAtPos 像素精确(保对齐)。
+      if (yL >= 0 && Math.abs(yC - yL) >= (cm.lineBlockAt(clamped).height || 26)) return yL;
+      return yC;
+    }
+    // 屏外（coordsAtPos null，CM 仅渲染视口±边距行）：lineBlockAt。旧版返 -1→预览驱动 editor 卡住(BUG-149 过度权衡)。
+    // 安全：preview 驱动 scrollSrc="preview" 阻断 editor→preview 反拉；editor 跟到≈preview off，renderWindow 即便 reset 也居中同 off、不错位。
+    if (yL >= 0) return yL;
+    return -1;
   }
   // 锚点式滚动同步（替换原全局比例）：以各自中线偏移互映射；无锚点时回退比例
   function syncAnchors(src, dst) {
     if (!syncScroll) return;
-    if (winRenderActive > 0) return; // 窗口重渲期间冻结同步（fineYCache 过期会致 previewYToOff 返回错 off、编辑器狂跳；由 positionWindow 统一定位）
+    if (winRenderActive > 0 && src === editor) return; // 窗口重渲期间冻结 editor→preview：replace vContent 时 previewOffsetToY 用半换 DOM 会错。preview→editor 不冻结：用 previewYToOffDom(实时旧 vContent DOM)+CM lineBlockAt，不依赖 preview 缓存；旧冻结致 renderWindowLazy async parse(~150ms)期间 editor 卡住不跟、preview 继续滚→parse 完成 curOff 大跳→editor 一次性追上=用户感"卡后大跳"。
     // 图片/mermaid/KaTeX 等异步渲染会撑高预览 → fineYCache/previewBlockY 过期（预览偏上、越往后越偏）→ 检测 scrollHeight 变化则重测
     if (preview.scrollHeight !== lastPreviewH) { buildPreviewBlockY(); lastPreviewH = preview.scrollHeight; }
-    if (!pbyLen()) {
+    if (!pbyLen() && !winSkel.length) { // 仅非窗口化且无块才比例回退；窗口化(winSkel 有)走下方锚点同步(vContent 未覆盖 eOff 则不推，绝不回退骨架/比例——否则把视口推到空白 spacer)
       const r = src.scrollTop / (src.scrollHeight - src.clientHeight || 1);
       dst.scrollTop = r * (dst.scrollHeight - dst.clientHeight); return;
     }
     const center = src.scrollTop + src.clientHeight / 2;
     let y = null, eOff = null;
-    if (src === editor) { eOff = editorYToOff(center); if (eOff < 0) return; y = previewOffsetToY(eOff); } // 用实时 DOM 实测（同点击路径），而非缓存插值 offToPreviewY（滚动/换窗口期间会失真）
-    else { const off = previewYToOff(center); y = offToEditorY(off); }
+    if (src === editor) {
+      eOff = editorYToOff(center); if (eOff < 0) return;
+      // posAtCoords 异常校验：cm.lineBlockAtHeight 算视口真实行偏移范围(基于行块树，不依赖 hit-test，比 posAtCoords/
+      // coordsAtPos 稳定——后两者 WKWebView 下都走 hit-test，深处可能同时异常使 coordsAtPos 守卫失效)。
+      // eOff 出范围(±1 视口余量)→posAtCoords 把中段错映射成偏前/开头 off→previewOffsetToY 命中偏前块→预览跳开头→跳过本帧。
+      if (cm && cm.lineBlockAtHeight) {
+        const topOff = cm.lineBlockAtHeight(editor.scrollTop).from;
+        const botOff = cm.lineBlockAtHeight(editor.scrollTop + editor.clientHeight).from;
+        if (eOff < topOff - editor.clientHeight || eOff > botOff + editor.clientHeight) return;
+      }
+      y = previewOffsetToY(eOff);
+    } // 用实时 DOM 实测（同点击路径），而非缓存插值 offToPreviewY（滚动/换窗口期间会失真）
+    else {
+      // 预览驱动→编辑器：优先实测 DOM 命中(previewYToOffDom，elementFromPoint 精确，不受骨架估高/缓存影响)，回退 previewYToOff(fineYCache/骨架)。
+      // 骨架 winYToOff 在 content 大段(纯文本合并 <p>)估高偏差 + winMeasuresFill 把 lexer 切的"部分实测高"错回填给 \n\n 全块→偏→editor 跟到偏前位置被拉回(用户感"跳回")。
+      let off = previewYToOffDom(center);
+      if (off < 0) {
+        if (winRenderActive > 0) return; // 重渲期间滚出旧 vContent→previewYToOff(fineYCache)可能 stale→跳过(editor 保持，下帧 vContent 更新后跟)，不卡后大跳
+        off = previewYToOff(center);
+      }
+      y = offToEditorY(off);
+      // offToEditorY：视口内 coordsAtPos 精确；屏外回退 cm.lineBlockAt(高度树，单调稳定)→ editor 始终跟随 preview，不卡。
+      // 安全：preview 驱动 scrollSrc="preview" 阻断 editor→preview 反拉；editor 跟到≈preview off，renderWindow 即便 reset 也居中同 off、preview 不错位。
+    }
     if (y == null || !isFinite(y) || y < 0) return;
     const max = dst.scrollHeight - dst.clientHeight;
+    // 预览驱动→编辑器 方向感知防抖：preview 单向滚动时 editor 目标应同向；深度滚动测量(previewYToOffDom/coordsAtPos)
+    // 偶发非单调 glitch / 平滑滚动追上后过冲→editor 跳动。记 preview 方向，目标相对 editor【实际位】反向>80px 判 glitch 跳过
+    // (吸收抖动、editor 单调跟)；比 lastEdSnapSt(上次目标)更准——editor 实际位可能因平滑滚动偏离目标，比实际位才能捕真实回拉。
+    // 真换向(用户反向滚)首帧 lastDir 仍同向→判 glitch 跳过一帧、次帧 lastDir 更新后放行(代价:反向起步延迟1帧，可接受)。
+    if (src === preview && dst === editor) {
+      const adv = lastPvSnapSt < 0 || center >= lastPvSnapSt - 2; // preview 前进/静止(容 2px)
+      const want = Math.max(0, Math.min(max || 0, y - dst.clientHeight / 2));
+      const curEd = dst.scrollTop; // editor 实际当前位(可能因平滑滚动偏离上次目标)
+      if (adv && want < curEd - 80) { lastPvSnapSt = center; return; }
+      if (!adv && want > curEd + 80) { lastPvSnapSt = center; return; }
+      lastPvSnapSt = center;
+      dst.scrollTop = want;
+      return;
+    }
+    if (dst === preview) scrollSrc = "editor"; // editor→preview 推预览前标记 editor 驱动：syncAnchors 设 preview.scrollTop 会触发 preview scroll 事件，若此时 scrollSrc 已被 scrollend(120ms)重置为 null，preview scroll 监工会误判"用户拖 preview"→设 scrollSrc="preview"→scheduleSync(preview,editor)→把 editor 拉回 preview 位置→editor scroll 守卫(scrollSrc!=="preview")无法恢复"editor"→死锁→editor 卡 content 被反复拉回(用户感"跳回开头")。positionWindow/renderWindowLazy/img load 推 preview 前都已标，唯独 syncAnchors 漏。
     dst.scrollTop = Math.max(0, Math.min(max || 0, y - dst.clientHeight / 2));
   }
   // 滚动同步用 requestAnimationFrame 合并（每帧最多一次），避免滚动卡顿
@@ -4365,8 +4679,20 @@
     syncDir = { src, dst };
     if (syncRaf) return;
     syncRaf = requestAnimationFrame(() => { syncRaf = 0; if (syncDir) { const d = syncDir; syncDir = null; syncAnchors(d.src, d.dst); } });
-  }  preview.addEventListener("scroll", () => {
-    if (scrollSrc !== "editor") { scrollSrc = "preview"; scheduleSync(preview, editor); }
+  }
+  // 用户直接操作 preview(wheel/触控/拖滚动条 pointerdown)的最近时间戳：区分"用户拖 preview"vs"程序推 preview 的余波 scroll"。
+  // 仅前者应触发 preview→editor。后者(editor 驱动时 syncAnchors/positionWindow 推 preview，其 scroll 事件在 WKWebView 下可能延迟到
+  // scrollSrc 被 scrollend 重置为 null 后才到达)若误判为用户拖→preview→editor 把 editor 拉回 preview 位置→editor scroll 守卫(scrollSrc!=="preview")
+  // 无法恢复"editor"→死锁→editor 卡 content 区被反复拉回(用户感"跳回开头")。scrollSrc 时序判断不可靠，故用用户交互时间戳兜底。
+  let lastPreviewUser = 0;
+  preview.addEventListener("wheel", () => { lastPreviewUser = performance.now(); }, { passive: true });
+  preview.addEventListener("touchstart", () => { lastPreviewUser = performance.now(); }, { passive: true });
+  preview.addEventListener("pointerdown", () => { lastPreviewUser = performance.now(); });
+  preview.addEventListener("scroll", () => {
+    if (performance.now() - lastPreviewUser < 600 && scrollSrc !== "editor") {
+      scrollSrc = "preview"; scheduleSync(preview, editor);
+      if (winSkel.length) scheduleWindowLazyParse(); // 窗口化：用户主动滚预览→懒解析未 parse 区
+    }
     if (vblocks.length) scheduleRenderVisible(); // 虚拟化：滚动时按需切换可见块
   });
   // 图片异步加载会撑高预览，使 fineYCache/previewBlockY 过期（图片后内容偏上、文档后半部分累积偏差），
@@ -4551,12 +4877,26 @@
   $("search-prev").onclick = () => doSearch(-1);
   $("search-close").onclick = closeSearch;
   // 编辑器滚动：同步高亮覆盖层滚动；编辑器正文被改：重算匹配并刷新覆盖层（预览由 render 钩子刷新）。
+  // 用户直接操作 editor(wheel/触控/拖滚动条/键盘)的最近时间戳：区分"用户驱动 editor"vs"程序推 editor 的余波 scroll"。
+  // WKWebView 下 syncAnchors(preview→editor) 推 editor 产生的 scroll 事件【异步延迟】到达，可能落在 wheel 间隙触发的
+  // scrollend→scrollSrc=null 之后→裸 scrollSrc!=="preview" 误判为用户驱动→editor→preview 把 preview 反拉回 editor 滞后位
+  // (深度预览滚动 line547+ 复现回跳)。scrollSrc 时序不可靠，故镜像 preview 侧(lastPreviewUser)用用户交互时间戳兜底。
+  let lastEditorUser = 0;
+  editor.addEventListener("wheel", () => { lastEditorUser = performance.now(); }, { passive: true });
+  editor.addEventListener("touchstart", () => { lastEditorUser = performance.now(); }, { passive: true });
+  editor.addEventListener("pointerdown", () => { lastEditorUser = performance.now(); });
+  editor.addEventListener("keydown", () => { lastEditorUser = performance.now(); }, { passive: true }); // CM 键盘滚屏
   editor.addEventListener("scroll", () => {
     if (editorHl) { editorHl.scrollTop = editor.scrollTop; editorHl.scrollLeft = editor.scrollLeft; }
-    // 窗口模式：编辑区中心移出当前窗口内圈 -> 防抖重渲新窗口（不依赖 scrollSrc，故预览驱动编辑器越过窗口边也触发）
-    if (winStart >= 0) scheduleWindowRecenter();
-    // 编辑区滚动 -> 预览跟随（防反馈：preview 驱动编辑器滚动时 scrollSrc="preview"，不回带预览）
-    if (scrollSrc !== "preview") { scrollSrc = "editor"; scheduleSync(editor, preview); }
+    // 窗口模式：编辑区中心移出当前窗口内圈 -> 防抖重渲新窗口。
+    // 预览驱动(scrollSrc="preview")时跳过：此时 editor 被 syncAnchors(offToEditorY lineBlockAt 回退)推着跟随 preview，
+    // 若触发 renderWindow reset 会以"进入时 editor off"为中心【异步】重 parse——await 期间 preview 继续滚→vContent 落在
+    // stale off≠当前 preview→错位/回跳(深度预览滚动 line225+ 复现)。预览驱动的 vContent 重 parse 专由 renderWindowLazy
+    // (scheduleWindowLazyParse，围绕 preview 实测 off)负责，renderWindow 仅服务 editor 驱动。editor 仍由 syncAnchors 跟随。
+    const userEditor = performance.now() - lastEditorUser < 600;
+    if (winStart >= 0 && scrollSrc !== "preview" && userEditor) scheduleWindowRecenter();
+    // 编辑区滚动 -> 预览跟随：仅"近期有 editor 用户输入"且非 preview 驱动时触发；preview 推 editor 的余波 scroll(无用户输入)被 gate
+    if (scrollSrc !== "preview" && userEditor) { scrollSrc = "editor"; scheduleSync(editor, preview); }
   });
   editor.addEventListener("input", () => {
     if (!searchBar.hidden) { updateSearchMatches(); renderEditorHighlight(); }
@@ -4660,6 +5000,18 @@
   }
   // 滚动预览到包含某源偏移的块（块级，虚拟化 best-effort）
   function scrollPreviewToSrcOffset(offset) {
+    if (!srcBlockOffsets.length && !winSkel.length) return;
+    if (winSkel.length) { // 窗口化：窗口外骨架定位+懒解析；窗口内 vContent 实测
+      if (offset < winStart || offset > winEnd) {
+        scrollSrc = "editor"; preview.scrollTop = Math.max(0, winOffToY(offset) - 20);
+        scheduleWindowLazyParse(); return;
+      }
+      let lo = 0, hi = srcBlockOffsets.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (srcBlockOffsets[mid] <= offset) lo = mid + 1; else hi = mid; }
+      const el = vContent && vContent.children[Math.max(0, lo - 1)];
+      if (el) { const pvRect = preview.getBoundingClientRect(); preview.scrollTop = el.getBoundingClientRect().top - pvRect.top + preview.scrollTop - 20; return; }
+      preview.scrollTop = Math.max(0, winOffToY(offset) - 20); return;
+    }
     if (!srcBlockOffsets.length) return;
     let lo = 0, hi = srcBlockOffsets.length;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (srcBlockOffsets[mid] <= offset) lo = mid + 1; else hi = mid; }
