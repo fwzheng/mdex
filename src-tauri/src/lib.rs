@@ -358,6 +358,24 @@ fn open_ai_panel(
         .lock()
         .unwrap()
         .insert(label.clone(), payload);
+    // 级联定位：按已有 ai-panel 窗口数偏移，避免新窗完全盖住旧窗。基于主窗口 outer_position(物理)
+    // 换算成逻辑坐标 + 偏移，给 builder.position(逻辑)——与 inner_size 同为逻辑像素，HiDPI 一致。
+    let main_win = app.get_webview_window("main");
+    let scale = main_win
+        .as_ref()
+        .and_then(|m| m.scale_factor().ok())
+        .unwrap_or(1.0) as f64;
+    let cascade = app
+        .webview_windows()
+        .keys()
+        .filter(|k| k.starts_with("ai-panel-"))
+        .count() as i32; // 已有数(本窗尚未 build)
+    let (lx, ly) = main_win
+        .as_ref()
+        .and_then(|m| m.outer_position().ok())
+        .map(|p| ((p.x as f64 + 96.0) / scale, (p.y as f64 + 96.0) / scale))
+        .unwrap_or((120.0, 120.0));
+    let off = ((cascade % 6) as f64) * 36.0;
     tauri::webview::WebviewWindowBuilder::new(
         &app,
         &label,
@@ -366,12 +384,31 @@ fn open_ai_panel(
     .title("MDeX AI")
     .inner_size(380.0, 200.0)       // 紧凑起始；JS maybeFitWindow 按内容贴合(撑大或缩到最小)。不设大默认窗——贴合必须真正生效
     .min_inner_size(300.0, 120.0)   // 最小高度放宽：允许缩到紧凑(仅输入框档)
-    .center()
+    .position(lx + off, ly + off)   // 级联偏移：每个新窗右下错开 36px(模 6 重置)，不完全盖住已有 AI 窗
     .focused(true)
     .always_on_top(true)          // AI 辅助窗口始终浮在主窗口之上(点击主窗口不会被遮到后面)
     .build()
     .map_err(|e| e.to_string())?;
     Ok(label)
+}
+
+/// 设置所有 ai-panel 窗口的 always_on_top。关闭主窗口的未保存确认弹窗时临时置 false，
+/// 否则 always_on_top 的 AI 窗会遮盖主窗口的确认弹窗(请求：确认弹窗须在 AI 窗之上)。
+/// 双保险：on_top=false(显示弹窗)时同时把主窗口临时置顶+聚焦——macOS floating 级窗口即使失焦
+/// 也压在 normal 主窗之上，仅降 AI 窗到 normal 级 + 抬主窗到 floating 级才能确保弹窗可见。
+#[tauri::command]
+fn set_ai_panels_on_top(on_top: bool, app: tauri::AppHandle) {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.set_always_on_top(!on_top); // false→主窗置顶抬到 AI 之上；true→主窗还原 normal
+        if !on_top {
+            let _ = main.set_focus();
+        }
+    }
+    for (label, win) in app.webview_windows() {
+        if label.starts_with("ai-panel-") {
+            let _ = win.set_always_on_top(on_top);
+        }
+    }
 }
 
 /// AI 独立窗口启动后取走选区数据（JSON，取后清空）。返回 None 表示本窗口非 AI 窗口。
@@ -1760,6 +1797,7 @@ pub fn run() {
             take_ai_panel_content,
             set_ai_panel_main,
             is_ai_panel_main,
+            set_ai_panels_on_top,
             apply_ai_edit,
             draft_images_base,
             move_dir,

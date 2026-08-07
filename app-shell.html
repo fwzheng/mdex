@@ -156,6 +156,9 @@
   /* CodeMirror 搜索高亮（Phase 3.2：Decoration.mark 画在 .cm-content 里，文字可见故不透明） */
   .cm-content .search-mark { background: rgba(255, 213, 79, .45); border-radius: 2px; }
   .cm-content .search-mark.current { background: rgba(255, 152, 0, .9); animation: search-flash .9s ease-out; }
+  /* AI 选区/光标可视化（画在 .cm-content，替代 #editor-hl 覆盖层；CM 迁移后 #editor-hl 已不对齐 CM） */
+  .cm-content .ai-sel { background: rgba(88,166,255,.22); border-radius: 2px; }
+  .cm-content .ai-sel:empty { display: inline-block; width: 3px; height: 1.5em; background: var(--accent); vertical-align: -0.3em; border-radius: 1px; box-shadow: 0 0 5px var(--accent); animation: ai-caret-blink 1.05s steps(2,start) infinite; }   /* 插入模式(无选区)：零宽 widget 画成蓝色闪烁竖线，提示 AI 将插入的位置 */
   #editor-hl mark.ai-sel { background: rgba(88,166,255,.22); color: transparent; border-radius: 2px; }
   /* 插入模式（无选区）：零宽 mark 显示成蓝色光标竖条，提示插入位置 */
   #editor-hl mark.ai-sel:empty { display: inline-block; width: 3px; height: 1.5em; background: var(--accent); color: var(--accent); vertical-align: -0.3em; border-radius: 1px; box-shadow: 0 0 5px var(--accent); animation: ai-caret-blink 1.05s steps(2,start) infinite; }   /* 光标处打开(cursorMode)：闪烁竖线让用户看清 AI 将插入的位置(独立窗口夺焦后原生 caret 消失) */

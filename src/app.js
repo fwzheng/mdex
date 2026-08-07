@@ -19,6 +19,24 @@
       return CM.Decoration.set(marks.map((m) => CM.Decoration.mark({ class: "search-mark" + (m.current ? " current" : "") }).range(m.start, m.end)), true);
     }),
   }) : null;
+  // AI 选区/光标可视化（CM 原生 Decoration，替代 #editor-hl 覆盖层）：有选区→mark 高亮；
+  // 无选区（插入模式）→widget 画零宽闪烁竖线（.ai-sel:empty）。画在 .cm-content 里、随内容滚动、像素对齐，
+  // 不受 #editor-hl(textarea 几何) 与 CM 不一致影响（CM 迁移后 #editor-hl 已不对齐 CM，旧法失效）。
+  const setAiSel = window.CM && CM.StateEffect ? CM.StateEffect.define() : null;
+  const AiCaretWidget = window.CM && CM.WidgetType ? class extends CM.WidgetType {
+    toDOM() { const s = document.createElement("span"); s.className = "ai-sel"; return s; }
+    ignoreEvent() { return true; }
+  } : null;
+  const aiSelField = window.CM && CM.StateField ? CM.StateField.define({
+    create: () => null,
+    update: (val, tr) => { for (const e of tr.effects) if (e.is(setAiSel)) return e.value; return val; },
+    provide: (f) => CM.EditorView.decorations.from(f, (sel) => {
+      if (!sel) return CM.Decoration.set([]);
+      if (sel.start !== sel.end) return CM.Decoration.set([CM.Decoration.mark({ class: "ai-sel" }).range(sel.start, sel.end)]);
+      return CM.Decoration.set([CM.Decoration.widget({ widget: new AiCaretWidget(), side: -1 }).range(sel.start)]);
+    }),
+  }) : null;
+  if (typeof window !== "undefined") window.__aiSelTest = (s, e) => { if (cm && setAiSel) cm.dispatch({ effects: setAiSel.of(s == null ? null : { start: s | 0, end: (e == null ? s : e) | 0 }) }); }; // 调试/测试：画/清 AI 光标选区可视化
   // CodeMirror 为唯一编辑器后端（Phase 4：textarea 路径已移除）。EDITOR_MODE 保留常量 "cm" 供各处分支判断。
   const EDITOR_MODE = "cm";
   /** @type {HTMLElement} */
@@ -61,6 +79,7 @@
           CM.drawSelection(),
           theme,
           searchMarkField,                  // 搜索高亮（Phase 3.2：StateField→Decoration.mark，画在 CM 内容里）
+          aiSelField,                       // AI 选区/光标可视化（mark 高亮 / widget 闪烁竖线）
           CM.EditorView.updateListener.of((vu) => { if (vu.docChanged) for (const fn of editorInputListeners) { try { fn({ type: "input" }); } catch (e) {} } }),
         ],
       }),
@@ -1651,24 +1670,31 @@
     // 选区高亮与浮层定位共用此 rect（之前用独立 #ai-mirror 测量会因换行/滚动条细微差异错位）。
     // buildAiSel 只在开浮层时建一次；滚动时 aiSelRect 仅同步滚动+重测，不重建 innerHTML（大文档不卡）。
     function buildAiSel() {
-      const hl = $("editor-hl");
-      if (!hl) return;
-      // 有选区→标记选区；无选区（插入模式）→在光标处放零宽 mark（仅用于定位浮层，不可见）
+      if (!cm || !setAiSel) return;
+      // 有选区→mark 高亮选区；无选区（插入模式）→widget 在光标处画零宽闪烁竖线（CM Decoration 画在 .cm-content）
       let s, e;
       if (selRange) { s = selRange.start; e = selRange.end; }
       else { s = cursorPos; e = cursorPos; }
-      const v = editor.value;
-      hl.innerHTML = aiEsc(v.slice(0, s))
-        + '<mark class="ai-sel">' + aiEsc(v.slice(s, e)) + '</mark>'
-        + aiEsc(v.slice(e));
+      const len = cm.state.doc.length;
+      s = Math.max(0, Math.min(s, len)); e = Math.max(0, Math.min(e, len));
+      cm.dispatch({ effects: setAiSel.of({ start: s, end: e }) });
     }
+    // AI 目标的视口矩形（供 placePop 定位浮层）：CM coordsAtPos 取起止偏移的客户端坐标，零宽(光标)返 2px 宽竖条矩形
     function aiSelRect() {
-      const hl = $("editor-hl"), mk = hl && hl.querySelector("mark.ai-sel");
-      if (!mk) return null;
-      hl.scrollTop = editor.scrollTop;   // 同步滚动 → mark 与编辑区视口对齐
-      hl.scrollLeft = editor.scrollLeft;
-      const r = mk.getBoundingClientRect();
-      return { vLeft: r.left, vTop: r.top, width: r.width, height: r.height };
+      if (!cm) return null;
+      let s, e;
+      if (selRange) { s = selRange.start; e = selRange.end; }
+      else { s = cursorPos; e = cursorPos; }
+      const len = cm.state.doc.length;
+      s = Math.max(0, Math.min(s, len)); e = Math.max(0, Math.min(e, len));
+      const c1 = cm.coordsAtPos(s);
+      if (!c1) return null;
+      if (s === e) return { vLeft: c1.left, vTop: c1.top, width: 2, height: c1.bottom - c1.top };
+      const c2 = cm.coordsAtPos(e);
+      if (!c2) return { vLeft: c1.left, vTop: c1.top, width: c1.right - c1.left, height: c1.bottom - c1.top };
+      return { vLeft: Math.min(c1.left, c2.left), vTop: Math.min(c1.top, c2.top),
+        width: Math.max(c1.right, c2.right) - Math.min(c1.left, c2.left),
+        height: Math.max(c1.bottom, c2.bottom) - Math.min(c1.top, c2.top) };
     }
 
     function placePop() {
@@ -2016,7 +2042,7 @@
         } catch (_) {}
       }
       if (typeof renderEditorHighlight === "function") renderEditorHighlight(); // 清掉 hl 里的 AI 选区 mark（无搜索则置空）
-      if (editorHl) editorHl.innerHTML = ""; // CM 下 renderEditorHighlight 走 CM Decoration 不碰 #editor-hl，显式清 ai-sel mark
+      if (cm && setAiSel) cm.dispatch({ effects: setAiSel.of(null) }); // 清 AI 选区/光标可视化（CM Decoration）
       try { const _c = editor.selectionEnd; editor.setSelectionRange(_c, _c); } catch (_) {} // AI 结束→折叠选区，清除"处理中"高亮
       pop.hidden = true;
     }
@@ -2490,7 +2516,10 @@
       // 主窗口模式：接收 AI 独立窗口点"应用/插入"的请求，写回 editor（复用 applyResult/insertResult 的 editor 操作）
       if (!isAiPanelWindow) {
         // AI 辅助窗口关闭 → 清掉 hl 上的选区/光标标记(防残留)
-        T.event.listen("ai-panel-closed", () => { if (typeof renderEditorHighlight === "function") renderEditorHighlight(); });
+        T.event.listen("ai-panel-closed", () => {
+          if (typeof renderEditorHighlight === "function") renderEditorHighlight();
+          if (cm && setAiSel) cm.dispatch({ effects: setAiSel.of(null) }); // 清 AI 选区/光标可视化（CM Decoration）
+        });
         T.event.listen("apply-ai-edit", (e) => {
           let d = null; try { d = JSON.parse(String(e && e.payload)); } catch (_) {}
           if (!d || typeof d !== "object") return;
@@ -4899,20 +4928,27 @@
           if (!tabs.some((x) => x.dirty)) return;             // 无未保存标签 → 放行
           if (event && typeof event.preventDefault === "function") event.preventDefault();
           else return;                                         // 无法拦截 → 不阻拦（降级为改前行为）
+          // 临时取消 AI 窗口置顶，否则 always_on_top 的 AI 窗会遮盖本未保存确认弹窗(请求：确认弹窗须在 AI 窗之上)
+          try { await invoke("set_ai_panels_on_top", { onTop: false }); } catch (e) { console.warn("[close] set_ai_panels_on_top 不可用(需重新编译 Rust 二进制):", e); }
           const pending = tabs.filter((x) => x.dirty).slice();
-          for (const tab of pending) {
-            if (activeId !== tab.id) switchTab(tab.id);
-            const choice = await confirmCloseDialog();
-            if (!choice || choice === "cancel") return;       // 取消 → 中止关窗，保持现状
-            if (choice === "save") {
-              const ok = await saveFile(tab);
-              if (!ok || tab.dirty) return;                   // 保存取消/失败 → 中止关窗
+          try {
+            for (const tab of pending) {
+              if (activeId !== tab.id) switchTab(tab.id);
+              const choice = await confirmCloseDialog();
+              if (!choice || choice === "cancel") return;       // 取消 → 中止关窗，保持现状
+              if (choice === "save") {
+                const ok = await saveFile(tab);
+                if (!ok || tab.dirty) return;                   // 保存取消/失败 → 中止关窗
+              }
+              // choice === "discard" → 丢弃（继续关）
             }
-            // choice === "discard" → 丢弃（继续关）
+            windowCloseConfirmed = true;
+            writeDraftNow();                                     // 落盘最终会话后再关
+            try { await cwin.close(); } catch (_) {}            // 再次关闭（本次 windowCloseConfirmed=true 直接放行）
+          } finally {
+            // 恢复 AI 窗口置顶（取消关窗时必要；确认关窗时 AI 窗随后被级联关闭，无副作用）
+            try { await invoke("set_ai_panels_on_top", { onTop: true }); } catch (_) {}
           }
-          windowCloseConfirmed = true;
-          writeDraftNow();                                     // 落盘最终会话后再关
-          try { await cwin.close(); } catch (_) {}            // 再次关闭（本次 windowCloseConfirmed=true 直接放行）
         });
       }
     } catch (_) {}
