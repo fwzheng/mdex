@@ -2,8 +2,28 @@
 "use strict";
 (function () {
   const $ = (id) => document.getElementById(id);
-  /** @type {HTMLTextAreaElement} */
-  const editor = /** @type {HTMLTextAreaElement} */ ($("editor"));
+  // 编辑器后端：textarea（旧）或 CodeMirror 6（新）。构建开关 window.__MDEX_EDITOR__ + 运行时 localStorage 覆盖。
+  // CM 模式：cm=EditorView、editor=适配器 Proxy（对下游 ~180 处"像 textarea"）；textarea 模式：editor=原生 textarea。
+  // CM 模式下同步仍走旧 yprobe（Phase 2 才换 cm.posAtCoords），故 Phase 1 同步精度同 textarea（预期）。
+  const editorInputListeners = new Set();
+  let cm = null;
+  // CM 搜索高亮（Phase 3.2）：StateEffect 触发 + StateField 持有匹配区间 → Decoration.mark，画在 CM
+  // 内容里（替代 #editor-hl 覆盖层）。覆盖层是独立 div、与 CM 的 .cm-content 折行/坐标有细微差，
+  // 导致高亮块"差一两格"；CM 原生 Decoration 与文本像素对齐，根治。
+  const setSearchMarks = window.CM && CM.StateEffect ? CM.StateEffect.define() : null;
+  const searchMarkField = window.CM && CM.StateField ? CM.StateField.define({
+    create: () => [],
+    update: (val, tr) => { for (const e of tr.effects) if (e.is(setSearchMarks)) return e.value; return val; },
+    provide: (f) => CM.EditorView.decorations.from(f, (marks) => {
+      if (!marks || !marks.length) return CM.Decoration.set([]);
+      return CM.Decoration.set(marks.map((m) => CM.Decoration.mark({ class: "search-mark" + (m.current ? " current" : "") }).range(m.start, m.end)), true);
+    }),
+  }) : null;
+  // CodeMirror 为唯一编辑器后端（Phase 4：textarea 路径已移除）。EDITOR_MODE 保留常量 "cm" 供各处分支判断。
+  const EDITOR_MODE = "cm";
+  /** @type {HTMLElement} */
+  let editor;
+  cm = createCMEditor($("editor")); editor = cmAdapter(cm);
   const preview = $("preview");
   const main = $("main");
   /** @type {HTMLInputElement} */
@@ -12,6 +32,100 @@
   // Tauri 桥（构建后存在；浏览器中为 null，走降级）
   const T = window.__TAURI__;
   const invoke = (cmd, args) => (T && T.core && T.core.invoke ? T.core.invoke(cmd, args) : Promise.resolve(null));
+
+  // ---- CodeMirror 6 编辑器（EDITOR_MODE==='cm' 时启用）----
+  // 创建 CM：把 <textarea id=editor> 换成 <div id=editor> 挂入 CM；inline 覆盖 #editor 的 textarea 专属
+  // CSS（padding/overflow），由 CM 的 .cm-scroller/.cm-content 自管布局，外观与 textarea 一致。
+  function createCMEditor(host) {
+    const div = document.createElement("div");
+    div.id = "editor";                      // 复用 #editor 的 flex:1/width:100%/background 等布局 CSS
+    div.setAttribute("spellcheck", "false");
+    div.style.padding = "0";                // 覆盖 #editor{padding:20px 24px}（CM .cm-content 自带 padding）
+    div.style.overflow = "visible";         // 覆盖 #editor{overflow-y:auto}（CM .cm-scroller 自管滚动）
+    div.style.resize = "none";
+    host.replaceWith(div);
+    const theme = CM.EditorView.theme({
+      "&": { height: "100%", backgroundColor: "transparent" },
+      "&.cm-focused": { outline: "none" },
+      ".cm-scroller": { fontFamily: "var(--mono)", fontSize: "14px", lineHeight: "1.7", overflowY: "auto", scrollbarGutter: "stable" },
+      ".cm-content": { padding: "20px 24px", color: "var(--fg)", caretColor: "var(--fg)", tabSize: "2" },
+      ".cm-gutters": { display: "none" },
+    });
+    const view = new CM.EditorView({
+      state: CM.EditorState.create({
+        doc: "",
+        extensions: [
+          CM.EditorView.lineWrapping,       // 软折行（关键：匹配预览 pre-wrap，否则折行不一致、同步失准）
+          CM.EditorState.allowMultipleSelections.of(true), // 列选择需多选区（默认 false 会把多 range 折成主选区）
+          CM.history(),                     // undo/redo（Phase 3 完整接入；先开以免 undo 失灵）
+          CM.drawSelection(),
+          theme,
+          searchMarkField,                  // 搜索高亮（Phase 3.2：StateField→Decoration.mark，画在 CM 内容里）
+          CM.EditorView.updateListener.of((vu) => { if (vu.docChanged) for (const fn of editorInputListeners) { try { fn({ type: "input" }); } catch (e) {} } }),
+        ],
+      }),
+      parent: div,
+    });
+    // CM 列选择：Alt+左键拖拽 → 多光标矩形选区（每行一个 range，跨相同字符列）。capture 拦截先于
+    // CM 原生拖选、stopPropagation 防止 CM 常规拖选；复制/剪切/删除/输入由 CM 多光标原生按列处理。
+    view.contentDOM.addEventListener("mousedown", (e) => {
+      if (e.button !== 0 || !e.altKey) return;
+      e.preventDefault(); e.stopPropagation();
+      cmColumnDrag(view, e);
+    }, true);
+    if (typeof window !== "undefined") window.__cm = view; // 调试/测试暴露（posAtCoords/coordsAtPos 供回归测试用）
+    return view;
+  }
+  // CM 列选择拖拽：用拖拽像素矩形 (x0,y0)→(x1,y1)，按行高步进 Y，每【视觉行】用 posAtCoords 在
+  // 左/右列(x0/x1)取偏移→一个 range。posAtCoords 天然按视觉行解析，折行长行也能正确成列
+  // （按逻辑行算会把折行长行当一行、范围横跨整行——用户反馈的"碰折行末就整行选取"）。
+  function cmColumnDrag(view, e) {
+    const start = { x: e.clientX, y: e.clientY };
+    const apply = (cx, cy) => {
+      const x0 = Math.min(start.x, cx), x1 = Math.max(start.x, cx);
+      const y0 = Math.min(start.y, cy), y1 = Math.max(start.y, cy);
+      const lh = view.defaultLineHeight || 24;
+      const ranges = [];
+      let lastFrom = -1;
+      for (let y = y0; y <= y1 + lh; y += lh) {          // 按视觉行步进；+lh 兜底覆盖末行
+        const a = view.posAtCoords({ x: x0, y });
+        const b = view.posAtCoords({ x: x1, y });
+        if (a == null || b == null) continue;             // 视口外行跳过
+        const lo = Math.min(a, b), hi = Math.max(a, b);
+        if (lo !== lastFrom) { ranges.push(CM.EditorSelection.range(lo, hi)); lastFrom = lo; } // 去重同行
+      }
+      if (ranges.length) view.dispatch({ selection: CM.EditorSelection.create(ranges, 0) });
+    };
+    apply(e.clientX, e.clientY);
+    let dragging = true;
+    const move = (ev) => { if (dragging) apply(ev.clientX, ev.clientY); };
+    const up = () => { dragging = false; document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  }
+  // CM→textarea 适配器：以 cm.scrollDOM（.cm-scroller）为基元素，在其上 defineProperty 几个 textarea
+  // 专属属性转发到 cm。scrollDOM 原生就是 CM 的滚动容器 → scrollTop/clientHeight/scrollHeight/
+  // getBoundingClientRect/style/ResizeObserver/getComputedStyle 全部原生正确（无需 Proxy，避免
+  // "ResizeObserver.observe(Proxy) 不是 Element" 之类品牌检查失败）。
+  function cmAdapter(cmv) {
+    const el = cmv.scrollDOM;
+    const defs = {
+      // value: 读 cm 文档；写 dispatch 全量替换（loadTab/undo/AI 编辑等都走这里）
+      value: { configurable: true, get: () => cmv.state.doc.toString(), set: (v) => cmv.dispatch({ changes: { from: 0, to: cmv.state.doc.length, insert: String(v) } }) },
+      selectionStart: { configurable: true, get: () => cmv.state.selection.main.from },
+      selectionEnd: { configurable: true, get: () => cmv.state.selection.main.to },
+      setSelectionRange: { configurable: true, value: (s, e) => cmv.dispatch({ selection: CM.EditorSelection.single(s | 0, (e == null ? s : e) | 0), scrollIntoView: true }) },
+      focus: { configurable: true, value: () => cmv.focus() },
+      // 'input' 走 updateListener 维护的 editorInputListeners（CM 不发原生 input 事件）；其余事件用原生
+      // （scroll/click/keydown/paste 等冒泡到 scrollDOM）。注意：必须调 EventTarget.prototype 原生方法，
+      // 否则 el.addEventListener 已被本 override 覆盖→自调用无限递归。
+      addEventListener: { configurable: true, value: (type, fn, opts) => { if (type === "input") editorInputListeners.add(fn); else EventTarget.prototype.addEventListener.call(el, type, fn, opts); } },
+      removeEventListener: { configurable: true, value: (type, fn, opts) => { if (type === "input") editorInputListeners.delete(fn); else EventTarget.prototype.removeEventListener.call(el, type, fn, opts); } },
+      dispatchEvent: { configurable: true, value: (ev) => { if (ev && ev.type === "input") for (const fn of editorInputListeners) { try { fn(ev); } catch (e) {} } return EventTarget.prototype.dispatchEvent.call(el, ev); } },
+    };
+    for (const k in defs) Object.defineProperty(el, k, defs[k]);
+    return el;
+  }
   const isTauri = !!(T && T.core && T.core.invoke);
 
   // 当前窗口 label（"main" / "file-N" / "mermaid-N"）。用于草稿图片目录按窗口隔离（D3），
@@ -550,7 +664,10 @@
   }
 
   let previewDirty = false;
-  let srcBlockOffsets = []; // 每个源码块在 editor.value 中的起始字符偏移量（用于点击定位）
+  let srcBlockOffsets = []; // 每源码块在 editor.value 中的起始字符偏移（点击定位/滚动同步/左右对应）
+  let winStart = -1, winEnd = -1; // 大文档窗口化：当前渲染窗口 [winStart, winEnd)；-1=非窗口模式
+  let winRecenterRaf = 0;
+  let winRenderActive = 0; // 正在异步重渲窗口的计数器；>0 时冻结 syncAnchors（防用旧窗口偏移把预览定位错）
 
   /* ---------- mermaid（流程图/时序图等）----------
      ```mermaid 代码块在 render() 里预渲染为 SVG，写回 html 字符串——这样实时预览、
@@ -647,30 +764,14 @@
     const { text: textNoBib, embedded } = extractEmbeddedBib(text);
     text = textNoBib;
     const bibDB = buildBibDB(at0, embedded);
-    // 计算源码块偏移量：用 marked lexer 的顶层 token 在源码里顺序定位起始 offset，
-    // 与 renderIntoPreview 中 children（marked 顶层元素）严格一一对应。
-    // 旧实现按 \n\n 切块，遇"标题紧跟列表/段落无空行""列表续文段落"会与 marked 顶层块数量不一致
-    // → children[i]↔srcBlockOffsets[i] 配对错位 → 滚动同步/点击定位在中后段系统性偏移。
-    // text 此处仍是原文（code/math 占位在下方才替换；bibtex 为等长空白替换，offset 仍映射源码）。
+    // 大文档窗口化渲染（浏览时只渲染编辑区中心一段窗口；force=导出时仍走整篇，见下方）
+    if (text.length > 200000 && !force) { await renderWindow(true); return; }
+    // srcBlockOffsets（每源码块在原文起始偏移，滚动同步/点击定位/左右对应用）+ marked→html 一起在
+    // 下方变换后计算，让偏移与渲染块同源 → srcBlockOffsets[i] 与预览第 i 块严格一一对应。
+    // rawText = post-bibtex 原文（偏移基准；bibtex 等长空白替换，offset 仍映射源码）。
     srcBlockOffsets = [];
-    if (window.marked && marked.lexer) {
-      let _search = 0;
-      const _topToks = marked.lexer(text).filter(tk => tk.type !== "space"); // space 不产生顶层元素
-      for (const tk of _topToks) {
-        if (!tk.raw) continue;
-        const _probe = tk.raw.replace(/\n+$/, "");
-        let _idx = _probe ? text.indexOf(_probe, _search) : _search;
-        if (_idx < 0) _idx = _search; // 极端回退：顺序消费，保证不漏块、不下标错位
-        srcBlockOffsets.push(_idx);
-        _search = _idx + tk.raw.length;
-      }
-    } else { // 兜底（markdown 模式必有 marked，仅防御）
-      let _pos = 0;
-      for (const part of text.split(/(\n\n+)/)) {
-        if (part.trim()) srcBlockOffsets.push(_pos);
-        _pos += part.length;
-      }
-    }
+    const rawText = text;
+    const bigDoc = text.length > 200000;
     const codeStore = [];
     const CPH = (i) => "\u200bCODE" + i + "\u200b";
     text = text.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); });
@@ -683,9 +784,66 @@
     // 还原代码（让 marked 正常渲染为 <code>/<pre>），公式占位符保留给后面替换
     // 单次正则替换，避免 O(文本长 × 代码块数) 的 split/join 循环（大文档会明显卡顿）
     src = src.replace(/​CODE(\d+)​/g, (_m, i) => codeStore[+i] || "");
+    // 大文件：转义散文里的 < >（书里的 bra-ket <ψ|>、OCR 尖括号会被 marked 当 HTML 标签去匹配，
+    // 在 JavaScriptCore 上正则回溯极慢）。代码块已还原、由 marked 自行转义；公式/代码占位符无 <>。
+    if (text.length > 200000) src = src.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     let html;
-    try { html = marked.parse(src); }
+    try {
+      // 大文件：JavaScriptCore 下 marked.lexer/marked.parse 对整篇大文本正则灾难性慢且超线性（实测
+      // 整篇 lex 66s、parse 9.6s）。按 \n\n 把 rawText 与 src 同步切、累积成 ~20KB 批，逐批
+      // lex(raw批)取每块偏移 + parse(src批)取 html——批内保留 \n\n 结构（松散列表等仍算一块），
+      // 故【偏移】与【html 顶层块】同源、严格一一对应（左右对应准）；小块让 JSC 超线性坍塌（→秒级）；
+      // 批间 yield 保 UI 响应。raw 与 src 的 \n\n 序列一致（代码/公式/引用/转义均为行内变换），
+      // 若遇 display 数学/代码内含空行导致切块数不一致，退回整篇 lex（慢但准，罕见）。
+      const rawParts = rawText.split(/(\n\n+)/);
+      const srcParts = src.split(/(\n\n+)/);
+      if (bigDoc && !force && rawParts.length === srcParts.length) {
+        const g = ++renderGen;
+        html = ""; let rawBatch = "", srcBatch = "", rawPos = 0, batchStart = 0;
+        for (let i = 0; i < rawParts.length; i++) {
+          if (!rawBatch) batchStart = rawPos;
+          rawBatch += rawParts[i]; srcBatch += srcParts[i]; rawPos += rawParts[i].length;
+          if (rawBatch.length >= 20000 || i === rawParts.length - 1) {
+            if (rawBatch.trim()) {
+              if (window.marked && marked.lexer) {
+                let s = 0;
+                for (const tk of marked.lexer(rawBatch).filter(t => t.type !== "space")) {
+                  if (!tk.raw) continue;
+                  const probe = tk.raw.replace(/\n+$/, "");
+                  let idx = probe ? rawBatch.indexOf(probe, s) : s;
+                  if (idx < 0) idx = s;
+                  srcBlockOffsets.push(batchStart + idx);
+                  s = idx + tk.raw.length;
+                }
+              } else srcBlockOffsets.push(batchStart);
+              html += marked.parse(srcBatch, { gfm: false });
+            }
+            rawBatch = ""; srcBatch = "";
+            if (g !== renderGen) return;            // 新渲染到达→丢弃本次
+            await new Promise(r => setTimeout(r, 0)); // 让出主线程，UI 可响应
+            if (g !== renderGen) return;
+          }
+        }
+      } else {
+        // 小文件 / 兜底：整篇 lex 取偏移 + 整篇 parse
+        if (window.marked && marked.lexer) {
+          let search = 0;
+          for (const tk of marked.lexer(rawText).filter(t => t.type !== "space")) {
+            if (!tk.raw) continue;
+            const probe = tk.raw.replace(/\n+$/, "");
+            let idx = probe ? rawText.indexOf(probe, search) : search;
+            if (idx < 0) idx = search;
+            srcBlockOffsets.push(idx);
+            search = idx + tk.raw.length;
+          }
+        } else {
+          let pos = 0;
+          for (const part of rawText.split(/(\n\n+)/)) { if (part.trim()) srcBlockOffsets.push(pos); pos += part.length; }
+        }
+        html = marked.parse(src);
+      }
+    }
     catch (e) { html = '<p style="color:red">渲染错误: ' + escapeHtml(String(e)) + '</p>'; }
 
     if (window.DOMPurify) {
@@ -703,7 +861,7 @@
         try {
           // S2：KaTeX 输出在 DOMPurify 之后注入 innerHTML；对其单独消毒（html+mathMl profile，
           // 保留 span 与 MathML），失败/被清空则回退原输出（绝不致公式空白）。
-          out = katex.renderToString(s.tex, { displayMode: s.display, throwOnError: false, trust: false });
+          out = katex.renderToString(s.tex, { displayMode: s.display, throwOnError: false, trust: false, strict: false }); // strict:false 关闭 OCR 数学（零宽字符等）的 warning 洪水
         } catch (e) {
           out = '<span style="color:#d33" title="' + escapeHtml(String(e)) + '">' +
             escapeHtml(s.tex) + "</span>";
@@ -727,6 +885,188 @@
     if (myGen !== renderGen) return;
     renderIntoPreview(html);
   }
+
+  /* ---------- 大文档窗口化渲染（方案A）----------
+     WKWebView(JavaScriptCore) 下 marked 对整篇大文本灾难性慢（lex 66s、parse 9.6s）且不可分块加速。
+     改为只渲染"编辑区中心附近一段源码窗口"：marked 在小窗口上几十毫秒、精确、自洽（偏移与 html 同源
+     于该窗口→左右对应天然准）。预览只显示该窗口，状态栏显示位置百分比。仅文本 >200KB 启用；
+     force(导出) 走整篇（慢但全）。 */
+  function expandToBlockBounds(text, a, b) { // 把 [a,b) 向外扩到相邻 \n\n 段落边界（不切碎块）
+    a = Math.max(0, Math.min(text.length, a));
+    b = Math.max(a, Math.min(text.length, b));
+    let s = text.lastIndexOf("\n\n", a); s = s < 0 ? 0 : s + 2;
+    let e = text.indexOf("\n\n", b); e = e < 0 ? text.length : e;
+    return { start: s, end: e };
+  }
+  function lineOfOffset(off) { let l = 0; for (let i = 0; i < editorLineStarts.length; i++) { if (editorLineStarts[i] <= off) l = i; else break; } return l; }
+  // 窗口管线：对 ev.slice(start,end) 跑完整 markdown→html，返回 { html, offsets(绝对偏移) }
+  async function runWindowPipeline(ev, start, end) {
+    const sliceRaw = ev.slice(start, end);
+    const at = activeTab();
+    const { text: textNoBib, embedded } = extractEmbeddedBib(sliceRaw);
+    const bibDB = buildBibDB(at, embedded);
+    const rawWin = textNoBib; // post-bibtex（等长替换→偏移映射回 sliceRaw/ev）
+    let text = textNoBib;
+    const codeStore = [];
+    const CPH = (i) => "​CODE" + i + "​";
+    text = text.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); });
+    text = text.replace(/`[^`\n]+`/g, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); });
+    const { src, store } = extractMath(text);
+    const { src: src2, citeList } = scanCitations(src);
+    const s = src2.replace(/​CODE(\d+)​/g, (_m, i) => codeStore[+i] || "");
+    // 偏移（绝对 = start + 块内偏移）：lex 窗口原文取每块起点；html：parse 窗口 src。同源→严格对齐。
+    const offsets = [];
+    if (window.marked && marked.lexer) {
+      let search = 0;
+      for (const tk of marked.lexer(rawWin).filter(t => t.type !== "space")) {
+        if (!tk.raw) continue;
+        const probe = tk.raw.replace(/\n+$/, "");
+        let idx = probe ? rawWin.indexOf(probe, search) : search;
+        if (idx < 0) idx = search;
+        offsets.push(start + idx);
+        search = idx + tk.raw.length;
+      }
+    } else {
+      let pos = 0; for (const part of rawWin.split(/(\n\n+)/)) { if (part.trim()) offsets.push(start + pos); pos += part.length; }
+    }
+    let html;
+    try { html = marked.parse(s); } catch (e) { html = '<p style="color:red">渲染错误: ' + escapeHtml(String(e)) + '</p>'; }
+    if (window.DOMPurify) html = DOMPurify.sanitize(html, { ADD_ATTR: ["target", "colspan", "rowspan", "align", "loading", "aria-hidden", "encoding"] });
+    if (window.katex && store.length) {
+      const rendered = store.map((x) => {
+        let out;
+        try { out = katex.renderToString(x.tex, { displayMode: x.display, throwOnError: false, trust: false, strict: false }); }
+        catch (e) { out = '<span style="color:#d33">' + escapeHtml(x.tex) + '</span>'; }
+        if (x.display) out = '<span class="mdmath" data-tex="' + encodeURIComponent(x.tex) + '">' + out + '</span>';
+        return out;
+      });
+      html = html.replace(/​MATH(\d+)​/g, (_m, i) => rendered[+i] || "");
+    }
+    html = renderCitations(html, citeList, bibDB);
+    html = await renderMermaidInHtml(html);
+    return { html, offsets };
+  }
+  // 滑动式窗口：把一个切片的 html 挂进预览（append 末尾 / prepend 开头），不打散已有块。
+  // offsets=切片内各块起点（绝对偏移）；endOff=切片末尾（最后一块的 end）。块打 data-src-offset/end 标签。
+  function mountSliceBlocks(html, offsets, mode, endOff) {
+    if (html.indexOf("<table") !== -1)
+      html = html.replace(/<table(\s[^>]*)?>[\s\S]*?<\/table>/g, (m) => '<div class="table-wrap">' + m + "</div>");
+    const tpl = document.createElement("template"); tpl.innerHTML = html;
+    const kids = Array.from(tpl.content.children);
+    for (let i = 0; i < kids.length && i < offsets.length; i++) {
+      const so = offsets[i], eo = i + 1 < offsets.length ? offsets[i + 1] : endOff;
+      kids[i].setAttribute("data-src-offset", so);
+      kids[i].setAttribute("data-src-end", eo);
+      tagFineInBlock(kids[i], so, eo);
+    }
+    if (mode === "prepend") { const f = preview.firstChild; for (const k of kids) preview.insertBefore(k, f); }
+    else { for (const k of kids) preview.appendChild(k); }
+    highlightCodeLazy(); wrapDisplayMath(preview);
+    const at = activeTab();
+    if (at && at.type === "html") renderMathAuto(preview);
+    if (isTauri && at) resolveImages(preview, at.dir || "");
+    if (searchBar && !searchBar.hidden) highlightPreview();
+  }
+  // 滑动式窗口：裁掉远离 cLine 的整块（保 cLine 两侧 ~2×halfWin 行），避免窗口无限增长。
+  function trimWindowFar(cLine, halfWin) {
+    const ls = editorLineStarts, ev = editor.value, buf = halfWin * 2;
+    const trimLineTop = cLine - buf, trimLineBot = cLine + buf;
+    if (trimLineTop > 0) {
+      const trimOff = ls[trimLineTop] || 0;
+      if (trimOff > winStart) {
+        const kids = Array.from(preview.children);
+        for (const k of kids) if ((parseInt(k.getAttribute("data-src-offset")) || 0) < trimOff) preview.removeChild(k);
+        srcBlockOffsets = srcBlockOffsets.filter((o) => o >= trimOff);
+        if (srcBlockOffsets.length) winStart = srcBlockOffsets[0];
+      }
+    }
+    if (trimLineBot < ls.length) {
+      const trimOff = ls[trimLineBot] || ev.length;
+      if (trimOff < winEnd) {
+        const kids = Array.from(preview.children);
+        let firstRemoved = null;
+        for (const k of kids) { const o = parseInt(k.getAttribute("data-src-offset")) || 0; if (o >= trimOff) { if (firstRemoved === null) firstRemoved = o; preview.removeChild(k); } }
+        srcBlockOffsets = srcBlockOffsets.filter((o) => o < trimOff);
+        if (firstRemoved !== null) winEnd = firstRemoved;
+      }
+    }
+  }
+  // 浏览：渲染编辑区中心窗口
+  async function renderWindow(alwaysRender) {
+    if (!editorLineStarts.length) return;
+    const ev = editor.value, ls = editorLineStarts;
+    const centerOff = editorYToOff(editor.scrollTop + editor.clientHeight / 2);
+    const cLine = lineOfOffset(centerOff);
+    if (centerOff < 0) return; // editorYToOff 失败（posAtCoords null）-> 不重渲，避免误判大跳转重置到文档开头
+    const visibleLines = Math.max(20, Math.round((editor.clientHeight || 600) / editorLH));
+    const halfWin = Math.min(400, Math.round(visibleLines * 3)); // 窗口 ~6 视口
+    // 大跳转/首渲/强制：重置（重新居中、替换）--中心远离当前窗口（>3 窗口距）
+    const farJump = halfWin * editorLH * 3;
+    if (alwaysRender || winStart < 0 || centerOff < winStart - farJump || centerOff > winEnd + farJump) {
+      const a0 = ls[Math.max(0, cLine - halfWin)] || 0;
+      const b0 = (cLine + halfWin + 1 < ls.length) ? ls[cLine + halfWin + 1] : ev.length;
+      const wb = expandToBlockBounds(ev, a0, b0);
+      winStart = wb.start; winEnd = wb.end;
+      winRenderActive++;
+      try { const g = ++renderGen; const { html, offsets } = await runWindowPipeline(ev, winStart, winEnd);
+        if (g !== renderGen) return; srcBlockOffsets = offsets; renderIntoPreview(html); positionWindow(); updateWindowPos(cLine);
+      } catch (e) { console.log("renderWindow", e); } finally { winRenderActive--; }
+      return;
+    }
+    // 渐进：中心在窗口安全区 -> 不重渲（syncAnchors 跟随）；接近边沿 -> 扩展窗口（保留对侧）
+    const innerMargin = (winEnd - winStart) * 0.25;
+    if (centerOff >= winStart + innerMargin && centerOff <= winEnd - innerMargin) { updateWindowPos(cLine); return; }
+    winRenderActive++;
+    try {
+      const g = ++renderGen;
+      if (centerOff > winEnd - innerMargin) {
+        // 往下：扩展 winEnd（保留 winStart），append 新块。eOff 上方不动 -> Y 不变 -> 不跳。
+        const wantB = (cLine + halfWin + 1 < ls.length) ? ls[cLine + halfWin + 1] : ev.length;
+        const wb = expandToBlockBounds(ev, winEnd, wantB);
+        if (wb.end > winEnd) {
+          const { html, offsets } = await runWindowPipeline(ev, winEnd, wb.end);
+          if (g !== renderGen) return;
+          mountSliceBlocks(html, offsets, "append", wb.end);
+          srcBlockOffsets = srcBlockOffsets.concat(offsets);
+          winEnd = wb.end;
+        }
+      } else {
+        // 往上：扩展 winStart（保留 winEnd），prepend 新块。
+        const wantA = ls[Math.max(0, cLine - halfWin)] || 0;
+        const wb = expandToBlockBounds(ev, wantA, winStart);
+        if (wb.start < winStart) {
+          const { html, offsets } = await runWindowPipeline(ev, wb.start, winStart);
+          if (g !== renderGen) return;
+          mountSliceBlocks(html, offsets, "prepend", winStart);
+          srcBlockOffsets = offsets.concat(srcBlockOffsets);
+          winStart = wb.start;
+        }
+      }
+      trimWindowFar(cLine, halfWin);
+      buildPreviewBlockY();
+      positionWindow(); // eOff 钉预览中央（扩展/裁剪后统一重设，画面稳定不跳）
+      updateWindowPos(cLine);
+    } catch (e) { console.log("renderWindow", e); } finally { winRenderActive--; }
+  }
+  function positionWindow() { // 把编辑区中心对应的预览块居中
+    scrollSrc = "editor"; // 防预览滚动回环
+    const centerOff = editorYToOff(editor.scrollTop + editor.clientHeight / 2);
+    const y = previewOffsetToY(centerOff); // 实时 DOM 实测（同点击路径）
+    if (y != null && isFinite(y)) preview.scrollTop = Math.max(0, y - (preview.clientHeight || 600) / 2);
+  }
+  function updateWindowPos(centerLine) { // 状态栏位置指示（窗口模式）
+    const el = $("s-winpos"); if (!el) return;
+    if (winStart < 0) { el.textContent = ""; return; }
+    const total = editorLineStarts.length || 1;
+    el.textContent = (centerLine + 1) + " / " + total + " · " + Math.round(((centerLine + 1) / total) * 100) + "%";
+  }
+  // 滚动触发：编辑区中心移出当前窗口内圈 → 防抖重渲新窗口（不依赖 scrollSrc，故预览驱动编辑器越过窗口边也触发）
+  function scheduleWindowRecenter() {
+    if (winStart < 0 || !editorLineStarts.length) return;
+    if (winRecenterRaf) return;
+    winRecenterRaf = requestAnimationFrame(() => { winRecenterRaf = 0; renderWindow(false); });
+  }
+
   // HTML 模式：用 KaTeX auto-render 渲染 $...$ / $$...$$（HTML 里公式是字面量，不像 MD 模式已预渲染）
   function renderMathAuto(root) {
     if (window.renderMathInElement) {
@@ -735,6 +1075,7 @@
           delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }],
           throwOnError: false,
           trust: false, // 显式禁用 \href/\url/\includegraphics 等（默认即 false；显式标注防未来误开，S2）
+          strict: false, // 同上：关闭 warning 洪水（OCR 数学里大量零宽字符等）
         });
       } catch (e) {}
     }
@@ -1220,7 +1561,6 @@
       : curViewMode === "editor" ? t("editorOnly") : t("previewOnly");
   }
   function setViewMode(mode) {
-    clearColSel();
     clearTimeout(renderTimer); // C10: 切视图模式时取消待渲染（下方按需直接 render()）
     const wasEditor = curViewMode === "editor";
     curViewMode = mode;
@@ -1676,6 +2016,8 @@
         } catch (_) {}
       }
       if (typeof renderEditorHighlight === "function") renderEditorHighlight(); // 清掉 hl 里的 AI 选区 mark（无搜索则置空）
+      if (editorHl) editorHl.innerHTML = ""; // CM 下 renderEditorHighlight 走 CM Decoration 不碰 #editor-hl，显式清 ai-sel mark
+      try { const _c = editor.selectionEnd; editor.setSelectionRange(_c, _c); } catch (_) {} // AI 结束→折叠选区，清除"处理中"高亮
       pop.hidden = true;
     }
 
@@ -2382,7 +2724,6 @@
   }
 
   function loadTab(tab) {
-    clearColSel();
     if (!tab) { editor.value = ""; updateStats(); updateCursor(); return; }
     editor.value = tab.content;
     editor.setSelectionRange(tab.selStart || 0, tab.selEnd || 0);
@@ -3079,7 +3420,7 @@
       body + '</article>\n' +
       '<script>' + katexSrc + '<\/script>\n' +
       '<script>' + arSrc + '<\/script>\n' +
-      '<script>renderMathInElement(document.getElementById("preview"),{delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],throwOnError:false,trust:false});<\/script>\n' +
+      '<script>renderMathInElement(document.getElementById("preview"),{delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],throwOnError:false,trust:false,strict:false});<\/script>\n' +
       mermaidBoot +
       '</body>\n</html>\n';
   }
@@ -3804,15 +4145,10 @@
      （虚拟化自维护、滚动时自动校正）。滚动只查缓存、零 DOM 测量 → 丝滑。代码块按行插值。 */
   let previewBlockY = [];
   let fineYCache = []; // 渲染时测的细粒度（块+li/tr）Y 缓存；滚动查它、零 DOM 测量（避免反馈，见 bug 2）
-  let editorLineStarts = [0];   // 每个源码行的起始偏移
-  let editorFineYCache = []; // 每源码行起点的实测像素 Y（镜像 div+Range 测，含折行；滚动查它替代字符宽估算）
-  let visLineStart = [0];       // 累计【视觉行】：visLineStart[i]=源码第 i 行之前的视觉行数（含折行）
-  let editorCharW = 8.4;        // 等宽字体单字符宽（px）
-  let editorLH = 23.8;          // 编辑器实际行高（px）
-  let editorCharsPerRow = 80;   // 编辑器内容区每行可容纳字符数
+  let editorLineStarts = [0];   // 每个源码行的起始偏移（renderWindow 窗口边界 / lineOfOffset / updateWindowPos 用）
+  let editorLH = 23.8;          // 编辑器实际行高（px，renderWindow 算可见行数用）
   let editorFontMeasured = false;
-  // 量等宽字体的单字符宽与行高（隐藏 span）。字号须取 #editor 当前计算值（字体缩放后随变），
-  // 否则折行映射 charsPerRow/visLineStart 算错 → 滚动同步偏（bug_history BUG-060）。
+  // 量编辑器行高（隐藏 span，供 renderWindow 算可见行数/窗口大小）。字号取 #editor 当前计算值。
   function measureEditorFont() {
     let m = $("editor-measure");
     const fs = getComputedStyle(editor).fontSize || "14px";
@@ -3822,48 +4158,18 @@
       document.body.appendChild(m);
     }
     m.style.fontSize = fs;
-    m.textContent = "MMMMMMMMMM"; editorCharW = m.getBoundingClientRect().width / 10 || 8.4;
     m.textContent = Array(11).join("M\n"); editorLH = m.getBoundingClientRect().height / 10 || 23.8;
   }
   // 源码行起始偏移 + 每行折行数（等宽字体确定性：视觉行数=ceil(字数/每行字符数)）
+  // 编辑器源码行起点偏移表（供 renderWindow 窗口边界 / lineOfOffset / updateWindowPos 用）。
+  // CM 下像素↔偏移由 cm.posAtCoords/coordsAtPos 直接给（editorYToOff/offToEditorY），无需折行估算，
+  // 故本函数不再算 visLineStart/editorCharsPerRow 等（旧 textarea 折行估算已随 Phase 4 移除）。
   function computeEditorMap() {
     if (!editorFontMeasured) { measureEditorFont(); editorFontMeasured = true; }
     const v = editor.value;
     const ls = [0]; let i = 0;
     while ((i = v.indexOf("\n", i)) !== -1) ls.push(++i);
     editorLineStarts = ls;
-    const cs = getComputedStyle(editor);
-    const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
-    const contentW = editor.clientWidth - padL - padR;
-    editorCharsPerRow = Math.max(1, Math.floor(contentW / editorCharW));
-    const vis = [0];
-    for (let k = 0; k < ls.length; k++) {
-      const start = ls[k];
-      const end = k + 1 < ls.length ? ls[k + 1] - 1 : v.length; // 行内容（不含换行符）
-      vis.push(vis[k] + Math.max(1, Math.ceil((end - start) / editorCharsPerRow)));
-    }
-    visLineStart = vis;
-    buildEditorFineYCache(); // 行起点已定 → 用镜像 div 实测每行 Y（滚动查表，绕开字符宽估算）
-  }
-  // 镜像 div 实测每源码行起点的像素 Y（含折行真实位置）——滚动“像素↔偏移”查它，替代按字符宽估算（中文折行不准）
-  function buildEditorFineYCache() {
-    const probe = $("editor-yprobe");
-    if (!probe || !editorLineStarts.length) { editorFineYCache = []; return; }
-    probe.textContent = editor.value; // 与 textarea 同字体/换行/宽 → 视觉一致
-    const tn = probe.firstChild;
-    if (!tn || tn.nodeType !== 3) { editorFineYCache = []; return; }
-    const probeTop = probe.getBoundingClientRect().top;
-    const len = editor.value.length;
-    const cache = [];
-    for (let i = 0; i < editorLineStarts.length; i++) {
-      const off = editorLineStarts[i];
-      const r = document.createRange();
-      r.setStart(tn, off);
-      r.setEnd(tn, off + 1 <= len ? off + 1 : off);
-      const rect = r.getBoundingClientRect();
-      cache.push({ off: off, y: rect.top ? (rect.top - probeTop) : (i ? cache[i - 1].y + editorLH : 0) });
-    }
-    editorFineYCache = cache;
   }
   // 预览块顶 Y：虚拟化用 vprefix（虚拟化自维护），非虚拟化每次渲染测一次（滚动不重测 → 丝滑）
   function pby(i) { const a = vblocks.length ? vprefix : previewBlockY; return a ? (a[i] || 0) : 0; }
@@ -3917,6 +4223,7 @@
     return Math.round(bs + frac * (be - bs));
   }
   function offToPreviewY(off) { // 源偏移 → 预览内容 Y（优先 fineYCache 实测细粒度，回退块顶+字符比/行比）
+    if (winStart >= 0 && srcBlockOffsets.length) off = Math.max(srcBlockOffsets[0], Math.min(srcBlockOffsets[srcBlockOffsets.length - 1], off)); // 窗口模式：钳到窗口内防越界
     if (fineYCache.length) {
       let best = null;
       for (let i = 0; i < fineYCache.length; i++) {
@@ -3989,60 +4296,26 @@
     }
     return -1; // 未命中（块间空白/虚拟化未挂载）→ 调用方回退
   }
-  function editorYToOff(y) { // 编辑器像素 Y → 源偏移（优先 editorFineYCache 实测行 Y，回退折行估算）
-    if (editorFineYCache.length) {
-      const n = editorFineYCache.length;
-      if (y <= editorFineYCache[0].y) return editorFineYCache[0].off;
-      let clo = 0, chi = n - 1;
-      while (clo < chi) { const mid = (clo + chi + 1) >> 1; if (editorFineYCache[mid].y <= y) clo = mid; else chi = mid - 1; }
-      const cur = editorFineYCache[clo];
-      const nextY = clo + 1 < n ? editorFineYCache[clo + 1].y : cur.y + editorLH;
-      const lineOff = cur.off;
-      const lineEnd = clo + 1 < editorLineStarts.length ? editorLineStarts[clo + 1] : editor.value.length;
-      const visRows = Math.max(1, Math.round((nextY - cur.y) / editorLH)); // 实测视觉行数（行高/行距）
-      const charsPerVis = (lineEnd - lineOff) / visRows;                   // 每视觉行字符数（精确字符数/实测行数）
-      const localVis = Math.max(0, Math.min(visRows - 1, Math.round((y - cur.y) / editorLH)));
-      return Math.min(lineEnd, Math.round(lineOff + localVis * charsPerVis));
-    }
-    const ls = editorLineStarts, vis = visLineStart; if (!ls.length || !vis.length) return 0;
-    let vline = Math.round(y / editorLH);
-    const total = vis[vis.length - 1];
-    if (vline >= total) return ls[ls.length - 1];
-    if (vline <= 0) return 0;
-    let lo = 0, hi = vis.length - 1;
-    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (vis[mid] <= vline) lo = mid; else hi = mid - 1; }
-    const lineIdx = lo, localVis = vline - vis[lineIdx];
-    const start = ls[lineIdx];
-    const end = lineIdx + 1 < ls.length ? ls[lineIdx + 1] - 1 : editor.value.length;
-    return Math.min(end, start + localVis * editorCharsPerRow);
+  function editorYToOff(y) { // 编辑器像素 Y → 源偏移（CM：posAtCoords 像素级精确）
+    if (!cm) return 0;
+    const sd = cm.scrollDOM, rect = sd.getBoundingClientRect();
+    const vy = rect.top + (y - sd.scrollTop);
+    let pos = cm.posAtCoords({ x: rect.left + 8, y: vy });
+    if (pos == null) pos = cm.posAtCoords({ x: rect.left + 30, y: vy }); // 左 padding 内偶发 null -> 试文本区
+    return pos == null ? -1 : pos;
   }
-  function offToEditorY(off) { // 源偏移 → 编辑器像素 Y（优先 editorFineYCache 实测，回退折行估算）
-    if (editorFineYCache.length) {
-      const ls = editorLineStarts;
-      let clo = 0, chi = ls.length - 1;
-      while (clo < chi) { const mid = (clo + chi + 1) >> 1; if (ls[mid] <= off) clo = mid; else chi = mid - 1; }
-      if (clo < editorFineYCache.length) {
-        const cur = editorFineYCache[clo];
-        const nextY = clo + 1 < editorFineYCache.length ? editorFineYCache[clo + 1].y : cur.y + editorLH;
-        const lineOff = ls[clo];
-        const lineEnd = clo + 1 < ls.length ? ls[clo + 1] : editor.value.length;
-        const visRows = Math.max(1, Math.round((nextY - cur.y) / editorLH));
-        const charsPerVis = visRows > 0 ? (lineEnd - lineOff) / visRows : 0;
-        const localVis = charsPerVis > 0 ? Math.floor((off - lineOff) / charsPerVis) : 0;
-        return cur.y + localVis * editorLH;
-      }
-    }
-    const ls = editorLineStarts, vis = visLineStart; if (!ls.length || !vis.length) return 0;
-    if (off <= 0) return 0;
-    if (off >= ls[ls.length - 1]) return vis[vis.length - 1] * editorLH;
-    let lo = 0, hi = ls.length - 1;
-    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ls[mid] <= off) lo = mid; else hi = mid - 1; }
-    const lineIdx = lo, col = off - ls[lineIdx];
-    return (vis[lineIdx] + Math.floor(col / editorCharsPerRow)) * editorLH;
+  function offToEditorY(off) { // 源偏移 -> 编辑器像素 Y（CM：coordsAtPos 像素级精确；屏外返 -1，调用方跳过--勿用 lineBlockAt 估算，会因缓存过期级联狂跳）
+    if (!cm) return 0;
+    const clamped = Math.max(0, Math.min(off, cm.state.doc.length));
+    const c = cm.coordsAtPos(clamped);
+    if (!c) return -1; // off 在编辑器视口外 -> 无效，syncAnchors 跳过（编辑器不跟预览滚到窗口远端，但不跳）
+    const sd = cm.scrollDOM;
+    return c.top - sd.getBoundingClientRect().top + sd.scrollTop;
   }
   // 锚点式滚动同步（替换原全局比例）：以各自中线偏移互映射；无锚点时回退比例
   function syncAnchors(src, dst) {
     if (!syncScroll) return;
+    if (winRenderActive > 0) return; // 窗口重渲期间冻结同步（fineYCache 过期会致 previewYToOff 返回错 off、编辑器狂跳；由 positionWindow 统一定位）
     // 图片/mermaid/KaTeX 等异步渲染会撑高预览 → fineYCache/previewBlockY 过期（预览偏上、越往后越偏）→ 检测 scrollHeight 变化则重测
     if (preview.scrollHeight !== lastPreviewH) { buildPreviewBlockY(); lastPreviewH = preview.scrollHeight; }
     if (!pbyLen()) {
@@ -4050,10 +4323,10 @@
       dst.scrollTop = r * (dst.scrollHeight - dst.clientHeight); return;
     }
     const center = src.scrollTop + src.clientHeight / 2;
-    let y = null;
-    if (src === editor) { const off = editorYToOff(center); y = offToPreviewY(off); }
+    let y = null, eOff = null;
+    if (src === editor) { eOff = editorYToOff(center); if (eOff < 0) return; y = previewOffsetToY(eOff); } // 用实时 DOM 实测（同点击路径），而非缓存插值 offToPreviewY（滚动/换窗口期间会失真）
     else { const off = previewYToOff(center); y = offToEditorY(off); }
-    if (y == null || !isFinite(y)) return;
+    if (y == null || !isFinite(y) || y < 0) return;
     const max = dst.scrollHeight - dst.clientHeight;
     dst.scrollTop = Math.max(0, Math.min(max || 0, y - dst.clientHeight / 2));
   }
@@ -4063,16 +4336,24 @@
     syncDir = { src, dst };
     if (syncRaf) return;
     syncRaf = requestAnimationFrame(() => { syncRaf = 0; if (syncDir) { const d = syncDir; syncDir = null; syncAnchors(d.src, d.dst); } });
-  }
-  editor.addEventListener("scroll", () => { if (scrollSrc !== "preview") { scrollSrc = "editor"; scheduleSync(editor, preview); } });
-  preview.addEventListener("scroll", () => {
+  }  preview.addEventListener("scroll", () => {
     if (scrollSrc !== "editor") { scrollSrc = "preview"; scheduleSync(preview, editor); }
     if (vblocks.length) scheduleRenderVisible(); // 虚拟化：滚动时按需切换可见块
   });
-  // 图片异步加载会撑高预览，使 fineYCache/previewBlockY 过期（图片后内容偏上、文档后半部分累积偏差）→ img load 后防抖重测
+  // 图片异步加载会撑高预览，使 fineYCache/previewBlockY 过期（图片后内容偏上、文档后半部分累积偏差），
+  // 且加载后预览内容位移、原本对齐错位 → img load 后防抖重测缓存，再以编辑区当前中心为准重新定位预览。
   preview.addEventListener("load", (e) => {
     const t = e.target;
-    if (t && t.tagName === "IMG") { clearTimeout(imgLoadT); imgLoadT = setTimeout(buildPreviewBlockY, 60); }
+    if (t && t.tagName === "IMG") {
+      clearTimeout(imgLoadT);
+      imgLoadT = setTimeout(() => {
+        buildPreviewBlockY();
+        lastPreviewH = preview.scrollHeight;
+        // 编辑区为锚（scrollSrc≠preview 时）→ 重定位预览到编辑区中心对应位置，消除图片加载造成的位移错位。
+        // 标 scrollSrc="editor" 防止重定位触发 preview scroll → preview→editor 反馈。
+        if (scrollSrc !== "preview") { scrollSrc = "editor"; syncAnchors(editor, preview); }
+      }, 60);
+    }
   }, true);
   [editor, preview].forEach((el) => el.addEventListener("scrollend", () => {
     clearTimeout(scrollReset); scrollReset = setTimeout(() => (scrollSrc = null), 120);
@@ -4093,23 +4374,16 @@
   /** @type {HTMLInputElement} */
   const replaceInput = /** @type {HTMLInputElement} */ ($("replace-input"));
   const editorHl = $("editor-hl");
-  // 编辑器覆盖层：把全文 + 匹配 <mark> 渲到 #editor-hl（文字透明、仅 mark 显底色），与 textarea 同字体/内边距/行高对齐。
-  function renderEditorHighlight() {
-    if (!editorHl) return;
-    if (searchBar.hidden || !searchInput.value || !searchMatches.length) { editorHl.innerHTML = ""; return; }
-    const v = editor.value, q = searchInput.value;
-    let html = "", last = 0;
-    for (let i = 0; i < searchMatches.length; i++) {
-      const pos = searchMatches[i];
-      html += escapeHtml(v.slice(last, pos));
-      html += '<mark class="search-mark' + (i === searchIdx ? " current" : "") + '">' + escapeHtml(v.slice(pos, pos + q.length)) + '</mark>';
-      last = pos + q.length;
-    }
-    html += escapeHtml(v.slice(last));
-    editorHl.innerHTML = html;
-    editorHl.scrollTop = editor.scrollTop;
-    editorHl.scrollLeft = editor.scrollLeft;
+  // CM 模式：把搜索匹配作为 Decoration 推给 CM（画在内容里，替代 #editor-hl 覆盖层，根治"差一两格"）
+  function pushSearchMarks() {
+    if (!cm || !setSearchMarks) return;
+    let marks;
+    if (searchBar.hidden || !searchInput.value || !searchMatches.length) marks = [];
+    else { const q = searchInput.value; marks = searchMatches.map((pos, i) => ({ start: pos, end: pos + q.length, current: i === searchIdx })); }
+    cm.dispatch({ effects: setSearchMarks.of(marks) });
   }
+  // 编辑器搜索高亮：CM 模式把匹配作为 Decoration 推给 CM（画在 .cm-content 里，Phase 3.2）。
+  function renderEditorHighlight() { pushSearchMarks(); }
   // 预览：把可见文本节点里的查询串包进 <mark>，第 searchIdx 个加 current（闪一闪）。每次渲染后重跑。
   function highlightPreview() {
     preview.querySelectorAll("mark.search-mark").forEach((m) => {
@@ -4202,7 +4476,7 @@
     // 均会让该值偏离真实像素位置，匹配越靠后（上方折行段落越多）偏差越大：首条能居中、后续大多
     // 落到视口下方甚至不可见。搜索时 textarea 未聚焦（避免按键灌入正文），浏览器原生「滚动选区
     // 到可见」不触发，故必须用实测 Y 手动滚到位（与编辑↔预览滚动同步同源，BUG-060/104）。
-    editor.scrollTop = offToEditorY(pos) - editor.clientHeight / 2;
+    { const _y = offToEditorY(pos); if (_y >= 0) editor.scrollTop = _y - editor.clientHeight / 2; }
     $("search-count").textContent = (searchIdx + 1) + "/" + searchMatches.length;
     renderEditorHighlight(); // 刷新高亮：当前条 current 闪一闪
     highlightPreview();
@@ -4250,6 +4524,10 @@
   // 编辑器滚动：同步高亮覆盖层滚动；编辑器正文被改：重算匹配并刷新覆盖层（预览由 render 钩子刷新）。
   editor.addEventListener("scroll", () => {
     if (editorHl) { editorHl.scrollTop = editor.scrollTop; editorHl.scrollLeft = editor.scrollLeft; }
+    // 窗口模式：编辑区中心移出当前窗口内圈 -> 防抖重渲新窗口（不依赖 scrollSrc，故预览驱动编辑器越过窗口边也触发）
+    if (winStart >= 0) scheduleWindowRecenter();
+    // 编辑区滚动 -> 预览跟随（防反馈：preview 驱动编辑器滚动时 scrollSrc="preview"，不回带预览）
+    if (scrollSrc !== "preview") { scrollSrc = "editor"; scheduleSync(editor, preview); }
   });
   editor.addEventListener("input", () => {
     if (!searchBar.hidden) { updateSearchMatches(); renderEditorHighlight(); }
@@ -4523,38 +4801,6 @@
   editor.addEventListener("keyup", updateCursor);
   editor.addEventListener("keydown", (e) => {
     const mod = e.metaKey || e.ctrlKey;
-    // 列选取：Alt+Shift+方向键扩展；Esc 取消；活跃时字符/Backspace/Delete 按列作用
-    if (e.altKey && e.shiftKey && /^Arrow(Up|Down|Left|Right)$/.test(e.key)) {
-      e.preventDefault();
-      const { row, col } = offToRC(editor.selectionStart);
-      if (!colSel) colSel = { sr: row, sc: col, er: row, ec: col };
-      const last = edLines().length - 1;
-      if (e.key === "ArrowUp") colSel.er = Math.max(0, colSel.er - 1);
-      else if (e.key === "ArrowDown") colSel.er = Math.min(last, colSel.er + 1);
-      else if (e.key === "ArrowLeft") colSel.ec = Math.max(0, colSel.ec - 1);
-      else colSel.ec = colSel.ec + 1;
-      drawColSel();
-      // 滚动到选区末行(超出现口时)
-      const _m2 = edMetrics(), _tgt = colSel.er * _m2.lh + _m2.padT;
-      if (_tgt < editor.scrollTop) editor.scrollTop = _tgt - _m2.padT;
-      else if (_tgt + _m2.lh > editor.scrollTop + editor.clientHeight) editor.scrollTop = _tgt + _m2.lh - editor.clientHeight;
-      return;
-    }
-    if (colSel) {
-      if (mod && (e.key === "c" || e.key === "C" || e.key === "x" || e.key === "X")) {
-        // 列复制/剪切：写矩形块文本到剪贴板（不抢焦点，避免触发 blur 清除列选）；剪切再删列
-        e.preventDefault();
-        const _t = colText();
-        try { const _p = navigator.clipboard && navigator.clipboard.writeText(_t); if (_p && _p.catch) _p.catch(() => {}); } catch (_) {}
-        if (e.key === "x" || e.key === "X") { const _rg = colRange(); if (_rg.c1 > _rg.c0) colDelete(true); }
-        return;
-      }
-      if (e.key === "Escape") { e.preventDefault(); clearColSel(); return; }
-      if (!e.altKey && /^Arrow(Up|Down|Left|Right)$/.test(e.key)) { clearColSel(); /* 落默认移动 */ }
-      else if (!mod && !e.altKey && !e.isComposing && e.key.length === 1) { e.preventDefault(); colType(e.key); return; }
-      else if (!mod && !e.altKey && (e.key === "Backspace" || e.key === "Delete")) { e.preventDefault(); colDelete(e.key === "Delete"); return; }
-      else if (e.key === "Enter" || e.key === "Tab") { clearColSel(); /* 落默认 */ }
-    }
     // 浏览器降级快捷键；Tauri 中由原生菜单（加速键）触发，避免重复
     if (!isTauri && mod) {
       const k = e.key.toLowerCase();
@@ -4575,147 +4821,6 @@
       editor.setSelectionRange(s + 2, s + 2);
       scheduleRender();
     }
-  });
-
-  /* ---------- 列选取（矩形块选）----------
-     等宽编辑器：Alt/Option+拖拽 或 Alt+Shift+方向键 进入列选；活跃时输入/Backspace/Delete
-     按列作用于多行（多光标），复制/剪切取矩形块文本；Esc/普通方向键/切标签/切视图取消。
-     注：按等宽字宽算列像素位置，文档内 Tab 会令对齐略有偏差（本编辑器 Tab 插入 2 空格，故罕见）。 */
-  let colSel = null;        // {sr,sc,er,ec} 0 基行列
-  let colDrag = false;
-  let _colMx = 0, _colMy = 0, _colScrollRAF = 0;   // 列选拖拽自动滚动
-  let _cw = 0, _measurer = null, _m = null;
-  function charW() {
-    if (!_cw) {
-      if (!_measurer) {
-        _measurer = document.createElement("span");
-        _measurer.style.cssText = "position:absolute;visibility:hidden;white-space:pre;top:-9999px;left:-9999px;";
-        document.body.appendChild(_measurer);
-      }
-      const cs = getComputedStyle(editor);
-      _measurer.style.fontFamily = cs.fontFamily;
-      _measurer.style.fontSize = cs.fontSize;
-      _measurer.textContent = "M".repeat(100);
-      _cw = _measurer.getBoundingClientRect().width / 100;
-    }
-    return _cw || 8;
-  }
-  function edMetrics() {
-    if (!_m) {
-      const cs = getComputedStyle(editor);
-      _m = {
-        padL: parseFloat(cs.paddingLeft) || 24,
-        padT: parseFloat(cs.paddingTop) || 20,
-        lh: parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) * 1.7) || 23.8,
-      };
-    }
-    return _m;
-  }
-  function edLines() { return editor.value.split("\n"); }
-  function offToRC(p) { const b = editor.value.slice(0, p); return { row: b.split("\n").length - 1, col: p - (b.lastIndexOf("\n") + 1) }; }
-  function rcToOff(row, col) {
-    const lines = edLines();
-    let off = 0;
-    for (let i = 0; i < row && i < lines.length; i++) off += lines[i].length + 1;
-    return off + Math.min(col, (lines[row] || "").length);
-  }
-  function ptToRC(x, y) {
-    const r = editor.getBoundingClientRect(), m = edMetrics();
-    return {
-      row: Math.max(0, Math.floor((y - r.top - m.padT + editor.scrollTop) / m.lh)),
-      col: Math.max(0, Math.round((x - r.left - m.padL + editor.scrollLeft) / charW())),
-    };
-  }
-  function colRange() { if (!colSel) return null; return { r0: Math.min(colSel.sr, colSel.er), r1: Math.max(colSel.sr, colSel.er), c0: Math.min(colSel.sc, colSel.ec), c1: Math.max(colSel.sc, colSel.ec) }; }
-  function drawColSel() {
-    let ov = document.getElementById("colsel-overlay");
-    if (!ov) { ov = document.createElement("div"); ov.id = "colsel-overlay"; ov.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:60;"; document.body.appendChild(ov); }
-    ov.innerHTML = "";
-    if (!colSel) { editor.classList.remove("colsel-active"); ov.style.display = "none"; return; }
-    editor.classList.add("colsel-active"); ov.style.display = "";
-    const r = editor.getBoundingClientRect(), cw = charW(), m = edMetrics(), lines = edLines();
-    const { r0, r1, c0, c1 } = colRange();
-    const zero = c0 === c1;
-    for (let row = r0; row <= r1; row++) {
-      const x = r.left + m.padL + c0 * cw - editor.scrollLeft;
-      const y = r.top + m.padT + row * m.lh - editor.scrollTop;
-      const d = document.createElement("div");
-      if (zero) d.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:1px;height:${m.lh}px;background:rgba(80,140,255,.8);`;
-      else d.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${(c1 - c0) * cw}px;height:${m.lh}px;background:rgba(80,140,255,.25);box-shadow:inset 0 0 0 1px rgba(80,140,255,.5);`;
-      ov.appendChild(d);
-    }
-  }
-  function clearColSel() { if (colSel) { colSel = null; drawColSel(); } }
-  function colText() { const { r0, r1, c0, c1 } = colRange(); const lines = edLines(); const out = []; for (let r = r0; r <= r1; r++) out.push((lines[r] || "").slice(c0, c1)); return out.join("\n"); }
-  function colType(ch) {
-    const { r0, r1, c0, c1 } = colRange();
-    const lines = edLines().slice();
-    for (let r = r0; r <= r1; r++) {
-      let ln = lines[r] || "";
-      while (ln.length < c0) ln += " ";                // 短行补空格对齐列
-      lines[r] = ln.slice(0, c0) + ch + ln.slice(c1);  // 替换 [c0,c1) 为 ch
-    }
-    editor.value = lines.join("\n");
-    const nc = c0 + 1;
-    colSel = { sr: r0, sc: nc, er: r1, ec: nc };
-    try { editor.setSelectionRange(rcToOff(r0, nc), rcToOff(r0, nc)); } catch (_) {}
-    scheduleRender(); drawColSel(); updateCursor();
-  }
-  function colDelete(forward) {
-    const { r0, r1, c0, c1 } = colRange();
-    const wide = c1 > c0;
-    const lines = edLines().slice();
-    for (let r = r0; r <= r1; r++) {
-      let ln = lines[r] || "";
-      if (wide) ln = ln.slice(0, c0) + ln.slice(c1);
-      else if (forward) ln = ln.slice(0, c0) + ln.slice(c0 + 1);
-      else ln = ln.slice(0, Math.max(0, c0 - 1)) + ln.slice(c0);
-      lines[r] = ln;
-    }
-    editor.value = lines.join("\n");
-    const nc = wide ? c0 : (forward ? c0 : Math.max(0, c0 - 1));
-    colSel = { sr: r0, sc: nc, er: r1, ec: nc };
-    try { editor.setSelectionRange(rcToOff(r0, nc), rcToOff(r0, nc)); } catch (_) {}
-    scheduleRender(); drawColSel(); updateCursor();
-  }
-  editor.addEventListener("mousedown", (e) => {
-    if (!e.altKey) { if (colSel) clearColSel(); return; }
-    e.preventDefault();
-    const { row, col } = ptToRC(e.clientX, e.clientY);
-    if (e.shiftKey && colSel) { colSel.er = row; colSel.ec = col; }   // Alt+Shift+点击：扩展
-    else colSel = { sr: row, sc: col, er: row, ec: col };             // Alt+拖拽：新建
-    colDrag = true; drawColSel();
-  });
-  document.addEventListener("mousemove", (e) => {
-    if (!colDrag || !colSel) return;
-    _colMx = e.clientX; _colMy = e.clientY;
-    const { row, col } = ptToRC(_colMx, _colMy); colSel.er = row; colSel.ec = col; drawColSel();
-    // 自动滚动：鼠标超出编辑器上/下边缘时，rAF 循环滚动 + 更新选区
-    if (!_colScrollRAF) {
-      _colScrollRAF = requestAnimationFrame(function _csLoop() {
-        if (!colDrag) { _colScrollRAF = 0; return; }
-        const r = editor.getBoundingClientRect(), lh = edMetrics().lh;
-        let dir = 0;
-        if (_colMy < r.top + 20) dir = -1;
-        else if (_colMy > r.bottom - 10) dir = 1;
-        if (dir && editor.scrollTop + dir * lh >= 0 && editor.scrollTop + editor.clientHeight + dir * lh <= editor.scrollHeight + lh) {
-          editor.scrollTop += dir * lh;
-          const rc = ptToRC(_colMx, _colMy); colSel.er = rc.row; colSel.ec = rc.col; drawColSel();
-          _colScrollRAF = requestAnimationFrame(_csLoop);
-        } else { _colScrollRAF = 0; }
-      });
-    }
-  });
-  document.addEventListener("mouseup", () => { colDrag = false; });
-  editor.addEventListener("scroll", () => { if (colSel) drawColSel(); });
-  editor.addEventListener("blur", () => { if (colSel) clearColSel(); });
-  editor.addEventListener("copy", (e) => { if (!colSel) return; e.preventDefault(); e.clipboardData.setData("text/plain", colText()); });
-  editor.addEventListener("cut", (e) => {
-    if (!colSel) return;
-    e.preventDefault();
-    e.clipboardData.setData("text/plain", colText());
-    const { c0, c1 } = colRange();
-    if (c1 > c0) setTimeout(() => colDelete(true), 0);   // 有选区才删（零宽列无可删内容）
   });
 
   /* ---------- 菜单事件（Tauri 原生菜单转发）---------- */
@@ -5371,8 +5476,7 @@
     function applyEditor() {
       const px = EZ_BASE * ez;
       editor.style.fontSize = px + "px";
-      if (editorHl) editorHl.style.fontSize = px + "px";   // BUG-056：覆盖层同步
-      { const _yp = $("editor-yprobe"); if (_yp) _yp.style.fontSize = px + "px"; }   // BUG-104：probe 镜像层也须同步字号，否则缩放后折行不一致、行 Y 实测错位
+      if (editorHl) editorHl.style.fontSize = px + "px";   // BUG-056：AI 选区覆盖层同步
       const lvl = $("ez-lvl"); if (lvl) lvl.textContent = Math.round(ez * 100) + "%";
       measureEditorFont();           // 重测单字符宽/行高（measureEditorFont 已改为读 #editor 实际字号）
       computeEditorMap();            // 重算每行字符数/视觉行映射，否则滚动同步偏

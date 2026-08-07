@@ -6,6 +6,7 @@
   "description": "macOS 可离线 Markdown 阅读编辑器 (Tauri v2)",
   "scripts": {
     "fetch": "node tools/fetch-vendor.mjs",
+    "build:cm": "node tools/build-codemirror.mjs",
     "build:html": "node tools/build-html.mjs",
     "test": "node tools/test-pure.mjs",
     "test:align": "node tools/test-align-e2e.mjs",
@@ -13,7 +14,12 @@
     "tauri": "tauri"
   },
   "devDependencies": {
+    "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/search": "^6.7.1",
     "@tauri-apps/cli": "^2.0.0",
+    "codemirror": "^6.0.2",
+    "esbuild": "^0.28.1",
     "jsdom": "^29.1.1",
     "playwright-core": "^1.62.1",
     "typescript": "^7.0.2"

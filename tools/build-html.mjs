@@ -80,7 +80,10 @@ async function build() {
   const appJs = await readFile(join(ROOT, "src", "app.js"), "utf8");
   const i18nJs = await readFile(join(ROOT, "src", "i18n.js"), "utf8");
   const helpJs = await readFile(join(ROOT, "src", "help.js"), "utf8");
-  const combinedApp = `"use strict";\n${i18nJs}\n${helpJs}\n${appJs}`;
+  // 编辑器后端开关：默认 CodeMirror（CM，精准同步；Phase 0-3 已验），MDEX_EDITOR=textarea 用旧 textarea。
+  // app.js 启动时读 window.__MDEX_EDITOR__（运行时可用 localStorage["mdex-editor"] 覆盖，Cmd/Ctrl+Shift+E 切换）。
+  const editorMode = process.env.MDEX_EDITOR === "textarea" ? "textarea" : "cm";
+  const combinedApp = `"use strict";\nwindow.__MDEX_EDITOR__=${JSON.stringify(editorMode)};\n${i18nJs}\n${helpJs}\n${appJs}`;
 
   // ===== CSS =====（并行读取 #性能12；转换仍串行，因依赖读取结果）
   const [hljsLightRaw, hljsDarkRaw, katexCssRaw] = await Promise.all([
@@ -97,7 +100,8 @@ async function build() {
   // 说明：jsPDF/html2canvas-pro 仅供「另存为→PDF」导出；html2canvas-pro 支持 oklch/color-mix/color()
   //   （原版 1.4.1 在 WKWebView 下遇 color(srgb…) 计算色会抛 "unsupported color function"）。
   //   turndown + GFM 插件用于 HTML→Markdown 转换（表格/任务列表/删除线）。
-  const [purify, marked, katexJs, autoRender, hljsJs, jspdfJs, svg2pdfJs, html2canvasJs, turndownJs, turndownGfmJs, bibtexJs, mermaidJs] = await Promise.all([
+  const [cmJs, purify, marked, katexJs, autoRender, hljsJs, jspdfJs, svg2pdfJs, html2canvasJs, turndownJs, turndownGfmJs, bibtexJs, mermaidJs] = await Promise.all([
+    read("codemirror.js"),
     read("purify.min.js"),
     read("marked.min.js"),
     read("katex/katex.min.js"),
@@ -112,7 +116,8 @@ async function build() {
     read("mermaid.min.js"),
   ]);
   const vendorJs =
-    `\n<!--VENDOR JS (DOMPurify, marked, KaTeX, auto-render, highlight.js, jsPDF, html2canvas-pro, turndown, bibtex-parser, mermaid) -->\n` +
+    `\n<!--VENDOR JS (CodeMirror 6 → window.CM; DOMPurify, marked, KaTeX, auto-render, highlight.js, jsPDF, html2canvas-pro, turndown, bibtex-parser, mermaid) -->\n` +
+    `<script>${cmJs}</script>\n` +
     `<script>${purify}</script>\n` +
     `<script>${marked}</script>\n` +
     `<script id="katex-src">${katexJs}</script>\n` +
