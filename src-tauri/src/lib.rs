@@ -9,8 +9,9 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::time::Duration;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Emitter, Manager, WebviewWindow};
@@ -48,6 +49,10 @@ struct WindowState {
     next_id: Mutex<u64>,
     lang: Mutex<String>,
     focused: Mutex<Option<String>>,
+    /// 焦点驱动的 AI 置顶自动管理是否启用(关闭主窗口的确认弹窗期间临时禁用，防焦点事件把 AI 重新抬起)
+    ai_auto_top: AtomicBool,
+    /// 失焦去抖令牌：新焦点事件 fetch_add 使旧去抖线程捕获的令牌失效(防"主窗→AI窗"焦点切换瞬间误降 AI)
+    ai_focus_token: AtomicU64,
 }
 
 /// 从命令行参数中提取已存在的文件路径（Windows/Linux 双击文件时系统以 argv 传入；macOS 为空）。
@@ -386,27 +391,38 @@ fn open_ai_panel(
     .min_inner_size(300.0, 120.0)   // 最小高度放宽：允许缩到紧凑(仅输入框档)
     .position(lx + off, ly + off)   // 级联偏移：每个新窗右下错开 36px(模 6 重置)，不完全盖住已有 AI 窗
     .focused(true)
-    .always_on_top(true)          // AI 辅助窗口始终浮在主窗口之上(点击主窗口不会被遮到后面)
+    .always_on_top(true)          // floating 级：MDeX 激活时浮在主窗之上；切到别的 App 时由焦点处理器降级(BUG-151 方案D)
     .build()
     .map_err(|e| e.to_string())?;
     Ok(label)
 }
 
-/// 设置所有 ai-panel 窗口的 always_on_top。关闭主窗口的未保存确认弹窗时临时置 false，
-/// 否则 always_on_top 的 AI 窗会遮盖主窗口的确认弹窗(请求：确认弹窗须在 AI 窗之上)。
-/// 双保险：on_top=false(显示弹窗)时同时把主窗口临时置顶+聚焦——macOS floating 级窗口即使失焦
-/// 也压在 normal 主窗之上，仅降 AI 窗到 normal 级 + 抬主窗到 floating 级才能确保弹窗可见。
+/// 把所有 ai-panel 窗口的 always_on_top 统一设为 on_top(floating↔normal)。底层 set_level_async 线程安全。
+fn set_ai_panels_level(app: &tauri::AppHandle, on_top: bool) {
+    for (label, win) in app.webview_windows() {
+        if label.starts_with("ai-panel-") { let _ = win.set_always_on_top(on_top); }
+    }
+}
+
+/// 关闭主窗口的未保存确认弹窗时用(BUG-147 契约)：on_top=false 降 AI 到 normal + 抬主窗到 floating，使
+/// 确认弹窗(主窗 DOM 内 overlay)盖在 AI 之上；on_top=true 还原。AI 窗为 floating(BUG-151 方案D)，靠
+/// always_on_top 切 normal/floating 控制层级即可。on_top=false 时临时关焦点自动管理(防 main 聚焦事件把
+/// AI 重新抬起)；on_top=true 时仅在 app 当前仍激活才升 AI(用户可能在弹窗期间切到别的 App)。
 #[tauri::command]
 fn set_ai_panels_on_top(on_top: bool, app: tauri::AppHandle) {
     if let Some(main) = app.get_webview_window("main") {
-        let _ = main.set_always_on_top(!on_top); // false→主窗置顶抬到 AI 之上；true→主窗还原 normal
-        if !on_top {
-            let _ = main.set_focus();
-        }
+        let _ = main.set_always_on_top(!on_top); // false→主窗 floating 抬到 AI 之上；true→主窗还原 normal
+        if !on_top { let _ = main.set_focus(); }
     }
-    for (label, win) in app.webview_windows() {
-        if label.starts_with("ai-panel-") {
-            let _ = win.set_always_on_top(on_top);
+    if let Some(st) = app.try_state::<WindowState>() {
+        if !on_top {
+            st.ai_auto_top.store(false, Ordering::Relaxed);
+            st.ai_focus_token.fetch_add(1, Ordering::Relaxed); // 作废 pending 失焦去抖
+            set_ai_panels_level(&app, false);
+        } else {
+            let active = app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false));
+            set_ai_panels_level(&app, active); // 仅 app 激活才升 AI
+            st.ai_auto_top.store(true, Ordering::Relaxed);
         }
     }
 }
@@ -1772,6 +1788,8 @@ pub fn run() {
             next_id: Mutex::new(0),
             lang: Mutex::new("zh".into()),
             focused: Mutex::new(None),
+            ai_auto_top: AtomicBool::new(true),
+            ai_focus_token: AtomicU64::new(0),
         })
         .manage(AiState::default()) // AI 任务取消通道表（ai_rewrite / ai_cancel 共用）
         .invoke_handler(tauri::generate_handler![
@@ -1871,8 +1889,31 @@ pub fn run() {
             // 远早于任何菜单快捷键，故 on_menu_event 据此定向到真正活动的窗口。
             if let tauri::WindowEvent::Focused(true) = event {
                 let label = window.label().to_string();
-                if let Some(st) = window.app_handle().try_state::<WindowState>() {
+                let app = window.app_handle().clone();
+                if let Some(st) = app.try_state::<WindowState>() {
                     *st.focused.lock().unwrap() = Some(label);
+                    // BUG-151 方案D：任意 MDeX 窗口聚焦 = app 激活 → 作废旧失焦去抖 + AI 升 floating
+                    if st.ai_auto_top.load(Ordering::Relaxed) {
+                        st.ai_focus_token.fetch_add(1, Ordering::Relaxed);
+                        set_ai_panels_level(&app, true);
+                    }
+                }
+            }
+            // BUG-151 方案D：窗口失焦 → 去抖判定 app 是否整体失活(无任何 MDeX 窗口聚焦)；是则降 AI 到
+            // normal，被别的 App 盖住。去抖 150ms 防"主窗→AI窗"焦点切换瞬间把 AI 误降。令牌作废旧线程。
+            if let tauri::WindowEvent::Focused(false) = event {
+                let app = window.app_handle().clone();
+                if let Some(st) = app.try_state::<WindowState>() {
+                    if st.ai_auto_top.load(Ordering::Relaxed) {
+                        let token = st.ai_focus_token.fetch_add(1, Ordering::Relaxed) + 1;
+                        std::thread::spawn(move || {
+                            std::thread::sleep(Duration::from_millis(150));
+                            let st2 = match app.try_state::<WindowState>() { Some(s) => s, None => return };
+                            if st2.ai_focus_token.load(Ordering::Relaxed) != token { return; } // 已被新焦点事件作废
+                            let any_focused = app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false));
+                            if !any_focused { set_ai_panels_level(&app, false); } // app 失活 → AI 降级被别的 App 盖住
+                        });
+                    }
                 }
             }
         })
