@@ -1881,7 +1881,7 @@
     // setSize(needH) 后 inner 永远 <needH→maybeFitWindow 永远 grow→死循环。此处记录连续"setSize 后 inner 卡住不变"次数，
     // 连续 2 次即放弃自动贴合(_fitGiveUp=true)。窗口尺寸略偏(差标题栏高)远好过卡死。新窗口=新页面实例，变量自然重置。
     let _fitGiveUp = false;                  // true→maybeFitWindow 直接 return(已判定 setSize 无法收敛)
-    let _fitStallInner = 0, _fitStallCount = 0;  // 上次 setSize 后的 innerHeight / 连续卡住(同一 inner<needH)次数
+    let _fitGrowCount = 0, _fitLastNeed = -1;    // 连续 grow(同一 needH 反复撑大=未收敛)次数 / 上次 needH
     // rAF 节流触发 maybeFitWindow：流式输出(B1 逐渐增高)/A 区异步长高/RO 都用它，每帧最多 1 次，窗口紧跟内容。
     function scheduleFit() { if (_fitRAFPending) return; _fitRAFPending = true; requestAnimationFrame(() => { _fitRAFPending = false; if (Date.now() < _fitCooldown) return; maybeFitWindow(); }); }
     let bResizeObs = null;   // A 区+B 区 ResizeObserver→重贴合(捕获异步增高)
@@ -2197,13 +2197,15 @@
       // 验证 setSize 设的是内尺寸还是外尺寸：读 setSize 后的 innerHeight，若 < needH 一截，说明设的是外尺寸(含标题栏)
       const afterInner = window.innerHeight;
       _fitDbg(`need=${needH} cur=${curH}→${needH} afterInner=${afterInner} aH=${aHd} row=${row ? row.offsetHeight : 0} dlgMin=${dlg.style.minHeight} ${grow ? "grow" : "shrink"} ${res}`);
-      // 收敛兜底(BUG-154)：grow 后 inner 仍 <needH(外尺寸语义差标题栏) 且与上次 setSize 的 inner 完全相同(setSize 已无法再增=卡住)
-      // → 连续 2 次即判定 winChrome 探测失准、放弃自动贴合。彻底打破 winChrome=0/偏差时的死循环(卡死≫差几px)。
-      if (grow && afterInner < needH - 1) {
-        if (_fitStallInner === afterInner) {
-          if (++_fitStallCount >= 2) { _fitGiveUp = true; if (typeof console !== "undefined") console.warn("[AI panel] maybeFitWindow give up: setSize not converging (inner stuck at", afterInner, "< need", needH, ", winChrome mis-detected?) — auto-fit disabled to avoid freeze"); }
-        } else { _fitStallInner = afterInner; _fitStallCount = 1; }
-      } else { _fitStallInner = 0; _fitStallCount = 0; }
+      // 收敛兜底(BUG-154)：用"同一 needH 连续 grow 次数"判定死循环——不依赖 setSize 后 innerHeight 读值
+      // (WebView2 异步 resize,afterInner 滞后/每帧不同,基于 inner 是否相等判定会失效→永不 giveUp→卡死)。
+      // 正常流式增高:needH 持续变大(每次 grow 是新内容,_fitLastNeed≠needH,count=1,不放弃);
+      // 病态死循环:needH 不变反复 grow(setSize 达不到,winChrome 失准/菜单栏抬高 chrome),连续 3 次→放弃(卡死≫差几px)。
+      if (grow) {
+        if (_fitLastNeed === needH) {
+          if (++_fitGrowCount >= 3) { _fitGiveUp = true; if (typeof console !== "undefined") console.warn("[AI panel] maybeFitWindow give up: grow loop on same needH", needH, "not converging (winChrome mis-detected / menu bar inflates chrome?) — auto-fit disabled to avoid freeze"); }
+        } else { _fitLastNeed = needH; _fitGrowCount = 1; }
+      } else { _fitLastNeed = -1; _fitGrowCount = 0; }
     }
 
     // (诊断可见覆盖条已移除——问题定位完成。_fitDbg 保留为空实现，调用点暂留，后续可清。)

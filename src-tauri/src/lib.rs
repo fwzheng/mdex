@@ -399,6 +399,12 @@ fn open_ai_panel(
     .background_color(if dark { tauri::webview::Color(13, 17, 23, 255) } else { tauri::webview::Color(255, 255, 255, 255) })
     .build()
     .map_err(|e| e.to_string())?;
+    // AI 窗去掉继承的菜单栏(来自 app.set_menu / 主窗 menu)：Windows/Linux 上菜单栏占窗口垂直空间,
+    // chrome offset=标题栏+菜单栏≈60px >> ensureChrome 默认 winChrome=32 → setSize 死循环卡死(BUG-154)。
+    // AI 辅助窗本就不需要主菜单。macOS 菜单栏全局(屏幕顶)不占窗口空间,remove_menu 主要消除 Windows/Linux 窗口内菜单条。
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.remove_menu();
+    }
     Ok(label)
 }
 
@@ -975,6 +981,7 @@ fn change_language(app: tauri::AppHandle, lang: String) -> Result<(), String> {
     // 注：tauri::menu::Menu 无 clone/try_clone 且 set_menu 消耗所有权，无法复用同一实例，
     // 只能逐窗重建（#性能7 受 API 限制未优化；语言切换是低频操作，影响可忽略）。
     for w in app.webview_windows().values() {
+        if w.label().starts_with("ai-panel-") { continue; } // AI 窗不要菜单(BUG-154: 菜单栏占 Windows 窗口空间致 setSize 死循环)
         if let Ok(m) = build_menu(&app, &lang) {
             let _ = w.set_menu(m);
         }
