@@ -407,13 +407,13 @@ fn open_ai_panel(
     // AI 辅助窗本就不需要主菜单。macOS 菜单栏全局(屏幕顶)不占窗口空间,remove_menu 主要消除 Windows/Linux 窗口内菜单条。
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.remove_menu();
-        // TEMP 诊断：Windows AI 窗卡死定位。独立线程延迟 800ms 开 devtools——AI 窗 JS 异步循环淹没主线程时,
-        // F12 键盘事件被淹没打不开 devtools(主窗 F12 能开、AI 窗不能=铁证 JS 淹没);此 Rust 线程独立于 JS 主线程,
-        // 强制弹 devtools 让用户看控制台 [AI-DIAG] 日志/error 定位。定位后移除。
+        // TEMP 诊断: Rust 独立线程延迟 eval 注入蓝字 div(不依赖 app.js——AI 窗 app.js 可能根本没执行,_diag 红字没显示)。
+        // 显示 scripts 数(=index.html 是否加载)、window.CM、__diag 红字是否存在(=app.js 是否执行到 boot)、body 子元素数。
+        // 蓝字显示+diag=false→app.js 阻断;蓝字显示+diag=true→_diag 创建了但被覆盖;蓝字不显示→webview 卡死。定位后移除。
         let win2 = win.clone();
         std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(800));
-            let _ = win2.open_devtools();
+            std::thread::sleep(Duration::from_millis(1500));
+            let _ = win2.eval("try{var d=document.createElement('div');d.style.cssText='position:fixed;top:30px;left:0;z-index:2147483647;background:#06c;color:#fff;font:bold 13px monospace;padding:3px 6px';d.textContent='RUST scripts='+document.querySelectorAll('script').length+' CM='+(!!window.CM)+' diag='+(!!document.getElementById('__diag'))+' body='+(document.body?document.body.children.length:0);document.documentElement.appendChild(d);}catch(e){document.title='EVALERR'+e;}");
         });
     }
     Ok(label)
