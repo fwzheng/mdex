@@ -335,6 +335,7 @@ fn emit_viewer_update(target: String, content: String, app: tauri::AppHandle) ->
 #[tauri::command]
 fn open_ai_panel(
     payload: String,
+    dark: bool,
     app: tauri::AppHandle,
     state: tauri::State<WindowState>,
 ) -> Result<String, String> {
@@ -392,6 +393,10 @@ fn open_ai_panel(
     .position(lx + off, ly + off)   // 级联偏移：每个新窗右下错开 36px(模 6 重置)，不完全盖住已有 AI 窗
     .focused(true)
     .always_on_top(true)          // floating 级：MDeX 激活时浮在主窗之上；切到别的 App 时由焦点处理器降级(BUG-151 方案D)
+    // 消除 WKWebView 创建期白闪：AI 窗加载 6.8MB index.html，HTML 解析前的"空内容白帧"在 head 主题脚本生效前已可见
+    // (head 脚本在 HTML 解析后才跑，治不了 webview 创建→解析之间的白底)。builder background_color 在 webview 创建时即设，
+    // 首帧即为主题底色。颜色随主窗当前主题(前端传 dark)：深色 #0d1117 / 浅色 #ffffff，与 --bg 一致。
+    .background_color(if dark { tauri::webview::Color(13, 17, 23, 255) } else { tauri::webview::Color(255, 255, 255, 255) })
     .build()
     .map_err(|e| e.to_string())?;
     Ok(label)

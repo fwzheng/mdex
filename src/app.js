@@ -2326,7 +2326,7 @@
         payload = { start: r.start, end: r.end, selText: v.slice(r.start, r.end),
           ctxBefore: v.slice(Math.max(0, r.start - 600), r.start), ctxAfter: v.slice(r.end, r.end + 600) };
       } else { payload = { cursorPos: r.start, ctxBefore: "", ctxAfter: "" }; }
-      try { await invoke("open_ai_panel", { payload: JSON.stringify(payload) }); }
+      try { await invoke("open_ai_panel", { payload: JSON.stringify(payload), dark: document.documentElement.classList.contains("dark") }); }
       catch (e) { toast(t("aiErrPrefix") + String(e)); }
     }
     // 统一入口：AI 窗口内 no-op；Tauri 主窗口 → 独立窗口；浏览器/dev → 页内浮层。
