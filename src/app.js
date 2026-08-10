@@ -56,7 +56,9 @@
     box.innerHTML = "<b>MDeX 编辑器核心加载失败</b><br><br>CodeMirror (<code>vendor/codemirror.js</code>) 未加载 —— 安装包不完整（app.js 与 vendor/codemirror.js 版本不匹配）。<br>请重新下载安装包，或将此截图反馈给开发者。";
     return; // 中止 IIFE：阻止后续工具栏绑定（此时绑定也必失败），但已给用户明确反馈
   }
+  try { console.log("[AI-DIAG] preCM"); document.title = "·preCM"; } catch (_) {}
   cm = createCMEditor($("editor")); editor = cmAdapter(cm);
+  try { console.log("[AI-DIAG] postCM"); document.title = "·postCM"; } catch (_) {}
   const preview = $("preview");
   const main = $("main");
   /** @type {HTMLInputElement} */
@@ -2163,6 +2165,7 @@
     async function maybeFitWindow(forceShrink) {
       if (!isAiPanelWindow) return;
       if (_fitGiveUp) return;                // BUG-154 收敛兜底：setSize 已判定无法收敛(卡住)，放弃自动贴合避免死循环
+      try { console.log("[AI-DIAG] fit cnt=" + _fitGrowCount + " need=" + needH + " cur=" + curH + (grow ? " GROW" : "")); document.title = "·fit" + _fitGrowCount; } catch (_) {}
       const dlg = /** @type {HTMLElement|null} */ (pop.querySelector(".ai-dialog"));
       if (!dlg) return;
       const cw = aiWin();
@@ -6014,7 +6017,7 @@
     // AI 独立窗口（ai-panel-*）：不恢复会话/不开文件；浮层初始化由 AiModule 自行处理（取 take_ai_panel_content）
     // 补调 applyLang()：init 在此处短路 return 会跳过后面的 applyLang()，导致 #ai-input 的 data-i18n-ph
     // placeholder（及文案）没被设置 → 输入框无浅色提示。此处 curLang 已于上方从 localStorage 读出。
-    if (winLabel.startsWith("ai-panel-")) { try { applyLang(); } catch (_) {} return; }
+    if (winLabel.startsWith("ai-panel-")) { try { applyLang(); console.log("[AI-DIAG] ai-branch winLabel=" + winLabel); document.title = "·aiBranch"; } catch (_) {} return; }
     const wf = isTauri ? await invoke("take_window_file").catch(() => null) : null;
     if (wf) {
       isFileWindow = true;

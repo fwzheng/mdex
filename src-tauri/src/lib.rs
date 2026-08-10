@@ -407,6 +407,9 @@ fn open_ai_panel(
     // AI 辅助窗本就不需要主菜单。macOS 菜单栏全局(屏幕顶)不占窗口空间,remove_menu 主要消除 Windows/Linux 窗口内菜单条。
     if let Some(win) = app.get_webview_window(&label) {
         let _ = win.remove_menu();
+        // TEMP 诊断：Windows AI 窗卡死定位。强制开 devtools(需 Cargo devtools feature),
+        // 配合 app.js [AI-DIAG] console.log 步骤,用户在 Windows 看 devtools 控制台最后一条 log/error 定位卡死点。定位后移除。
+        win.open_devtools();
     }
     Ok(label)
 }
