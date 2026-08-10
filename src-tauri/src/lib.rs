@@ -397,6 +397,9 @@ fn open_ai_panel(
     // (head 脚本在 HTML 解析后才跑，治不了 webview 创建→解析之间的白底)。builder background_color 在 webview 创建时即设，
     // 首帧即为主题底色。颜色随主窗当前主题(前端传 dark)：深色 #0d1117 / 浅色 #ffffff，与 --bg 一致。
     .background_color(if dark { tauri::webview::Color(13, 17, 23, 255) } else { tauri::webview::Color(255, 255, 255, 255) })
+    // 窗口 appearance 跟随主题:控制 macOS 标题栏(含红黄绿交通灯)/系统控件底色。background_color 只管 webview,
+    // 不管标题栏——不设 theme 时独立新窗落回 light→标题栏白+整窗白闪(主窗靠继承系统 dark 才深,AI 窗没继承到)。
+    .theme(if dark { Some(tauri::Theme::Dark) } else { Some(tauri::Theme::Light) })
     .build()
     .map_err(|e| e.to_string())?;
     // AI 窗去掉继承的菜单栏(来自 app.set_menu / 主窗 menu)：Windows/Linux 上菜单栏占窗口垂直空间,
