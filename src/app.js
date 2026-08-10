@@ -2165,7 +2165,6 @@
     async function maybeFitWindow(forceShrink) {
       if (!isAiPanelWindow) return;
       if (_fitGiveUp) return;                // BUG-154 收敛兜底：setSize 已判定无法收敛(卡住)，放弃自动贴合避免死循环
-      try { console.log("[AI-DIAG] fit cnt=" + _fitGrowCount + " need=" + needH + " cur=" + curH + (grow ? " GROW" : "")); document.title = "·fit" + _fitGrowCount; } catch (_) {}
       const dlg = /** @type {HTMLElement|null} */ (pop.querySelector(".ai-dialog"));
       if (!dlg) return;
       const cw = aiWin();
@@ -2192,6 +2191,7 @@
       const grow = needH > curH + 1;
       const shrink = (forceShrink || !userResized) && needH < curH - 1;   // forceShrink: init 强制缩回(B1=0)，不受 userResized 影响
       if (!grow && !shrink) return;                             // 已贴合 或 用户手动定了更大尺寸(尊重)
+      try { console.log("[AI-DIAG] fit cnt=" + _fitGrowCount + " need=" + needH + " cur=" + curH + (grow ? " GROW" : " SHRINK") + (forceShrink ? " FORCE" : "")); } catch (_) {}
       const newW = Math.round(window.innerWidth);                                            // 宽不变(仅贴合高)
       progResize = true;
       setTimeout(() => { progResize = false; }, 300);            // 300ms 内的 onResized 视为自家 setSize 回声
