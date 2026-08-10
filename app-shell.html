@@ -9,6 +9,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MDeX</title>
+<!-- 同步主题预设：在 CSS 解析/首帧绘制前给 <html> 加 dark 类 + 内联底色，消除独立 OS 窗(AI/查看器)及主窗的首帧白闪
+     ——深色用户尤其明显(白→深跳变)。逻辑须与 src/app.js 启动主题读取(localStorage md-theme，无值跟 prefers-color-scheme)
+     严格一致，避免二次闪烁。背景色取 html.dark 的 --bg 值(#0d1117)。 -->
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem("md-theme");
+    if (t === null || t === "") t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    var dark = (t === "dark");
+    var root = document.documentElement;
+    if (dark) root.classList.add("dark");
+    root.style.backgroundColor = dark ? "#0d1117" : "#ffffff";
+  } catch (_) {}
+})();
+</script>
 
 <!-- 构建时由 tools/build-html.mjs 注入：highlight.js + KaTeX 的 <style>（字体 base64 内嵌） -->
 <!--VENDOR:css-->
