@@ -2,6 +2,10 @@
 "use strict";
 (function () {
   const $ = (id) => document.getElementById(id);
+  // TEMP 诊断(BUG-154 Windows AI 窗卡死): 把执行步骤画到屏幕左上角红底白字——不依赖 DevTools
+  // (AI 窗 F12 被 JS 淹没、open_devtools 也失效)。用户看 AI 窗左上角文字=卡死点。定位后连同各 _diag 调用一起删。
+  function _diag(s) { try { console.log("[AI-DIAG]", s); var d = document.getElementById("__diag"); if (!d) { d = document.createElement("div"); d.id = "__diag"; d.style.cssText = "position:fixed;top:0;left:0;z-index:2147483647;background:#d32;color:#fff;font:bold 13px monospace;padding:3px 6px;pointer-events:none;max-width:100vw;white-space:pre;"; document.documentElement.appendChild(d); } d.textContent = s; } catch (_) {} }
+  _diag("boot");
   // 编辑器后端：textarea（旧）或 CodeMirror 6（新）。构建开关 window.__MDEX_EDITOR__ + 运行时 localStorage 覆盖。
   // CM 模式：cm=EditorView、editor=适配器 Proxy（对下游 ~180 处"像 textarea"）；textarea 模式：editor=原生 textarea。
   // CM 模式下同步仍走旧 yprobe（Phase 2 才换 cm.posAtCoords），故 Phase 1 同步精度同 textarea（预期）。
@@ -56,9 +60,9 @@
     box.innerHTML = "<b>MDeX 编辑器核心加载失败</b><br><br>CodeMirror (<code>vendor/codemirror.js</code>) 未加载 —— 安装包不完整（app.js 与 vendor/codemirror.js 版本不匹配）。<br>请重新下载安装包，或将此截图反馈给开发者。";
     return; // 中止 IIFE：阻止后续工具栏绑定（此时绑定也必失败），但已给用户明确反馈
   }
-  try { console.log("[AI-DIAG] preCM"); document.title = "·preCM"; } catch (_) {}
+  _diag("preCM");
   cm = createCMEditor($("editor")); editor = cmAdapter(cm);
-  try { console.log("[AI-DIAG] postCM"); document.title = "·postCM"; } catch (_) {}
+  _diag("postCM");
   const preview = $("preview");
   const main = $("main");
   /** @type {HTMLInputElement} */
@@ -2191,7 +2195,7 @@
       const grow = needH > curH + 1;
       const shrink = (forceShrink || !userResized) && needH < curH - 1;   // forceShrink: init 强制缩回(B1=0)，不受 userResized 影响
       if (!grow && !shrink) return;                             // 已贴合 或 用户手动定了更大尺寸(尊重)
-      try { console.log("[AI-DIAG] fit cnt=" + _fitGrowCount + " need=" + needH + " cur=" + curH + (grow ? " GROW" : " SHRINK") + (forceShrink ? " FORCE" : "")); } catch (_) {}
+      _diag("fit c" + _fitGrowCount + " need=" + needH + " cur=" + curH + (grow ? " GROW" : " SHRINK"));
       const newW = Math.round(window.innerWidth);                                            // 宽不变(仅贴合高)
       progResize = true;
       setTimeout(() => { progResize = false; }, 300);            // 300ms 内的 onResized 视为自家 setSize 回声
@@ -6017,7 +6021,7 @@
     // AI 独立窗口（ai-panel-*）：不恢复会话/不开文件；浮层初始化由 AiModule 自行处理（取 take_ai_panel_content）
     // 补调 applyLang()：init 在此处短路 return 会跳过后面的 applyLang()，导致 #ai-input 的 data-i18n-ph
     // placeholder（及文案）没被设置 → 输入框无浅色提示。此处 curLang 已于上方从 localStorage 读出。
-    if (winLabel.startsWith("ai-panel-")) { try { applyLang(); console.log("[AI-DIAG] ai-branch winLabel=" + winLabel); document.title = "·aiBranch"; } catch (_) {} return; }
+    if (winLabel.startsWith("ai-panel-")) { try { applyLang(); _diag("aiBranch " + winLabel); } catch (_) {} return; }
     const wf = isTauri ? await invoke("take_window_file").catch(() => null) : null;
     if (wf) {
       isFileWindow = true;
