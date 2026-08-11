@@ -2,10 +2,6 @@
 "use strict";
 (function () {
   const $ = (id) => document.getElementById(id);
-  // TEMP 诊断(BUG-154 Windows AI 窗卡死): 把执行步骤画到屏幕左上角红底白字——不依赖 DevTools
-  // (AI 窗 F12 被 JS 淹没、open_devtools 也失效)。用户看 AI 窗左上角文字=卡死点。定位后连同各 _diag 调用一起删。
-  function _diag(s) { try { console.log("[AI-DIAG]", s); var d = document.getElementById("__diag"); if (!d) { d = document.createElement("div"); d.id = "__diag"; d.style.cssText = "position:fixed;top:0;left:0;z-index:2147483647;background:#d32;color:#fff;font:bold 13px monospace;padding:3px 6px;pointer-events:none;max-width:100vw;white-space:pre;"; document.documentElement.appendChild(d); } d.textContent = s; } catch (_) {} }
-  _diag("boot");
   // 编辑器后端：textarea（旧）或 CodeMirror 6（新）。构建开关 window.__MDEX_EDITOR__ + 运行时 localStorage 覆盖。
   // CM 模式：cm=EditorView、editor=适配器 Proxy（对下游 ~180 处"像 textarea"）；textarea 模式：editor=原生 textarea。
   // CM 模式下同步仍走旧 yprobe（Phase 2 才换 cm.posAtCoords），故 Phase 1 同步精度同 textarea（预期）。
@@ -60,9 +56,7 @@
     box.innerHTML = "<b>MDeX 编辑器核心加载失败</b><br><br>CodeMirror (<code>vendor/codemirror.js</code>) 未加载 —— 安装包不完整（app.js 与 vendor/codemirror.js 版本不匹配）。<br>请重新下载安装包，或将此截图反馈给开发者。";
     return; // 中止 IIFE：阻止后续工具栏绑定（此时绑定也必失败），但已给用户明确反馈
   }
-  _diag("preCM");
   cm = createCMEditor($("editor")); editor = cmAdapter(cm);
-  _diag("postCM");
   const preview = $("preview");
   const main = $("main");
   /** @type {HTMLInputElement} */
@@ -92,6 +86,10 @@
       // 不响应 caret-color）。项目深色模式靠 html.dark 切 CSS 变量、未启用 CM &dark theme，
       // 故深色下黑光标在 #0d1117 深底不可见。强制 border-left-color 跟 --fg（浅色模式深 / 深色模式浅）。
       "& .cm-cursor, & .cm-dropCursor": { borderLeftColor: "var(--fg)" },
+      // 选区底色 .cm-selectionBackground 不在此 theme 里设：CM6 drawSelection() 自带的选区主题优先级
+      // 压过普通 EditorView.theme（不同于 base theme 里的 .cm-cursor，BUG-153 能赢是因为它在 base theme），
+      // theme 里设了也会输给它 → 深色下仍白茫茫。故改在 app-shell.html 用
+      // .cm-selectionBackground{background:var(--sel-bg)!important} 强制覆盖（详见 BUG-160）。
       ".cm-gutters": { display: "none" },
     });
     const view = new CM.EditorView({
@@ -1882,14 +1880,11 @@
     // A/输入/状态行高度波动)，RO→scheduleFit→maybeFitWindow→setSize 形成反馈循环淹没主线程→AI 窗白屏+卡死。
     // macOS WKWebView 上 BUG-130 的 progResize/"flex:none 解耦"假设有效、循环不形成；Windows 时序不同，需额外冷却闸门。
     let _fitCooldown = 0;             // setSize 后的冷却截止时间戳：此窗口内 scheduleFit(RO 回声)直接忽略
-    const FIT_COOLDOWN_MS = 220;      // 冷却时长(ms)：覆盖一次 setSize→resize→RO 回声(通常 1~2 帧)
-    // 收敛兜底(BUG-154 根因加固)：冷却闸门只降频不破环——若 winChrome 探测失败/偏差(Windows WebView2 时序)，
-    // setSize(needH) 后 inner 永远 <needH→maybeFitWindow 永远 grow→死循环。此处记录连续"setSize 后 inner 卡住不变"次数，
-    // 连续 2 次即放弃自动贴合(_fitGiveUp=true)。窗口尺寸略偏(差标题栏高)远好过卡死。新窗口=新页面实例，变量自然重置。
-    let _fitGiveUp = false;                  // true→maybeFitWindow 直接 return(已判定 setSize 无法收敛)
-    let _fitGrowCount = 0, _fitLastNeed = -1;    // 连续 grow(同一 needH 反复撑大=未收敛)次数 / 上次 needH
+    const FIT_COOLDOWN_MS = 300;      // 冷却时长(ms)：覆盖一次 setSize→resize→RO 回声(通常 1~2 帧)
     // rAF 节流触发 maybeFitWindow：流式输出(B1 逐渐增高)/A 区异步长高/RO 都用它，每帧最多 1 次，窗口紧跟内容。
-    function scheduleFit() { if (_fitRAFPending) return; _fitRAFPending = true; requestAnimationFrame(() => { _fitRAFPending = false; if (Date.now() < _fitCooldown) return; maybeFitWindow(); }); }
+    let _fitting = false;             // BUG-154: true while a setWinSize is in-flight (incl. ensureChrome probe up to 500ms); scheduleFit & reentrant maybeFitWindow are dropped, breaking the RO->setSize->RO loop that froze the AI window (black + uncloseable)
+    let _resizeEnabled = false;       // BUG-154: false during initial load/paint -> maybeFitWindow is a no-op (no setSize/probe) so the new window's first paint isn't stalled (black screen on WebView2). Armed after first paint (load+2rAF, 1.2s fallback).
+    function scheduleFit() { if (_fitRAFPending) return; _fitRAFPending = true; requestAnimationFrame(() => { _fitRAFPending = false; if (_fitting || Date.now() < _fitCooldown) return; maybeFitWindow(); }); }
     let bResizeObs = null;   // A 区+B 区 ResizeObserver→重贴合(捕获异步增高)
     let _fitLogged = 0;      // 诊断：maybeFitWindow 前 N 次显示实测值(定位贴合问题后删)
     // 取当前 Tauri 窗口对象（同 closePop 的取法，集中一处复用）
@@ -2168,7 +2163,8 @@
     // userResized(手拖过窗口)后不再自动贴合(但 min 仍更新)；sepDragging(拖分隔条)期间由拖动自己 setSize。
     async function maybeFitWindow(forceShrink) {
       if (!isAiPanelWindow) return;
-      if (_fitGiveUp) return;                // BUG-154 收敛兜底：setSize 已判定无法收敛(卡住)，放弃自动贴合避免死循环
+      if (_fitting) return;           // BUG-154: a setWinSize is in-flight -> drop reentrant fit (self-heals via later RO)
+      if (!_resizeEnabled) return;    // BUG-154: skip all setSize/probe until first paint is done (prevents resize-during-load black screen on WebView2)
       const dlg = /** @type {HTMLElement|null} */ (pop.querySelector(".ai-dialog"));
       if (!dlg) return;
       const cw = aiWin();
@@ -2181,7 +2177,7 @@
       if (cw) setWinMinSize(cw, 300, minWinH).catch(() => {});
       // (b) 自动贴合：撑大始终生效，缩回仅"未手动拖窗口"时(含 init)。
       //   - 撑大(needH>curH)：始终——内容(A/B2/chat)超过窗口就长，即使用户手拖过(B2 增多行也长)。
-      //   - 缩回(needH<curH)：仅 !userResized——init/未拖时缩到内容(→B1=0)；用户手动调大过的尺寸予以尊重。
+      //   - 缩回(needH<curH)：仅 init(forceShrink)；此后只 grow 不缩——贴合绝不再把窗口高度吸回 needH，避免跟手动拖拽打架(上下尺寸被锁死/拖拽时尺寸错乱)。
       if (sepDragging) return;                                  // 分隔条拖动期间由其自己 setSize
       const needH = measureContentHeight("fit");
       const curH = window.innerHeight;
@@ -2193,29 +2189,23 @@
       _fitDbg(`need=${needH} min=${minWinH} cur=${curH} aH=${aHd} row=${row ? row.offsetHeight : 0} chatKids=${chatKids} status=${statusHd} dlgMin=${dlg.style.minHeight} uR=${userResized ? 1 : 0}`);
       if (!cw || typeof cw.setSize !== "function") return;
       const grow = needH > curH + 1;
-      const shrink = (forceShrink || !userResized) && needH < curH - 1;   // forceShrink: init 强制缩回(B1=0)，不受 userResized 影响
+      const shrink = forceShrink && needH < curH - 1;   // 仅 init(forceShrink) 强制缩回(B1=0)；此后绝不自动缩回
       if (!grow && !shrink) return;                             // 已贴合 或 用户手动定了更大尺寸(尊重)
-      _diag("fit c" + _fitGrowCount + " need=" + needH + " cur=" + curH + (grow ? " GROW" : " SHRINK"));
       const newW = Math.round(window.innerWidth);                                            // 宽不变(仅贴合高)
       progResize = true;
       setTimeout(() => { progResize = false; }, 300);            // 300ms 内的 onResized 视为自家 setSize 回声
+      _fitting = true;                                            // BUG-154: hold for the whole setWinSize (incl. ensureChrome probe up to 500ms); drop RO echoes / reentry, breaking the loop
+      try {
       _fitCooldown = Date.now() + FIT_COOLDOWN_MS;               // BUG-154：冷却闸门——此窗口内 RO 触发的 scheduleFit 直接忽略，堵 RO→setSize→RO 回声循环
       const res = await setWinSize(cw, newW, needH);             // 多路径重试 + 日志(见 setWinSize)，返回结果
       // 验证 setSize 设的是内尺寸还是外尺寸：读 setSize 后的 innerHeight，若 < needH 一截，说明设的是外尺寸(含标题栏)
       const afterInner = window.innerHeight;
-      _fitDbg(`need=${needH} cur=${curH}→${needH} afterInner=${afterInner} aH=${aHd} row=${row ? row.offsetHeight : 0} dlgMin=${dlg.style.minHeight} ${grow ? "grow" : "shrink"} ${res}`);
-      // 收敛兜底(BUG-154)：用"同一 needH 连续 grow 次数"判定死循环——不依赖 setSize 后 innerHeight 读值
-      // (WebView2 异步 resize,afterInner 滞后/每帧不同,基于 inner 是否相等判定会失效→永不 giveUp→卡死)。
-      // 正常流式增高:needH 持续变大(每次 grow 是新内容,_fitLastNeed≠needH,count=1,不放弃);
-      // 病态死循环:needH 不变反复 grow(setSize 达不到,winChrome 失准/菜单栏抬高 chrome),连续 3 次→放弃(卡死≫差几px)。
-      if (grow) {
-        if (_fitLastNeed === needH) {
-          if (++_fitGrowCount >= 3) { _fitGiveUp = true; if (typeof console !== "undefined") console.warn("[AI panel] maybeFitWindow give up: grow loop on same needH", needH, "not converging (winChrome mis-detected / menu bar inflates chrome?) — auto-fit disabled to avoid freeze"); }
-        } else { _fitLastNeed = needH; _fitGrowCount = 1; }
-      } else { _fitLastNeed = -1; _fitGrowCount = 0; }
+      _fitDbg(`need=${Math.round(needH)} after=${Math.round(afterInner)} aH=${Math.round(aHd)} row=${row ? Math.round(row.offsetHeight) : 0} chrome=${winChrome >= 0 ? Math.round(winChrome) : "?"} ${grow ? "grow" : "shrink"} ${res}`);
+      } finally {
+        _fitting = false;
+      }
     }
 
-    // (诊断可见覆盖条已移除——问题定位完成。_fitDbg 保留为空实现，调用点暂留，后续可清。)
     function _fitDbg(_msg) { /* no-op */ }
 
     // setSize 实际调用(3 路径)。h 是【传给 setSize 的目标值】(调用方负责加 offset 补偿)。
@@ -2247,11 +2237,8 @@
           ]);
         } catch (_) {}
         const inner1 = window.innerHeight;
-        // 探测成功(inner1>h0=撑大生效)用实测 offset；失败/超时(inner1≤h0)→用平台默认 chrome(32≈Windows/macOS 标题栏)而非 0。
-        // 用 0 会让 setWinSize 按 needH 设、但 Tauri setSize 是外尺寸语义(inner=needH-标题栏)→inner 永远 <needH→maybeFitWindow
-        // 永远判 grow→无限 setSize 死循环淹没主线程→AI 窗白屏卡死(BUG-154 根因)。默认 32 让多数情况一次到位；残余偏差由
-        // maybeFitWindow 的收敛兜底(_fitGiveUp)兜底。macOS 探测通常成功(WKWebView rAF 及时)，此分支极少走到。
-        winChrome = (inner1 > h0) ? Math.max(0, (h0 + 80) - inner1) : 32;
+        // 探测成功(inner1>h0=撑大生效)用实测 offset；失败/超时(inner1≤h0)→0(不叠加补偿，setWinSize 按逻辑尺寸直设，窗口略偏但不卡死)
+        winChrome = (inner1 > h0) ? Math.max(0, (h0 + 80) - inner1) : 0;
         if (typeof console !== "undefined") console.info("[AI panel] setSize/min offset measured =", winChrome, "(probe", h0 + 80, "→ inner", inner1, ")");
       })();
       return _chromeP;
@@ -2870,7 +2857,12 @@
         if (cw0 && typeof cw0.onResized === "function") {
           try { cw0.onResized(() => { if (fitArmed && !progResize) userResized = true; }); } catch (_) {}
         }
-        setTimeout(() => { fitArmed = true; }, 1000);   // 保护期结束：此后未由自家 setSize 引起的 resize 才算用户拖动
+        // BUG-154: arm window resizing only AFTER first paint (load + 2 rAF; 1.2s fallback).
+        //   During the new AI window's initial load of the 6.48MB page, any setSize (incl. the ensureChrome
+        //   probe) can stall first paint on WebView2 -> black window. So maybeFitWindow stays a no-op until armed.
+        const _enableResize = () => { if (fitArmed) return; requestAnimationFrame(() => requestAnimationFrame(() => { fitArmed = true; _resizeEnabled = true; })); };
+        if (document.readyState === "complete") _enableResize(); else window.addEventListener("load", _enableResize, { once: true });
+        setTimeout(_enableResize, 1200);   // fallback: arm + initial fit at 1.2s (also ends the userResized protection period)
         // 右键菜单：设为主/取消主 AI 窗口(主窗口跟随新选区替换上下文；非主窗口独立保内容、Ctrl+J 弹新窗)
         pop.addEventListener("contextmenu", (e) => {
           e.preventDefault();
@@ -2898,7 +2890,12 @@
           try { const raw = await invoke("take_ai_panel_content"); data = raw ? JSON.parse(raw) : null; } catch (_) {}
           if (data) { applyAiPanelData(data); }
           else { renderEditZone(); setBar({ send: true }); setStatus(""); const inp = $("ai-input"); if (inp) inp.focus(); }
-          relayout(); maybeFitWindow(true);   // 初始：立即按内容定 A/B 高 + 强制缩回贴合(forceShrink，确保 B1=0，不受 userResized 影响)
+          relayout();
+          // 初始贴合延后到 _resizeEnabled 闸门就绪且 A 区渲染完成：空对话(B1=0)时窗口贴合到 A+B2，
+          // 避免提前用「空 A」贴合缩成仅 B2 的缝，也避免加固定高度下限造成 B 区顶部大片空白。
+          const _fitInit = () => { if (!_resizeEnabled) { setTimeout(_fitInit, 60); return; } _fitCooldown = 0; maybeFitWindow(true); };
+          requestAnimationFrame(_fitInit);
+          try { await invoke("ai_panel_loaded"); } catch (_) {}
         })();
         T.event.listen("ai-panel-payload", (e) => {
           try { applyAiPanelData(JSON.parse(String(e && e.payload))); } catch (_) {}
@@ -6021,7 +6018,7 @@
     // AI 独立窗口（ai-panel-*）：不恢复会话/不开文件；浮层初始化由 AiModule 自行处理（取 take_ai_panel_content）
     // 补调 applyLang()：init 在此处短路 return 会跳过后面的 applyLang()，导致 #ai-input 的 data-i18n-ph
     // placeholder（及文案）没被设置 → 输入框无浅色提示。此处 curLang 已于上方从 localStorage 读出。
-    if (winLabel.startsWith("ai-panel-")) { try { applyLang(); _diag("aiBranch " + winLabel); } catch (_) {} return; }
+    if (winLabel.startsWith("ai-panel-")) { try { applyLang(); } catch (_) {} return; }
     const wf = isTauri ? await invoke("take_window_file").catch(() => null) : null;
     if (wf) {
       isFileWindow = true;

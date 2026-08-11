@@ -6,7 +6,7 @@
 // 另含【可选 AI 改写】：仅当用户在前端配置 API Key/端点并主动触发时，才发起外部网络请求
 // （ai_rewrite 流式调用 OpenAI 兼容接口）。应用本身默认离线；AI 是用户显式开启的能力。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -45,6 +45,10 @@ struct WindowState {
     ai_panel_content: Mutex<HashMap<String, String>>,
     /// 当前"主 AI 窗口"的 label(用户右键设置)；主窗口跟随新选区(替换上下文)，非主窗口独立保内容
     ai_panel_main: Mutex<Option<String>>,
+    /// 已完成首屏加载的 ai-panel 窗口 label 集合。BUG-154b: always_on_top 在 webview 导航期间设置会卡死
+    /// 页面加载(卡 about:blank)，故 builder 不设 always_on_top；窗口加载后由前端 ai_panel_loaded 标记，
+    /// 此后焦点驱动的 set_ai_panels_level 才会对它生效。
+    loaded_ai_panels: Mutex<HashSet<String>>,
     main_taken: AtomicBool,
     next_id: Mutex<u64>,
     lang: Mutex<String>,
@@ -278,10 +282,10 @@ fn take_window_file(window: WebviewWindow, state: tauri::State<WindowState>) -> 
 /// 点击预览区的 mermaid 图或普通图片：新建独立 OS 窗口显示该内容（SVG 或 <img>，可移动/缩放/全屏）。
 /// 内容经 viewer_content 暂存，新窗口启动后用 take_viewer_content 取走（避开冷启动 emit 丢失）。
 #[tauri::command]
-fn open_viewer_window(
+async fn open_viewer_window(
     content: String,
     app: tauri::AppHandle,
-    state: tauri::State<WindowState>,
+    state: tauri::State<'_, WindowState>,
 ) -> Result<String, String> {
     let label = {
         let mut idg = state.next_id.lock().unwrap();
@@ -333,11 +337,11 @@ fn emit_viewer_update(target: String, content: String, app: tauri::AppHandle) ->
 /// 出现（不接收屏幕坐标——getBoundingClientRect 是 CSS 像素而窗口定位用物理像素，HiDPI 下
 /// 换算易错；居中最稳，用户可自由拖出主界面到任意位置）。
 #[tauri::command]
-fn open_ai_panel(
+async fn open_ai_panel(
     payload: String,
     dark: bool,
     app: tauri::AppHandle,
-    state: tauri::State<WindowState>,
+    state: tauri::State<'_, WindowState>,
 ) -> Result<String, String> {
     // 单例：已开 ai-panel 窗口 → 聚焦 + 推新选区（不新开）
     // 有"主 AI 窗口" -> 新选区发给它(替换上下文)，不新开
@@ -382,7 +386,9 @@ fn open_ai_panel(
         .map(|p| ((p.x as f64 + 96.0) / scale, (p.y as f64 + 96.0) / scale))
         .unwrap_or((120.0, 120.0));
     let off = ((cascade % 6) as f64) * 36.0;
-    tauri::webview::WebviewWindowBuilder::new(
+    // 创建时即用空菜单覆盖全局 app 菜单继承：避免窗口创建瞬间先闪现带菜单栏的窗口(remove_menu 在 build 后才生效)。
+    let empty_menu = Menu::with_items(&app, &[]).map_err(|e| e.to_string())?;
+    let win = tauri::webview::WebviewWindowBuilder::new(
         &app,
         &label,
         tauri::WebviewUrl::App("index.html".into()),
@@ -393,36 +399,27 @@ fn open_ai_panel(
     .position(lx + off, ly + off)   // 级联偏移：每个新窗右下错开 36px(模 6 重置)，不完全盖住已有 AI 窗
     .focused(true)
     .always_on_top(true)          // floating 级：MDeX 激活时浮在主窗之上；切到别的 App 时由焦点处理器降级(BUG-151 方案D)
-    // 消除 WKWebView 创建期白闪：AI 窗加载 6.8MB index.html，HTML 解析前的"空内容白帧"在 head 主题脚本生效前已可见
-    // (head 脚本在 HTML 解析后才跑，治不了 webview 创建→解析之间的白底)。builder background_color 在 webview 创建时即设，
-    // 首帧即为主题底色。颜色随主窗当前主题(前端传 dark)：深色 #0d1117 / 浅色 #ffffff，与 --bg 一致。
+    // 消除 Windows WebView2 创建期白闪：AI 窗加载 6.8MB index.html，解析前的"空内容白帧"在 head 主题脚本生效前已可见。
+    // builder background_color 在 webview 创建时即设，首帧即为主题底色。颜色随主窗当前主题(前端传 dark)：深色 #0d1117 / 浅色 #ffffff，与 --bg 一致。
     .background_color(if dark { tauri::webview::Color(13, 17, 23, 255) } else { tauri::webview::Color(255, 255, 255, 255) })
-    // 窗口 appearance 跟随主题:控制 macOS 标题栏(含红黄绿交通灯)/系统控件底色。background_color 只管 webview,
-    // 不管标题栏——不设 theme 时独立新窗落回 light→标题栏白+整窗白闪(主窗靠继承系统 dark 才深,AI 窗没继承到)。
+    // 窗口 appearance 跟随主题：控制标题栏底色。background_color 只管 webview，不管标题栏——独立新窗不设 theme 会落回 light。
     .theme(if dark { Some(tauri::Theme::Dark) } else { Some(tauri::Theme::Light) })
+    .menu(empty_menu)             // 空菜单(创建即无菜单项)，避免闪现继承的菜单栏
     .build()
     .map_err(|e| e.to_string())?;
-    // AI 窗去掉继承的菜单栏(来自 app.set_menu / 主窗 menu)：Windows/Linux 上菜单栏占窗口垂直空间,
-    // chrome offset=标题栏+菜单栏≈60px >> ensureChrome 默认 winChrome=32 → setSize 死循环卡死(BUG-154)。
-    // AI 辅助窗本就不需要主菜单。macOS 菜单栏全局(屏幕顶)不占窗口空间,remove_menu 主要消除 Windows/Linux 窗口内菜单条。
-    if let Some(win) = app.get_webview_window(&label) {
-        let _ = win.remove_menu();
-        // TEMP 诊断: Rust 独立线程延迟 eval 注入蓝字 div(不依赖 app.js——AI 窗 app.js 可能根本没执行,_diag 红字没显示)。
-        // 显示 scripts 数(=index.html 是否加载)、window.CM、__diag 红字是否存在(=app.js 是否执行到 boot)、body 子元素数。
-        // 蓝字显示+diag=false→app.js 阻断;蓝字显示+diag=true→_diag 创建了但被覆盖;蓝字不显示→webview 卡死。定位后移除。
-        let win2 = win.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(1500));
-            let _ = win2.eval("try{var d=document.createElement('div');d.style.cssText='position:fixed;top:30px;left:0;z-index:2147483647;background:#06c;color:#fff;font:bold 13px monospace;padding:3px 6px';d.textContent='RUST scripts='+document.querySelectorAll('script').length+' CM='+(!!window.CM)+' diag='+(!!document.getElementById('__diag'))+' body='+(document.body?document.body.children.length:0);document.documentElement.appendChild(d);}catch(e){document.title='EVALERR'+e;}");
-        });
-    }
+    let _ = win.remove_menu();      // AI 面板窗不需要原生菜单栏(双保险)；语言切换同步也跳过 ai-panel
     Ok(label)
 }
 
 /// 把所有 ai-panel 窗口的 always_on_top 统一设为 on_top(floating↔normal)。底层 set_level_async 线程安全。
 fn set_ai_panels_level(app: &tauri::AppHandle, on_top: bool) {
+    // BUG-154b: 跳过未完成首屏加载的 ai-panel 窗口 -- 导航期间 set_always_on_top 会卡死页面加载。
+    let loaded = app
+        .try_state::<WindowState>()
+        .map(|s| s.loaded_ai_panels.lock().unwrap().clone())
+        .unwrap_or_default();
     for (label, win) in app.webview_windows() {
-        if label.starts_with("ai-panel-") { let _ = win.set_always_on_top(on_top); }
+        if label.starts_with("ai-panel-") && loaded.contains(&label) { let _ = win.set_always_on_top(on_top); }
     }
 }
 
@@ -454,6 +451,20 @@ fn set_ai_panels_on_top(on_top: bool, app: tauri::AppHandle) {
 fn take_ai_panel_content(window: WebviewWindow, state: tauri::State<WindowState>) -> Option<String> {
     let label = window.label().to_string();
     state.ai_panel_content.lock().unwrap().remove(&label)
+}
+
+/// BUG-154b DIAGNOSTIC (temporary): append a line to C:\work\mdex_diag.txt for headless inspection.
+/// Used because CDP cannot open Tauri new windows and localStorage may not flush if the window is force-closed.
+
+/// BUG-154b: ai-panel 窗口首屏加载完成时由前端调用。标记该窗口已加载(此后焦点驱动的 set_ai_panels_level
+/// 对它生效)，并立即设其 always_on_top=true 还原 floating 行为(此时导航已完成，不会再卡死)。
+#[tauri::command]
+fn ai_panel_loaded(window: WebviewWindow, app: tauri::AppHandle, state: tauri::State<WindowState>) {
+    let label = window.label().to_string();
+    state.loaded_ai_panels.lock().unwrap().insert(label.clone());
+    // 仅当 app 当前仍有窗口聚焦时才升 floating(用户可能已切到别的 App，此时不应浮在别的 App 之上)
+    let active = app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false));
+    if active { let _ = window.set_always_on_top(true); }
 }
 
 /// 设置/取消某 AI 窗口为"主窗口"(主窗口跟随新选区、替换上下文；非主窗口独立保内容)。
@@ -991,8 +1002,9 @@ fn change_language(app: tauri::AppHandle, lang: String) -> Result<(), String> {
     // Win/Linux：app.set_menu 不保证覆盖之后创建的窗口，逐窗补一次确保所有窗口菜单同步。
     // 注：tauri::menu::Menu 无 clone/try_clone 且 set_menu 消耗所有权，无法复用同一实例，
     // 只能逐窗重建（#性能7 受 API 限制未优化；语言切换是低频操作，影响可忽略）。
-    for w in app.webview_windows().values() {
-        if w.label().starts_with("ai-panel-") { continue; } // AI 窗不要菜单(BUG-154: 菜单栏占 Windows 窗口空间致 setSize 死循环)
+    for (label, w) in app.webview_windows() {
+        // AI 面板窗无菜单栏(创建时 remove_menu)，语言切换同步跳过它，避免又把菜单加回来
+        if label.starts_with("ai-panel-") { continue; }
         if let Ok(m) = build_menu(&app, &lang) {
             let _ = w.set_menu(m);
         }
@@ -1682,7 +1694,9 @@ EDIT: 后紧跟内容本身，不要解释/前言/后缀，不要 ```markdown �
                 "stream": true,
             }))
     } else {
-        let url = format!("{}/chat/completions", endpoint.trim_end_matches('/'));
+        // 防御：用户可能把完整 /chat/completions 填进 endpoint，避免重复拼接 → 405
+        let base = endpoint.trim_end_matches('/');
+        let url = if base.ends_with("/chat/completions") { base.to_string() } else { format!("{base}/chat/completions") };
         let mut msgs = vec![serde_json::json!({ "role": "system", "content": system })];
         for h in &history {
             msgs.push(serde_json::json!({ "role": h.role, "content": h.content }));
@@ -1807,6 +1821,7 @@ pub fn run() {
             viewer_content: Mutex::new(HashMap::new()),
             ai_panel_content: Mutex::new(HashMap::new()),
             ai_panel_main: Mutex::new(None),
+            loaded_ai_panels: Mutex::new(HashSet::new()),
             main_taken: AtomicBool::new(false),
             next_id: Mutex::new(0),
             lang: Mutex::new("zh".into()),
@@ -1836,6 +1851,7 @@ pub fn run() {
             emit_viewer_update,
             open_ai_panel,
             take_ai_panel_content,
+            ai_panel_loaded,
             set_ai_panel_main,
             is_ai_panel_main,
             set_ai_panels_on_top,
@@ -1890,6 +1906,7 @@ pub fn run() {
                     st.pending.lock().unwrap().remove(&label);
                     st.viewer_content.lock().unwrap().remove(&label);
                     st.ai_panel_content.lock().unwrap().remove(&label);
+                    st.loaded_ai_panels.lock().unwrap().remove(&label);
                     st.open.lock().unwrap().retain(|_, v| *v != label);
                     // 若销毁的正是焦点窗口，清空焦点记录（回退到 is_focused/main）
                     let mut f = st.focused.lock().unwrap();

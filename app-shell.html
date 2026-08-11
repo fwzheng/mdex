@@ -21,6 +21,12 @@
     var root = document.documentElement;
     if (dark) root.classList.add("dark");
     root.style.backgroundColor = dark ? "#0d1117" : "#ffffff";
+    // 提前识别 AI 独立窗口(ai-panel-*)：head 阶段即加 html.ai-panel-win 类，隐藏主界面外壳(工具栏/编辑区/状态栏)，
+    // 避免 body 解析 → app.js 跑之间主界面闪一帧(用户看到的"菜单栏闪一下")。逻辑与 src/app.js winLabel 检测一致。
+    try {
+      var _lbl = (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata && window.__TAURI_INTERNALS__.metadata.currentWindow) ? window.__TAURI_INTERNALS__.metadata.currentWindow.label : null;
+      if (_lbl && String(_lbl).indexOf("ai-panel-") === 0) root.classList.add("ai-panel-win");
+    } catch (_) {}
   } catch (_) {}
 })();
 </script>
@@ -40,6 +46,9 @@
     --border: #d0d7de;
     --accent: #0969da;
     --accent-fg: #ffffff;
+    --sel-bg: rgba(9, 105, 218, .32);
+    --tab-bg: rgba(0, 0, 0, .05);
+    --tab-active-bg: rgba(9, 105, 218, .30);
     --code-bg: #f6f8fa;
     --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.04);
     --radius: 8px;
@@ -54,6 +63,9 @@
     --border: #30363d;
     --accent: #2f81f7;
     --accent-fg: #ffffff;
+    --sel-bg: rgba(47, 129, 247, .55);
+    --tab-bg: rgba(255, 255, 255, .06);
+    --tab-active-bg: rgba(47, 129, 247, .45);
     --code-bg: #161b22;
     --shadow: 0 1px 3px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.3);
   }
@@ -89,18 +101,22 @@
   .tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   .tab {
     display: inline-flex; align-items: center; gap: 6px; padding-block: 4px; padding-inline: 10px 6px;
-    border-radius: 6px; font-size: 12px; color: var(--fg-muted); cursor: default;
+    border-radius: 6px; font-size: 12px; color: var(--fg-muted); background: var(--tab-bg); cursor: default; box-shadow: inset 0 0 0 1px var(--border);
     white-space: nowrap; flex: 0 1 180px; min-width: 96px; transition: background .12s, color .12s;
   }
   .tab .tab-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
   .tab:hover { background: var(--border); color: var(--fg); }
-  .tab.active { background: var(--accent); color: var(--accent-fg); }
+  .tab.active { background: var(--tab-active-bg); color: var(--fg); font-weight: 600; }
   .tab-dirty { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
   .tab.active .tab-dirty { background: var(--accent-fg); }
   .tab-close { appearance: none; border: 0; background: transparent; color: inherit;
     font-size: 15px; line-height: 1; padding: 0 4px; border-radius: 4px; cursor: default; opacity: .55; flex: none; }
   .tab-close:hover { opacity: 1; background: rgba(0,0,0,.12); }
   html.dark .tab-close:hover { background: rgba(255,255,255,.18); }
+  /* CM6 drawSelection() 把选区画成 .cm-selectionBackground 元素，其自带主题的优先级压过普通
+     EditorView.theme（不同于 base theme 里的 .cm-cursor，见 BUG-153/160），故须 !important 强制覆盖。
+     CM 默认 #d7d4f0 浅色在深色模式下糊在深底白茫茫；--sel-bg 随主题（浅淡蓝 / 深蓝半透），半透保证文字可读。 */
+  .cm-selectionBackground { background: var(--sel-bg) !important; }
 
   .btn {
     appearance: none; border: 1px solid transparent; background: transparent;
