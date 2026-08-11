@@ -5641,7 +5641,7 @@
       "<h2>" + s.hExport + "</h2>", "<p>" + s.pExport + "</p>", pairs(s.export),
       "<h2>" + s.hLicense + "</h2>", "<p>" + s.pLicense + "</p>",
       "<h2>" + s.hContact + "</h2>", "<p>" + s.pContact + "</p>",
-      "<div class=\"contact\"><span class=\"name\">" + s.contactName + "</span><br><a href=\"mailto:fwzheng@bit.edu.cn\">fwzheng@bit.edu.cn</a></div>",
+      "<div class=\"contact\"><a href=\"mailto:fwzheng@bit.edu.cn\">fwzheng@bit.edu.cn</a></div>",
     ].join("");
   }
   // 文献引用帮助：按「情形」分组介绍，中英两版；其余界面语言复用英文版

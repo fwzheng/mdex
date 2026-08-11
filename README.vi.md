@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.0 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · đọc là "em-dex" (/ˌemˈdɛks/) — chữ M theo sau là "dex", gồm hai âm tiết.
 
@@ -244,4 +244,4 @@ Yêu cầu phân phối: theo giấy phép Apache-2.0, khi phân phối lại d�
 
 ## 📬 Liên hệ
 
-Về vấn đề hoặc góp ý: **郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>**
+Về vấn đề hoặc góp ý: **fwzheng@bit.edu.cn**

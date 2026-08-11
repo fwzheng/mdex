@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.0 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · se prononce « em-dex » (/ˌemˈdɛks/) — la lettre M suivie de « dex », deux syllabes.
 
@@ -244,4 +244,4 @@ Exigences de distribution : sous la licence Apache-2.0, toute redistribution de 
 
 ## 📬 Contact
 
-Pour tout problème ou suggestion : **郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>**
+Pour tout problème ou suggestion : **fwzheng@bit.edu.cn**

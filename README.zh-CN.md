@@ -5,7 +5,7 @@
 
 </details>
 
-# MDeX v2.3.0（macOS · Windows · Linux · Tauri v2）
+# MDeX v2.3.1（macOS · Windows · Linux · Tauri v2）
 
 > **MDeX** · 读作 “em-dex”（/ˌemˈdɛks/）—— 字母 M 接 “dex”，共两个音节。
 
@@ -244,4 +244,4 @@ markdown/
 
 ## 📬 联系
 
-问题与建议欢迎联系：**郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>**
+问题与建议欢迎联系：**fwzheng@bit.edu.cn**

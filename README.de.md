@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.0 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · ausgesprochen „em-dex" (/ˌemˈdɛks/) — der Buchstabe M gefolgt von „dex", zwei Silben.
 
@@ -244,4 +244,4 @@ Weitergabeanforderungen: Gemäß der Apache-2.0-Lizenz muss bei Weitergabe diese
 
 ## 📬 Kontakt
 
-Bei Problemen oder Vorschlägen: **郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>**
+Bei Problemen oder Vorschlägen: **fwzheng@bit.edu.cn**
