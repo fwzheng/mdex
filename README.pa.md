@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.4.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · ਉਚਾਰਨ "em-dex" (/ˌemˈdɛks/) — ਅੱਖਰ M ਤੋਂ ਬਾਅਦ "dex", ਦੋ ਉਚਾਰਾਂ।
 
@@ -244,4 +244,4 @@ markdown/
 
 ## 📬 Contact
 
-ਸਮੱਸਿਆਵਾਂ ਜਾਂ ਸੁਝਾਅ ਲਈ: **fwzheng@bit.edu.cn**
+ਸਮੱਸਿਆਵਾਂ ਜਾਂ ਸੁਝਾਅ ਲਈ: **fw@spinss.cn**

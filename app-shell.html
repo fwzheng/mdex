@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   SPDX-License-Identifier: Apache-2.0
-  Copyright 2026 郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>
+  Copyright 2026 <fw@spinss.cn>
   Licensed under the Apache License, Version 2.0.
 -->
 <html lang="zh-CN">
@@ -134,6 +134,53 @@
   select.btn { padding-inline-end: 9px; text-align: center; text-align-last: center; }
 
   /* ---------- 主区域 ---------- */
+  /* ---------- 工作区侧栏（Phase 1b）---------- */
+  .workspace { flex: 1; display: flex; min-height: 0; }
+  .sidebar {
+    flex: none; width: 232px; display: flex; flex-direction: column;
+    background: var(--bg-alt); border-inline-end: 1px solid var(--border);
+    min-height: 0; font-size: 13px;
+  }
+  .sidebar[hidden] { display: none; }
+  .sb-head {
+    flex: none; display: flex; align-items: center; gap: 4px;
+    padding: 6px 8px; border-bottom: 1px solid var(--border);
+  }
+  .sb-title {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 600; font-size: 12px; color: var(--fg-muted);
+  }
+  .sb-tab-group { flex: none; display: inline-flex; gap: 2px; }
+  .sb-tab {
+    border: 0; background: transparent; color: var(--fg-muted); font: inherit; font-size: 12px;
+    padding: 2px 8px; border-radius: 5px; cursor: pointer;
+  }
+  .sb-tab.active { background: var(--border); color: var(--fg); font-weight: 600; }
+  .sb-close {
+    flex: none; border: 0; background: transparent; color: var(--fg-muted);
+    font-size: 15px; line-height: 1; padding: 2px 6px; border-radius: 5px; cursor: pointer;
+  }
+  .sb-close:hover { background: var(--border); color: var(--fg); }
+  .sb-body { flex: 1; overflow-y: auto; padding: 4px 0; min-height: 0; }
+  .sb-body[hidden] { display: none; }
+  .sb-item {
+    display: flex; align-items: center; gap: 5px; padding: 3px 10px;
+    cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--fg); border: 0; background: transparent; width: 100%; text-align: start; font: inherit; font-size: 12.5px;
+  }
+  .sb-item:hover { background: var(--border); }
+  .sb-item.active { background: var(--border); font-weight: 600; }
+  .sb-item .sb-caret { flex: none; width: 12px; color: var(--fg-muted); font-size: 10px; text-align: center; }
+  .sb-item .sb-ico { flex: none; font-size: 12px; }
+  .sb-empty { padding: 10px 12px; color: var(--fg-muted); font-size: 12px; line-height: 1.6; }
+  .sb-bl-item {
+    display: block; width: 100%; text-align: start; font: inherit; font-size: 12.5px;
+    padding: 5px 10px; border: 0; background: transparent; color: var(--fg); cursor: pointer;
+  }
+  .sb-bl-item:hover { background: var(--border); }
+  .sb-bl-item .sb-bl-src { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sb-bl-item .sb-bl-ctx { display: block; color: var(--fg-muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+
   .main { flex: 1; display: grid; grid-template-columns: 1fr 5px 1fr; min-height: 0; }
   .main.view-editor { grid-template-columns: 1fr 0 0; }
   .main.view-preview { grid-template-columns: 0 0 1fr; }
@@ -186,6 +233,26 @@
   #editor-hl mark.search-mark.current { background: rgba(255, 152, 0, .9); animation: search-flash .9s ease-out; }
   /* CodeMirror 搜索高亮（Phase 3.2：Decoration.mark 画在 .cm-content 里，文字可见故不透明） */
   .cm-content .search-mark { background: rgba(255, 213, 79, .45); border-radius: 2px; }
+  /* BUG-166v 自绘滚动条：隐藏 .cm-scroller 原生滚动条（WKWebView 原生条拖动零页面事件、
+     mousedown 易偏进内容区建错误选区锚点、点击还会 blur contentDOM —— WebKit Bug 16809，
+     14 轮防御补丁全部观测不到该手势故无效）。改为 .editor-area 右缘自绘 10px 轨道+thumb，
+     拖动=我方同步写 scrollTop，事件完全可见，三病根（事件真空/误锚点/失焦显形）整体消失。
+     scrollbar-gutter:stable 保留（原生条隐藏后 gutter 仍占位 → 内容宽度恒定，镜像层对齐不回归）。 */
+  #editor .cm-scroller { scrollbar-width: none; }
+  #editor .cm-scroller::-webkit-scrollbar { width: 0; height: 0; display: none; }
+  .mdex-sb {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 10px; z-index: 5;
+    background: transparent; cursor: default; user-select: none; touch-action: none;
+  }
+  .mdex-sb-thumb {
+    position: absolute; right: 2px; width: 6px; border-radius: 3px;
+    background: rgba(127, 127, 127, .45); min-height: 28px; opacity: 0;
+    transition: opacity .18s;
+  }
+  .mdex-sb:hover .mdex-sb-thumb, .mdex-sb.dragging .mdex-sb-thumb { opacity: 1; transition: opacity .05s; }
+  .mdex-sb.dragging .mdex-sb-thumb { background: rgba(127, 127, 127, .75); }
+  html.dark .mdex-sb-thumb { background: rgba(200, 200, 210, .4); }
+  html.dark .mdex-sb.dragging .mdex-sb-thumb { background: rgba(200, 200, 210, .7); }
   .cm-content .search-mark.current { background: rgba(255, 152, 0, .9); animation: search-flash .9s ease-out; }
   /* AI 选区/光标可视化（画在 .cm-content，替代 #editor-hl 覆盖层；CM 迁移后 #editor-hl 已不对齐 CM） */
   .cm-content .ai-sel { background: rgba(88,166,255,.22); border-radius: 2px; }
@@ -280,6 +347,21 @@
   #preview li:has(> input[type="checkbox"]) { list-style: none; margin-inline-start: -1.2em; }
   #preview li input[type="checkbox"] { margin: 0; margin-inline-end: .5em; }
   #preview .katex-display { overflow-x: hidden; overflow-y: hidden; padding: 4px 0; }
+  /* BUG-166y：KaTeX 失败的红字源码默认按 TeX 源排（\\、{} 连写无空格→CSS 无换行点）
+     → 单行撑出容器宽（预览冒横向滚动条、内容被横向裁掉=用户看到"缺公式/缺句子"），
+     且实际高度=1 行与骨架账本严重不符 → 编辑↔预览对不齐。改等宽小字 pre-wrap：
+     按显示宽度折行（与骨架估算 estBlockByRaw 失败分支同形态），高度稳定可预算。 */
+  #preview .katex-error { font-family: var(--mono); font-size: 12px; line-height: 1.5;
+    white-space: pre-wrap; overflow-wrap: break-word; word-break: break-all;
+    color: #d33; display: block; padding: 4px 6px; }
+  /* BUG-166y：失败 display 公式块视觉对齐——编辑器里该公式源码 ~30 行(~720px)，预览红字
+     仅 ~220px：同 off 时编辑器视口被公式占住、预览却"看穿"到后文=用户感"预览超前半页"。
+     按源码行数给 .mdmath（display 失败容器）最小高度（80px 起步、每源码行 +24px、
+     封顶 2 视口），让失败块在预览里也占住大致相当的纵向空间，两侧视觉步调一致。 */
+  #preview .mdmath { min-height: 0; }
+  #preview .mdmath.defunct { padding: 6px 8px; border-left: 3px solid rgba(204,34,51,.35);
+    background: rgba(204,34,51,.05); }
+  .mdmath { overflow-x: hidden; }
   .mdmath { display: block; } /* display 公式容器（包 .katex-display），便于折行重渲 */
   /* 超长 display 公式：wrapDisplayMath() 优先在顶层 = + - 处折行重渲为多行（gathered），
      把溢出部分放到下一行；无法断行时才回退到等比缩小。*/
@@ -311,7 +393,7 @@
   @media print {
     html, body { height: auto !important; background: #fff !important; }
     .toolbar, .statusbar, .pane-head, #pane-editor, .gutter,
-    .dropmask, .modal-mask { display: none !important; }
+    .dropmask, .modal-mask, .sidebar { display: none !important; }
     .main { display: block !important; grid-template-columns: none !important; }
     #pane-preview { display: block !important; }
     #preview {
@@ -418,6 +500,7 @@
   /* mermaid 查看器作为独立 OS 窗口时（html.mv-win）：隐藏编辑器 UI，查看器卡片铺满整个窗口 */
   html.mv-win .toolbar,
   html.mv-win .main,
+  html.mv-win .workspace,
   html.mv-win .statusbar,
   html.mv-win .empty-state { display: none !important; }
   html.mv-win .mv-mask { background: var(--bg); z-index: auto; }
@@ -431,6 +514,7 @@
      #ai-pop[hidden]{display:none} 已存在(BUG-114)，AI 窗口 JS 显式 hidden=false 即显示。 */
   html.ai-panel-win .toolbar,
   html.ai-panel-win .main,
+  html.ai-panel-win .workspace,
   html.ai-panel-win .statusbar,
   html.ai-panel-win .empty-state { display: none !important; }
   html.ai-panel-win #ai-pop {
@@ -530,6 +614,10 @@
   }
   .cite-jump-item .cj-snip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .85; }
   #bib-count { font-size: 12px; color: var(--fg-muted); }
+  /* ---------- 文档内 Wikilink（[[#标题]] 跳转 / [[页面]] 置灰待解析）---------- */
+  .wiki-link { color: var(--accent); text-decoration: none; border-bottom: 1px dashed var(--accent); cursor: pointer; }
+  #preview .wiki-link:hover, .pdf-capture .wiki-link:hover { border-bottom-style: solid; }
+  .wiki-pending { color: var(--fg-muted); border-bottom: 1px dotted var(--fg-muted); cursor: help; }
   /* 📚 文献库按钮浮层（已加载时点按钮弹出：更换 / 卸载） */
   .bib-wrap { position: relative; display: inline-flex; }
   .bib-pop {
@@ -727,6 +815,21 @@
   </div>
 </div>
 
+<!-- 工作区侧栏（Phase 1b）：文件树 / 反向链接。main 外层包裹，不侵入分屏 grid -->
+<div class="workspace" id="workspace">
+<aside class="sidebar" id="sidebar" hidden>
+  <div class="sb-head">
+    <span class="sb-title" id="sb-title" title="">📁</span>
+    <span class="sb-tab-group">
+      <button class="sb-tab active" id="sb-tab-tree" data-i18n-title="sbTabTree">文件</button>
+      <button class="sb-tab" id="sb-tab-links" data-i18n-title="sbTabLinks">反链</button>
+    </span>
+    <button class="sb-close" id="sb-close" data-i18n-title="sbHide" title="隐藏侧栏">×</button>
+  </div>
+  <div class="sb-body" id="sb-tree"></div>
+  <div class="sb-body" id="sb-links" hidden></div>
+</aside>
+
 <!-- 主区域 -->
 <div class="main view-split" id="main">
   <div class="pane" id="pane-editor">
@@ -792,6 +895,7 @@
     </div>
   </div>
 </div>
+</div><!-- /workspace -->
 
 <!-- 状态栏 -->
 <div class="statusbar">
@@ -2016,6 +2120,74 @@ SHERLOCK платформ [@gootenberg2017] хээрийн оношилгоон�
   pages     = {1150--1157}
 }
 ```
+</script>
+<script type="text/plain" id="wiki-example-tpl-zh"># Wikilink 工作区示例
+
+本示例演示 LLM Wiki 风格的 wikilink。**文档内跳转**无需工作区；**跨文件链接**需先用「文件 → 打开文件夹」把本文件所在目录（或其父目录）建立为 vault。
+
+## 1. 文档内标题跳转（无需工作区）
+
+点下面的链接，编辑器光标会跳到对应标题、预览滚到该标题：
+
+- 跳到「[[#核心概念]]」
+- 带别名的写法：[[#核心概念|看这里]]
+
+## 2. 跨文件页面链接（需工作区）
+
+打开文件夹后，下面的 `[[页面]]` 会解析为 vault 里的真实文件，点击在新标签打开：
+
+- [[术语表]]
+- [[概念/注意力机制]]
+
+（工作区未打开时，这两个会显示为置灰的待解析样式，不报错。）
+
+## 3. 反向链接
+
+打开工作区后，侧栏「反链」页签会列出所有链接到当前文件的来源。
+
+## 4. 语法排斥（不会被误伤）
+
+- 嵌入语法原样透传：`![[image.png]]`
+- markdown 链接原样透传：[[示例]](https://example.com)
+- 转义不解析：`\[[不是链接]]`
+
+## 核心概念
+
+这是上面 `[[#核心概念]]` 跳转的目标标题。点击顶部的链接会回到这里。
+</script>
+<script type="text/plain" id="wiki-example-tpl-en"># Wikilink Workspace Example
+
+This sample demonstrates LLM-wiki-style wikilinks. **In-document jumps** need no workspace; **cross-file links** require opening the folder containing this file (or one of its parents) as a vault first (File → Open Folder).
+
+## 1. In-document heading jumps (no workspace)
+
+Click a link below — the editor cursor jumps to that heading and the preview scrolls to it:
+
+- Jump to [[#Core Concepts]]
+- Alias form: [[#Core Concepts|read this]]
+
+## 2. Cross-file page links (workspace required)
+
+After opening a folder, each `[[page]]` below resolves to a real file in the vault and opens in a new tab on click:
+
+- [[Glossary]]
+- [[concepts/attention]]
+
+(Without a workspace these render dimmed as pending — no error.)
+
+## 3. Backlinks
+
+With a workspace open, the sidebar Backlinks tab lists every source linking to the current file.
+
+## 4. Exclusions (left untouched)
+
+- Embed syntax passes through: `![[image.png]]`
+- Markdown links pass through: [[example]](https://example.com)
+- Escaped form is not parsed: `\[[not a link]]`
+
+## Core Concepts
+
+This is the heading targeted by `[[#Core Concepts]]` above. Clicking the link at the top returns here.
 </script>
 <script type="text/plain" id="mermaid-example-tpl-zh"># Mermaid 图示例
 
@@ -4978,6 +5150,50 @@ def fib(n):
 
 <script>
 <!--APP:js-->
+</script>
+<!-- 诊断探针（临时，BUG-165/166 真机定位用，发版前删）：
+     右上角黑窗记录编辑器(ED)/预览(PV)所有 >300px 单步滚动跳变，格式 [ms] 侧 旧→新 (Δ位移) -->
+<div id="jump-log" hidden style="position: fixed; top: 44px; right: 8px; z-index: 99999; max-width: 420px; background: rgba(0,0,0,.82); color: #7ee787; font: 11px/1.5 monospace; padding: 6px 9px; border-radius: 6px; white-space: pre; pointer-events: auto; max-height: 46vh; overflow: auto; direction: ltr; text-align: left;"></div>
+<script>
+(function () {
+  var recs = [];
+  function render() {
+    var e = document.getElementById('jump-log'); if (!e) return;
+    e.hidden = false;
+    e.textContent = recs.slice(-12).join('\n') || '（暂无跳变）';
+    e.scrollTop = e.scrollHeight;
+  }
+  function hook(getter, name, anchorEl) {
+    var last = -1, lastAy = null, t0 = performance.now();
+    setInterval(function () {
+      var now = getter();
+      // BUG-166t 视觉锚点（red-team 实验1）：scrollTop 跳但锚行 lineY 稳定 = 异步读数跳（无害）；
+      // 两者同跳 = 真实视口跳。V前缀行=视觉跳，R前缀行=仅读数跳。
+      var ay = null;
+      if (anchorEl) {
+        var probe = anchorEl.querySelector('.cm-line') || (anchorEl.id === 'preview' ? anchorEl.firstElementChild : null);
+        if (probe) { var r = probe.getBoundingClientRect(); ay = r ? r.top : null; }
+      }
+      if (last >= 0 && Math.abs(now - last) > 300) {
+        var vJump = (ay != null && lastAy != null && Math.abs(ay - lastAy) > 60);
+        recs.push('[' + Math.round(performance.now() - t0) + 'ms] ' + (vJump ? 'V' : 'R') + name + ' ' +
+          Math.round(last) + '→' + Math.round(now) + ' (Δ' + (now > last ? '+' : '') + Math.round(now - last) + ')' +
+          (ay != null && lastAy != null ? ' ayΔ' + Math.round(ay - lastAy) : ''));
+        render();
+      }
+      last = now; lastAy = ay;
+    }, 25);
+  }
+  function boot() {
+    var sd = document.querySelector('.cm-scroller');
+    var pv = document.getElementById('preview');
+    if (!sd || !pv || !pv.children.length) return setTimeout(boot, 200);
+    hook(function () { return sd.scrollTop; }, 'ED', sd);
+    hook(function () { return pv.scrollTop; }, 'PV', pv);
+    render();
+  }
+  boot();
+})();
 </script>
 </body>
 </html>

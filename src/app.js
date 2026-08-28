@@ -104,10 +104,176 @@
           searchMarkField,                  // 搜索高亮（Phase 3.2：StateField→Decoration.mark，画在 CM 内容里）
           aiSelField,                       // AI 选区/光标可视化（mark 高亮 / widget 闪烁竖线）
           CM.EditorView.updateListener.of((vu) => { if (vu.docChanged) for (const fn of editorInputListeners) { try { fn({ type: "input" }); } catch (e) {} } }),
+          // BUG-166r：mouseSelectionStyle 保险丝——根治"拖滚动条期间/之后巨大选区"。
+          // 机制（六路 subagent 交叉定位）：抓细窄滚动条时 mousedown 偏进内容区 2-3px → CM
+          // MouseSelection 建立；移向滚动条途中最后一次 mousemove 落入视口边缘 6px 区 →
+          // setScrollSpeed 启动 50ms 自动滚动循环；WebKit 拖原生滚动条不再派发 mousemove →
+          // 循环带着旧速度失控滚（"拖动期间持续跳变"），且每次 scroll() 用陈旧坐标
+          // select(lastEvent) → 选区随视口漂移；点击滚动条还 blur contentDOM（WebKit Bug
+          // 16809）→ drawSelection 隐藏 → 松手显形巨大选区。
+          // 保险丝在【选区计算层】接管：手势期间视口被搬 >3 行 且 锚→映射位跨度 >3 视口
+          // 字符数 → 返回折叠 cursor(锚)，三个 select 调用点（move/up/scroll 循环）全部覆盖。
+          CM.EditorView.mouseSelectionStyle.of((view, event) => {
+            if (event.button !== 0 || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return null; // 只管普通左键拖选
+            const sd = view.scrollDOM;
+            const downTop = sd.scrollTop;
+            const lh = view.defaultLineHeight || 24;
+            // BUG-166u：锚点用 posAndSideAtCoords 取【按下位精确偏移】（行首锚会与行内点击位
+            // 比较出半行假选区）；stale tile 时回退 elementFromPoint 直读行内插值
+            let anchor = null;
+            const readAnchor = () => {
+              try {
+                const p = view.posAndSideAtCoords({ x: event.clientX, y: event.clientY }, false);
+                if (p && p.pos != null) return p.pos;
+              } catch (_) {}
+              const el = document.elementFromPoint(event.clientX, event.clientY);
+              const lineEl = el && el.closest ? el.closest(".cm-line") : null;
+              if (lineEl && view.posAtDOM) {
+                try {
+                  const linePos = view.posAtDOM(lineEl, 0);
+                  const line = view.state.doc.lineAt(linePos);
+                  const lr = lineEl.getBoundingClientRect();
+                  const frac = lr.height > 0 ? Math.max(0, Math.min(1, (event.clientY - lr.top) / lr.height)) : 0;
+                  return Math.round(line.from + frac * (line.to - line.from));
+                } catch (_) { return null; }
+              }
+              return null;
+            };
+            anchor = readAnchor();
+            return {
+              update(u) { if (u.docChanged && anchor != null) anchor = u.changes.mapPos(anchor); },
+              get(cur, extend, multiple) {
+                // 保险丝 1：手势期间视口被程序/失控滚动搬动超过 3 行 → 拖选语义已失真
+                const moved = Math.abs(sd.scrollTop - downTop) > lh * 3;
+                // 保险丝 2：锚→当前映射位跨度超过 3 视口对应字符量（正常拖选单屏内）
+                let curPos = null;
+                try { curPos = view.posAtCoords({ x: cur.clientX, y: cur.clientY }); } catch (_) {}
+                if (anchor == null) anchor = readAnchor() ?? 0;
+                const span = curPos == null ? Infinity : Math.abs(curPos - anchor);
+                const vpChars = Math.max(2000, (view.viewport.to - view.viewport.from) * 3);
+                if ((moved && span > vpChars) || span > vpChars * 4) {
+                  return CM.EditorSelection.create([CM.EditorSelection.cursor(Math.round(anchor))], 0);
+                }
+                // 默认拖选行为：等价复刻 basicMouseSelection.get（未导出，内联；
+                // extend/multiple 透传，普通拖选 range(anchor→cur)）
+                const st = view.posAndSideAtCoords({ x: cur.clientX, y: cur.clientY }, false);
+                let range;
+                if (anchor !== st.pos && !extend) {
+                  range = CM.EditorSelection.range(Math.min(anchor, st.pos), Math.max(anchor, st.pos));
+                } else {
+                  range = CM.EditorSelection.cursor(st.pos, st.assoc);
+                }
+                if (extend) {
+                  const main = view.state.selection.main;
+                  return CM.EditorSelection.create([main.extend(range.from, range.to)], 0);
+                }
+                if (multiple) return view.state.selection.addRange(range);
+                return CM.EditorSelection.create([range], 0);
+              },
+            };
+          }),
         ],
       }),
       parent: div,
     });
+    // BUG-165：长文档点编辑区选中超大段/光标跳远处。触发链：macOS overlay 滚动条浮在文本上，
+    // 滑块拖动的 mousedown 落在内容上被 CM 记为选区锚点；且大文档(>200KB)拖动后 recenter/
+    // 同步链仍在异步收尾（parse ~150ms），用户随后的点击手势期间编辑器视口被挪动 → mouseup
+    // 坐标按"新视口"映射到远处行（旧版=超大选区；折叠版=光标跳到别处）。
+    // 修法：① mousedown 瞬间（视口=用户所见）缓存 posAtCoords 为"用户瞄准位"；
+    // ② mouseup 时若手势期间滚动>3行（拖选语义已失真）→ 光标折叠到【mousedown 瞄准位】
+    //    而非 mouseup 位（视口已换，mouseup 坐标不再对应所见）；
+    // ③ 按住手势期间置 cmGestureActive，冻结 renderWindow recenter（视口在用户按住时被
+    //    程序挪动本身即敌对）。正常拖选（CM 边缘自动滚动是 50ms/8px 连续小步，单手势到不了
+    //    3 行跳变）、双击/三击/shift 扩展不受影响。
+    let msActive = false, msTop = 0, msScrollBig = false, msDownPos = null;
+    // BUG-165g：快速深滚后 CM 的 DOM 视口裁剪(tile)测量在 WKWebView 上滞后——posAtCoords
+    // 命中 stale tile，点击返回 22 万 px 外的行偏移（真机日志 ED -222k 实锤），后续
+    // scrollIntoView 把编辑器滚到错误行。mousedown 瞄准位改用【高度树】换算：
+    // BUG-165g/o（三 agent 交叉定位）：点击 off 的三来源在深滚后全部不可信——
+    // posAtCoords 命中 stale tile；高度树(lineBlockAtHeight)测量未收敛；由此衍生的
+    // scrollTarget/Pp 滚动一步 10 万 px（repro-dynamic 抓到 measure→scrollIntoView→Pp 链）。
+    // 釜底抽薪：瞄准位改【elementFromPoint 直读已渲染 .cm-line】——DOM 是真实渲染内容，
+    // 不依赖任何估算；行内偏移用二分 coordsAtPos 只在该行内比对（行内坐标不受深滚影响）。
+    // 命中不到 .cm-line（间隙/未渲染空洞）→ 回退视口中心行；绝不用可能错的估算。
+    const aimPosByTree = (clientX, clientY) => {
+      const sd = view.scrollDOM;
+      const rect = sd.getBoundingClientRect();
+      if (clientY < rect.top || clientY > rect.bottom) return null;
+      // ① 直读命中行
+      const el = document.elementFromPoint(clientX, clientY);
+      const lineEl = el && el.closest ? el.closest(".cm-line") : null;
+      if (lineEl) {
+        try {
+          const linePos = view.posAtDOM ? view.posAtDOM(lineEl, 0) : null; // 行首偏移（DOM→doc 映射，可靠）
+          if (linePos != null) {
+            const line = view.state.doc.lineAt(linePos);
+            // 行内插值：用行 DOM 高度按 y 比例（行内 coordsAtPos 在视口内可靠）
+            const lr = lineEl.getBoundingClientRect();
+            const frac = lr.height > 0 ? Math.max(0, Math.min(1, (clientY - lr.top) / lr.height)) : 0;
+            return Math.round(line.from + frac * (line.to - line.from));
+          }
+        } catch (_) { /* 落到回退 */ }
+      }
+      // ② 回退：视口中心已渲染行（同样 DOM 直读；再不行才用旧树逻辑）
+      try {
+        const mid = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        const midLine = mid && mid.closest ? mid.closest(".cm-line") : null;
+        if (midLine && view.posAtDOM) return view.posAtDOM(midLine, 0);
+      } catch (_) {}
+      const contentY = clientY - rect.top + sd.scrollTop;
+      try {
+        const blk = view.lineBlockAtHeight(contentY);
+        if (blk) {
+          const frac = blk.height > 0 ? Math.max(0, Math.min(1, (contentY - blk.top) / blk.height)) : 0;
+          return Math.round(blk.from + frac * (blk.to - blk.from));
+        }
+      } catch (_) {}
+      return view.posAtCoords({ x: clientX, y: clientY });
+    };
+    view.contentDOM.addEventListener("mousedown", (e) => {
+      msActive = e.button === 0;
+      cmGestureActive = msActive;
+      if (!msActive) return;
+      msTop = view.scrollDOM.scrollTop;
+      msScrollBig = false;
+      msDownPos = aimPosByTree(e.clientX, e.clientY); // 按下瞬间的视觉瞄准位（高度树，抗 stale tile）
+    }, true);
+    view.scrollDOM.addEventListener("scroll", () => {
+      if (msActive && !msScrollBig &&
+          Math.abs(view.scrollDOM.scrollTop - msTop) > (view.defaultLineHeight || 24) * 3) {
+        msScrollBig = true;
+      }
+    }, { passive: true });
+    document.addEventListener("mouseup", () => {
+      if (!msActive) return;
+      msActive = false; cmGestureActive = false;
+      // BUG-166v：任何点击收尾（含下方 return 分支）都尝试以 editor 为锚对齐预览——
+      // 拖滑块后点击编辑区无需滚轮即同步；覆盖未跟上时 sbFinishAlign 内部带重试链。
+      const clickAlign = () => { if (typeof window !== "undefined" && typeof window.__sbClickAlign === "function") window.__sbClickAlign(); };
+      // BUG-165g 补充：普通点击（无滚动打断）也校验——CM 若因 stale tile 把光标设到
+      // 【当前视口之外】的行（视觉点击必落在视口内），用 mousedown 高度树瞄准位覆盖。
+      if (!msScrollBig) {
+        try {
+          const sel = view.state.selection.main;
+          const vpTop = view.scrollDOM.scrollTop, vpBot = vpTop + view.scrollDOM.clientHeight;
+          const blk = view.lineBlockAt(sel.from);
+          if (blk && (blk.top < vpTop - 60 || blk.top > vpBot + 60) && msDownPos != null) {
+            setTimeout(() => {
+              view.dispatch({ selection: CM.EditorSelection.create([CM.EditorSelection.cursor(Math.round(msDownPos))], 0) });
+            }, 0);
+          }
+        } catch (_) {}
+        setTimeout(clickAlign, 60);
+        return;
+      }
+      // 视口已换：用 mousedown 缓存的瞄准位（用户看到并想编辑的地方），mouseup 坐标不可信
+      const pos = msDownPos != null ? msDownPos : null;
+      if (pos != null) setTimeout(() => {               // 让 CM 自己的 mouseup 处理先完成再修正
+        view.dispatch({ selection: CM.EditorSelection.create([CM.EditorSelection.cursor(Math.round(pos))], 0) });
+      }, 0);
+      setTimeout(clickAlign, 60);                       // 光标落定后对齐预览
+    }, true);
     // CM 列选择：Alt+左键拖拽 → 多光标矩形选区（每行一个 range，跨相同字符列）。capture 拦截先于
     // CM 原生拖选、stopPropagation 防止 CM 常规拖选；复制/剪切/删除/输入由 CM 多光标原生按列处理。
     view.contentDOM.addEventListener("mousedown", (e) => {
@@ -115,6 +281,78 @@
       e.preventDefault(); e.stopPropagation();
       cmColumnDrag(view, e);
     }, true);
+    // BUG-166v 自绘滚动条：原生条已隐藏（见 app-shell.html CSS），此处建我方轨道+thumb。
+    // 拖动 = 我方同步写 scrollTop（零事件真空），期间置 cmGestureActive+syncDragPaused
+    // （对齐既有拖动暂停契约：syncAnchors/recenter 全冻结，静置后 settle 统一收尾）。
+    // 轨道点击（thumb 外）= 翻页滚动。挂 host 父级（.editor-area，position:relative）。
+    {
+      const area = div.parentElement;
+      if (area && getComputedStyle(area).position !== "relative") area.style.position = "relative";
+      if (area) {
+        const bar = document.createElement("div");
+        bar.className = "mdex-sb";
+        const thumb = document.createElement("div");
+        thumb.className = "mdex-sb-thumb";
+        bar.appendChild(thumb);
+        area.appendChild(bar);
+        const sd = view.scrollDOM;
+        let raf = 0;
+        const layout = () => {
+          raf = 0;
+          const sh = sd.scrollHeight, ch = sd.clientHeight;
+          const over = sh - ch;
+          bar.style.display = over > 4 ? "" : "none";        // 内容不溢出则隐藏轨道
+          if (over <= 4) return;
+          const h = Math.max(28, ch * ch / sh);               // thumb 高 ∝ 可视占比
+          thumb.style.height = h + "px";
+          thumb.style.top = (sd.scrollTop / over) * (ch - h) + "px";
+        };
+        const schedule = () => { if (!raf) raf = requestAnimationFrame(layout); };
+        view.scrollDOM.addEventListener("scroll", schedule, { passive: true });
+        // 内容高度变化（换文档/窗口化重渲）也要重排：ResizeObserver 兜底 + 每帧闲检太贵，rAF 节流足够
+        new ResizeObserver(schedule).observe(view.scrollDOM);
+        schedule();
+        let drag = null; // 拖动中：{ grabOffset } 指针在 thumb 内的偏移
+        bar.addEventListener("pointerdown", (e) => {
+          if (e.button !== 0) return;
+          e.preventDefault(); e.stopPropagation();            // 绝不让事件进 cm-content（误锚点病根）
+          bar.setPointerCapture(e.pointerId);
+          bar.classList.add("dragging");
+          cmGestureActive = true;
+          if (typeof window !== "undefined" && typeof window.__setSyncDragPaused === "function") window.__setSyncDragPaused(true);
+          const rect = bar.getBoundingClientRect();
+          const th = thumb.getBoundingClientRect();
+          if (e.clientY >= th.top && e.clientY <= th.bottom) {
+            drag = { grabOffset: e.clientY - th.top };        // 抓在 thumb 上：保抓点拖动
+          } else {
+            const ch = sd.clientHeight;
+            sd.scrollTop += (e.clientY < th.top ? -1 : 1) * ch * 0.9; // 轨道空白处：翻页
+            drag = { grabOffset: (parseFloat(thumb.style.height) || 28) / 2 }; // 翻页后从中点接管
+          }
+          drag.barTop = rect.top; drag.barH = rect.height;
+        });
+        bar.addEventListener("pointermove", (e) => {
+          if (!drag) return;
+          const ch = sd.clientHeight, sh = sd.scrollHeight, over = sh - ch;
+          if (over <= 4) return;
+          const h = parseFloat(thumb.style.height) || 28;
+          let y = e.clientY - drag.barTop - drag.grabOffset;   // thumb 期望 top
+          y = Math.max(0, Math.min(ch - h, y));
+          sd.scrollTop = (y / (ch - h)) * over;                // 同步写（唯一滚动写入者）
+          if (typeof window !== "undefined" && typeof window.__sbDragTick === "function") window.__sbDragTick(); // BUG-166v：实时拉预览
+        });
+        const endDrag = (e) => {
+          if (!drag) return;
+          drag = null;
+          bar.classList.remove("dragging");
+          try { bar.releasePointerCapture(e.pointerId); } catch (_) {}
+          cmGestureActive = false;
+          if (typeof window !== "undefined" && typeof window.__setSyncDragPaused === "function") window.__setSyncDragPaused(false);
+        };
+        bar.addEventListener("pointerup", endDrag);
+        bar.addEventListener("pointercancel", endDrag);
+      }
+    }
     if (typeof window !== "undefined") window.__cm = view; // 调试/测试暴露（posAtCoords/coordsAtPos 供回归测试用）
     return view;
   }
@@ -156,7 +394,19 @@
       value: { configurable: true, get: () => cmv.state.doc.toString(), set: (v) => cmv.dispatch({ changes: { from: 0, to: cmv.state.doc.length, insert: String(v) } }) },
       selectionStart: { configurable: true, get: () => cmv.state.selection.main.from },
       selectionEnd: { configurable: true, get: () => cmv.state.selection.main.to },
-      setSelectionRange: { configurable: true, value: (s, e) => cmv.dispatch({ selection: CM.EditorSelection.single(s | 0, (e == null ? s : e) | 0), scrollIntoView: true }) },
+      // setSelectionRange 默认【不滚动视口】(scrollIntoView 不传)：BUG-165h 真机日志
+      // ED -245130——快滚后 CM 高度树未收敛/posAtCoords 命中 stale tile，程序设置的
+      // 光标带着 scrollIntoView 把编辑器视口一步拉走几十万 px。光标行已在视口内时
+      // CM 本就不滚；在视口外（真跳转）时由跳转路径自己显式滚（搜索 selectMatch 已
+      // 用 offToEditorY 精滚；navGo/jumpTo* 自带 editor.scrollTop 控制）。
+      // scrollIntoView:true 只保留给【用户主动跳转】语义的调用（需滚动时调用方传第 3 参）。
+      setSelectionRange: {
+        configurable: true,
+        value: (s, e, scroll) => {
+          const sel = CM.EditorSelection.single(s | 0, (e == null ? s : e) | 0);
+          cmv.dispatch(scroll === true ? { selection: sel, scrollIntoView: true } : { selection: sel });
+        },
+      },
       focus: { configurable: true, value: () => cmv.focus() },
       // 'input' 走 updateListener 维护的 editorInputListeners（CM 不发原生 input 事件）；其余事件用原生
       // （scroll/click/keydown/paste 等冒泡到 scrollDOM）。注意：必须调 EventTarget.prototype 原生方法，
@@ -471,6 +721,311 @@
     return html + bib;
   }
 
+  /* ---------- 文档内 Wikilink（Karpathy LLM Wiki 兼容，Phase 1a）----------
+     语法：[[#标题]] / [[#标题|别名]]  → 可点击，跳转编辑器光标+预览滚动到该标题
+           [[页面]] / [[页面|别名]]    → 置灰待解析（跨文件解析是 Phase 1b 工作区模式）
+     排斥：![[嵌入]]、\[[、[[[、[[x]](url)（markdown 链接）原样透传，不当 wikilink。
+     占位符 ​WIKI i​ 复用零宽字符模式（marked + DOMPurify 不动它，见 BUG-032）；
+     还原走单次正则（见 BUG-011）；替换为行内变换（字符类排除 \n），
+     raw 与 src 的 \n\n 切块数不变 → 大文档批切分/srcBlockOffsets 对齐不受影响（见 BUG-105）。
+  */
+  const WIKI_RE = /​WIKI(\d+)​/g;
+  // 在 src（已保护代码/公式/引用为占位符）中把 wikilink 替换为 ​WIKI i​ 占位符，收集 wikiList。
+  // 前置语境 (^|[^!\\\[]) 排斥 ![[嵌入]]、转义 \[[ 与三连 [[[（语境字符原样保留）；
+  // (?!\() 排斥 [[x]](url) markdown 链接写法。
+  function scanWikilinks(src) {
+    const wikiList = [];
+    const PH = (i) => "​WIKI" + i + "​";
+    const re = /(^|[^!\\\[])\[\[([^\[\]\n|]+)(?:\|([^\[\]\n]*))?\]\](?!\()/g;
+    src = src.replace(re, (m, pre, target, alias) => {
+      target = target.trim();
+      if (!target || target === "#") return m; // 空目标不处理
+      const i = wikiList.length;
+      wikiList.push(target.startsWith("#")
+        ? { heading: target.slice(1).trim(), page: null, alias: alias || null }
+        : { heading: null, page: target, alias: alias || null });
+      return pre + PH(i);
+    });
+    return { src, wikiList };
+  }
+  // 单次正则还原占位符（DOMPurify 之后）：
+  // heading 型 → <a class="wiki-link">（无 href——规避 WKWebView hash 导航挤视口，同 .cite 处理）
+  // page 型   → <span class="wiki-pending">（Phase 1b 前无跨文件解析，置灰不断链）
+  function renderWikilinks(html, wikiList) {
+    if (!wikiList || !wikiList.length) return html;
+    // 工作区索引可用时预解析跨文件链接（page 型升 wiki-link），当前文档相对路径供同目录优先
+    const at0 = activeTab();
+    let curRel = "";
+    if (at0 && at0.path && ws.root && at0.path.startsWith(ws.root)) {
+      curRel = at0.path.slice(ws.root.length).replace(/^[\\/]+/, "");
+    }
+    const files = (ws.index && ws.index.files) ? ws.index.files.map((f) => f.path) : null;
+    html = html.replace(WIKI_RE, (_m, i) => {
+      const w = wikiList[+i]; if (!w) return "";
+      if (w.heading != null) {
+        return '<a class="wiki-link" data-wiki-h="' + encodeURIComponent(w.heading) + '">' +
+          escapeHtml(w.alias || w.heading) + "</a>";
+      }
+      // page 型：工作区能解析 → 可点链接；否则置灰待解析（Phase 1b 前的 1a 行为）
+      const rel = files ? resolveWikiPage(files, w.page, curRel) : null;
+      if (rel) {
+        return '<a class="wiki-link wiki-page" data-wiki-p="' + encodeURIComponent(w.page) + '">' +
+          escapeHtml(w.alias || w.page) + "</a>";
+      }
+      return '<span class="wiki-pending" title="' + escapeHtml(t("wikiPending")) + '">' +
+        escapeHtml(w.alias || w.page) + "</span>";
+    });
+    return html;
+  }
+  // 在源码 text 里找标题行的起始偏移：精确 → trim 相等(大小写不敏感) → 子串，逐级回退；找不到 -1。
+  // marked 12 不给 <h*> 生成 id，跳转不能走 DOM 锚点，须回源码偏移定位（同 findCiteOccurrences 思路）。
+  function findHeadingOffset(text, heading) {
+    if (!heading) return -1;
+    const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let m = new RegExp("^(#{1,6})\\s+" + esc + "\\s*$", "m").exec(text);
+    if (m) return m.index;
+    m = new RegExp("^(#{1,6})\\s+" + esc + "\\s*$", "im").exec(text); // 大小写不敏感重试
+    if (m) return m.index;
+    const h = heading.trim().toLowerCase();
+    const lines = text.split("\n");
+    let off = 0;
+    for (const line of lines) {
+      const hm = /^(#{1,6})\s+(.*?)\s*$/.exec(line);
+      if (hm && hm[2].trim().toLowerCase() === h) return off;
+      off += line.length + 1;
+    }
+    off = 0;
+    for (const line of lines) { // 最后回退：标题文本子串匹配（标题被改写但含关键词）
+      const hm = /^(#{1,6})\s+(.*?)\s*$/.exec(line);
+      if (hm && hm[2].toLowerCase().includes(h)) return off;
+      off += line.length + 1;
+    }
+    return -1;
+  }
+
+  /* ---------- 工作区（Phase 1b）：文件夹侧栏 + 跨文件 wikilink + 反向链接 ----------
+     状态是窗口级的（多窗口各开各的 vault，不跨窗口共享索引，避免同步坑）。
+     [[页面]] 解析规则（窄起步）：同目录同名 → vault 全局 basename 唯一 → 多个匹配取路径最短。
+     断链保守处理：点击 toast 提示，不建页。 */
+  const ws = {
+    root: "",              // 工作区根绝对路径（""=未开）
+    show: false,           // 侧栏可见性（记住跨会话）
+    tab: "tree",           // "tree" | "links"
+    expanded: new Set(),   // 展开的目录路径（树懒加载状态）
+    index: null,           // {files:[{path,mtime}], links:[{src,target,alias}]}（scan_wiki_index 结果）
+    indexAt: 0,            // 索引构建时间戳（防并发重扫）
+  };
+  // 跨文件 [[页面]] 解析：返回 vault 内目标文件相对路径（posix），找不到 null。纯函数（可测）。
+  // files: 索引里的文件相对路径数组；curRel: 当前文档相对路径（""=vault 外/草稿）。
+  function resolveWikiPage(files, target, curRel) {
+    if (!files || !files.length || !target) return null;
+    const norm = target.replace(/\.md$/i, "");
+    const dirOfRel = (p) => { const i = p.lastIndexOf("/"); return i < 0 ? "" : p.slice(0, i); };
+    const baseOf = (p) => { const b = p.slice(p.lastIndexOf("/") + 1).replace(/\.(md|markdown)$/i, ""); return b; };
+    const curDir = curRel ? dirOfRel(curRel) : "";
+    const cand = files.filter((f) => baseOf(f).toLowerCase() === norm.toLowerCase());
+    if (!cand.length) return null;
+    // ① 同目录优先
+    const same = cand.filter((f) => dirOfRel(f) === curDir);
+    if (same.length) return same[0];
+    // ② 唯一 basename → 直接用；多个 → 路径最短（最浅层优先，Obsidian 反惯例但可预期）
+    if (cand.length === 1) return cand[0];
+    return cand.slice().sort((a, b) => a.length - b.length)[0];
+  }
+  // 打开/切换工作区（root="" 表示关闭）。异步：建索引 → 渲树。
+  async function openWorkspace(root) {
+    if (!root) { closeWorkspace(); return; }
+    ws.root = root;
+    ws.expanded = new Set([root]);
+    ws.show = true;
+    $("sidebar").hidden = false;
+    $("sb-title").textContent = "📁 " + baseName(root);
+    $("sb-title").title = root;
+    renderSbTree();            // 先渲染根（懒加载，子级点开才枚举）
+    refreshWikiIndex();        // 异步建索引（反链 + 跨文件解析用）
+    try { localStorage.setItem("md-ws", JSON.stringify({ root, show: true })); } catch (_) {}
+  }
+  function closeWorkspace() {
+    ws.root = ""; ws.index = null; ws.expanded = new Set();
+    $("sidebar").hidden = true;
+    try { localStorage.setItem("md-ws", JSON.stringify({ root: "", show: ws.show })); } catch (_) {}
+    scheduleRender();          // wiki-pending → 可能升级 wiki-link
+  }
+  function toggleWorkspace() {
+    if (!ws.root) { menuOpenFolder(); return; }   // 无工作区 → 走选择流程
+    ws.show = !ws.show;
+    $("sidebar").hidden = !ws.show;
+    try { localStorage.setItem("md-ws", JSON.stringify({ root: ws.root, show: ws.show })); } catch (_) {}
+  }
+  // 菜单「打开文件夹」/ 拖入文件夹 共同入口
+  async function menuOpenFolder() {
+    if (!isTauri) return;
+    try {
+      const root = await invoke("pick_folder");
+      if (root) await openWorkspace(root);
+    } catch (e) { toast(t("openFail") + e); }
+  }
+  // 会话恢复：启动时读 md-ws（vault 仍存在才恢复，移走/删除则清掉——BUG-038 家族防御）
+  async function restoreWorkspace() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem("md-ws") || "null"); } catch (_) {}
+    if (!saved || !saved.root) return;
+    try {
+      if (await invoke("path_exists", { path: saved.root })) {
+        await openWorkspace(saved.root);
+        if (saved.show === false) { ws.show = false; $("sidebar").hidden = true; }
+      } else {
+        localStorage.removeItem("md-ws");
+      }
+    } catch (_) { /* path_exists 不可用（浏览器）→ 忽略 */ }
+  }
+  // 文件树渲染（懒加载：只画一层，目录点击才枚举子级）
+  async function renderSbTree() {
+    const host = $("sb-tree");
+    if (!ws.root) { host.innerHTML = ""; return; }
+    host.innerHTML = '<div class="sb-empty">' + escapeHtml(t("sbLoading")) + "</div>";
+    const items = await invoke("list_dir", { dir: ws.root }).catch(() => null);
+    host.innerHTML = "";
+    if (!items) { host.innerHTML = '<div class="sb-empty">' + escapeHtml(t("sbEmpty")) + "</div>"; return; }
+    const frag = document.createDocumentFragment();
+    for (const it of items) frag.appendChild(sbNode(it, 0));
+    host.appendChild(frag);
+  }
+  // 单个树节点（目录可展开；.md/.html 点击开标签）
+  function sbNode(it, depth) {
+    const el = document.createElement("button");
+    el.className = "sb-item";
+    el.style.paddingInlineStart = (8 + depth * 14) + "px";
+    if (it.isDir) {
+      const open = ws.expanded.has(it.path);
+      const caret = document.createElement("span");
+      caret.className = "sb-caret";
+      caret.textContent = open ? "▾" : "▸";
+      el.appendChild(caret);
+      const ico = document.createElement("span"); ico.className = "sb-ico"; ico.textContent = "📁";
+      el.appendChild(ico);
+      const nm = document.createElement("span"); nm.textContent = it.name;
+      nm.style.overflow = "hidden"; nm.style.textOverflow = "ellipsis";
+      el.appendChild(nm);
+      el.onclick = () => toggleSbDir(el, it, depth);
+    } else {
+      const caret = document.createElement("span"); caret.className = "sb-caret";
+      el.appendChild(caret);
+      const ico = document.createElement("span"); ico.className = "sb-ico"; ico.textContent = "📄";
+      el.appendChild(ico);
+      const nm = document.createElement("span"); nm.textContent = it.name;
+      nm.style.overflow = "hidden"; nm.style.textOverflow = "ellipsis";
+      el.appendChild(nm);
+      markActiveSbItem(el, it.path);
+      el.onclick = () => { openPath(it.path); };
+    }
+    return el;
+  }
+  // 目录展开/收起：展开→子级插到本节点后（懒加载 list_dir）；收起→移除子节点
+  async function toggleSbDir(el, it, depth) {
+    const path = it.path;
+    if (ws.expanded.has(path)) {
+      ws.expanded.delete(path);
+      const c = el.querySelector(".sb-caret"); if (c) c.textContent = "▸";
+      let n = el.nextElementSibling;
+      while (n && (parseInt(n.getAttribute("data-depth") || "0", 10) > depth || n.getAttribute("data-dir") === path)) {
+        const nx = n.nextElementSibling; n.remove(); n = nx;
+      }
+      return;
+    }
+    ws.expanded.add(path);
+    const c = el.querySelector(".sb-caret"); if (c) c.textContent = "▾";
+    const kids = await invoke("list_dir", { dir: path }).catch(() => null);
+    if (!kids || !kids.length) return;
+    const frag = document.createDocumentFragment();
+    for (const k of kids) {
+      const node = sbNode(k, depth + 1);
+      node.setAttribute("data-depth", String(depth + 1));
+      node.setAttribute("data-dir", path);
+      frag.appendChild(node);
+    }
+    el.after(frag);
+  }
+  // 当前打开文件在树里高亮（切标签时刷新）
+  function markActiveSbItem(el, path) {
+    const at = activeTab();
+    if (at && at.path === path) el.classList.add("active");
+  }
+  function refreshSbActive() {
+    const at = activeTab();
+    $("sb-tree").querySelectorAll(".sb-item").forEach((el) => {
+      el.classList.toggle("active", !!(at && el.getAttribute("data-path") === at.path));
+    });
+  }
+  // 反向链接面板：当前文档被哪些文件链接（按索引 links 过滤 target 匹配本文件 basename）
+  function renderSbLinks() {
+    const host = $("sb-links");
+    if (!ws.index || !ws.index.links) { host.innerHTML = '<div class="sb-empty">' + escapeHtml(t("sbEmpty")) + "</div>"; return; }
+    const at = activeTab();
+    if (!at || !at.path || !ws.root) { host.innerHTML = '<div class="sb-empty">' + escapeHtml(t("sbLinksHint")) + "</div>"; return; }
+    let rel = "";
+    try { rel = at.path.slice(ws.root.length).replace(/^[\\/]+/, ""); } catch (_) { rel = ""; }
+    const myBase = rel.replace(/\.(md|markdown)$/i, "").toLowerCase();
+    const backlinks = ws.index.links.filter((l) => {
+      const t = String(l.target || "").replace(/\.md$/i, "").toLowerCase();
+      return t === myBase || t === rel.toLowerCase();
+    });
+    if (!backlinks.length) { host.innerHTML = '<div class="sb-empty">' + escapeHtml(t("sbNoBacklinks")) + "</div>"; return; }
+    const frag = document.createDocumentFragment();
+    for (const bl of backlinks) {
+      const b = document.createElement("button");
+      b.className = "sb-bl-item";
+      const srcName = String(bl.src).slice(String(bl.src).lastIndexOf("/") + 1);
+      b.innerHTML = '<span class="sb-bl-src"></span><span class="sb-bl-ctx"></span>';
+      b.querySelector(".sb-bl-src").textContent = srcName;
+      b.querySelector(".sb-bl-ctx").textContent = "[[" + bl.target + (bl.alias ? "|" + bl.alias : "") + "]]";
+      const abs = ws.root + "/" + String(bl.src);
+      b.title = abs;
+      b.onclick = () => { openPath(abs); };
+      frag.appendChild(b);
+    }
+    host.appendChild(frag);
+  }
+  // 建索引 / 增量重扫（文件保存后调；mtime 变化文件少时只重读变化文件——1b-4 再做，先全量）
+  async function refreshWikiIndex() {
+    if (!ws.root || !isTauri) return;
+    const stamp = ++ws.indexAt;
+    try {
+      const idx = await invoke("scan_wiki_index", { root: ws.root });
+      if (stamp !== ws.indexAt) return;   // 已有更新的扫描 → 丢弃本次
+      ws.index = idx;
+      if (ws.tab === "links") renderSbLinks();
+      scheduleRender();                    // wiki-pending ↔ wiki-link 状态可能变化
+    } catch (_) { /* 索引失败静默：树仍可用，仅跨文件解析/反链缺失 */ }
+  }
+  // [[页面]] 点击：解析 → openPath；断链保守 toast
+  async function jumpToWikiPage(page) {
+    if (!ws.root || !ws.index) { toast(t("wikiNoWorkspace")); return; }
+    const at = activeTab();
+    let curRel = "";
+    if (at && at.path && at.path.startsWith(ws.root)) {
+      curRel = at.path.slice(ws.root.length).replace(/^[\\/]+/, "");
+    }
+    const rel = resolveWikiPage((ws.index.files || []).map((f) => f.path), page, curRel);
+    if (!rel) { toast(t("wikiPageNotFound").replace("{p}", page)); return; }
+    await openPath(ws.root + "/" + rel);
+  }
+  // 侧栏 UI 绑定
+  function initWorkspaceUi() {
+    $("sb-close").onclick = () => toggleWorkspace();
+    $("sb-tab-tree").onclick = () => {
+      ws.tab = "tree";
+      $("sb-tab-tree").classList.add("active"); $("sb-tab-links").classList.remove("active");
+      $("sb-tree").hidden = false; $("sb-links").hidden = true;
+    };
+    $("sb-tab-links").onclick = () => {
+      ws.tab = "links";
+      $("sb-tab-links").classList.add("active"); $("sb-tab-tree").classList.remove("active");
+      $("sb-links").hidden = false; $("sb-tree").hidden = true;
+      renderSbLinks();
+    };
+  }
+
   // 代码块懒高亮：IntersectionObserver 只对进入视口(含 200px 预判区)的 pre code 调 hljs。
   // 大文件含上千代码块时，避免一次性同步高亮导致打开/编辑卡顿数秒。
   let hljsObserver = null;
@@ -710,6 +1265,7 @@
   let winStart = -1, winEnd = -1; // 大文档窗口化：当前渲染窗口 [winStart, winEnd)；-1=非窗口模式
   let winRecenterRaf = 0;
   let winRenderActive = 0; // 正在异步重渲窗口的计数器；>0 时冻结 syncAnchors（防用旧窗口偏移把预览定位错）
+  let cmGestureActive = false; // CM 按住手势进行中（BUG-165）：冻结 renderWindow recenter——用户按住编辑区时程序挪视口=敌对行为
   // 窗口化全文 spacer 骨架（Phase1 MVP）：让 >200KB 大文档预览滚动条覆盖全文、能连续滚到文末。
   // winSkel=全文块骨架[{off,end,raw,est,measured}]；winPrefix=累积前缀和（同 vprefix 语义）；
   // winDriver=当前窗口驱动方（"editor"默认/"preview"用户拖预览）。全程 if(winSkel.length) 守卫，
@@ -828,13 +1384,16 @@
     const bigDoc = text.length > 200000;
     const codeStore = [];
     const CPH = (i) => "\u200bCODE" + i + "\u200b";
-    text = text.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); });
+    text = text.replace(/```[\s\S]*?```|^[ \t]{0,3}~~~[^\S\n]*\n[\s\S]*?^[ \t]{0,3}~~~/gm, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); }); // BUG-166z：~~~ 围栏须行首（marked 规范）——LaTeX 的 ~（不断行空格，OCR 连续 ~~~）在行中，旧正则把公式当代码围栏吞掉跨段内容（含 $$ 与正文→"内容消失"）
     text = text.replace(/`[^`\n]+`/g, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); });
 
     let { src, store, PH } = extractMath(text);
     // 抽引用为占位符（代码/公式已是占位符，引用不会被误伤；\cite{} 也在此步移除）
     let citeList;
     ({ src, citeList } = scanCitations(src));
+    // 抽 wikilink 为占位符（同层：代码/公式/引用已占位，不会误伤；行内变换保 \n\n 切块数）
+    let wikiList;
+    ({ src, wikiList } = scanWikilinks(src));
     // 还原代码（让 marked 正常渲染为 <code>/<pre>），公式占位符保留给后面替换
     // 单次正则替换，避免 O(文本长 × 代码块数) 的 split/join 循环（大文档会明显卡顿）
     src = src.replace(/​CODE(\d+)​/g, (_m, i) => codeStore[+i] || "");
@@ -921,8 +1480,16 @@
             escapeHtml(s.tex) + "</span>";
         }
         if (s.display) {
-          // data-tex 存原始 LaTeX（encodeURIComponent 防属性注入），便于折行重渲
-          out = '<span class="mdmath" data-tex="' + encodeURIComponent(s.tex) + '">' + out + "</span>";
+          // data-tex 存原始 LaTeX（encodeURIComponent 防属性注入），便于折行重渲。
+          // BUG-166y：渲染失败(out 含 katex-error)→ defunct 块：按源码行数给最小高度——
+          // 编辑器里该公式源码占 ~30 行(~720px)，预览红字仅 ~220px：同 off 时编辑器视口
+          // 被公式占住、预览"看穿"到后文 = 用户感"预览超前约 1/3 页"。给失败块占住与
+          // 编辑器源码行相当的纵向空间，两侧视觉步调一致（封顶 1600px 防极端长公式）。
+          const dead = out.indexOf("katex-error") >= 0;
+          const srcLines = s.tex.split("\n").length + Math.floor(s.tex.length / 90); // 显式行+长行折行粗估
+          const mh = dead ? Math.min(1600, 96 + srcLines * 24) : 0;
+          out = '<span class="mdmath' + (dead ? " defunct" : "") + '"' + (dead ? ' style="min-height:' + mh + 'px"' : "") +
+            ' data-tex="' + encodeURIComponent(s.tex) + '">' + out + "</span>";
         }
         return out;
       });
@@ -931,6 +1498,8 @@
 
     // 还原引用占位为 [n] 上标，并追加「参考文献」表（单次正则，见 BUG-011）
     html = renderCitations(html, citeList, bibDB);
+    // 还原 wikilink 占位为链接/置灰 span（DOMPurify 之后，单次正则）
+    html = renderWikilinks(html, wikiList);
 
     // mermaid 预渲染（异步）：把 ```mermaid 代码块替换为 SVG，写入 html 字符串。
     // 代际守卫：await 后若已有更新的 render 启动，丢弃本次结果，避免覆盖新内容。
@@ -950,6 +1519,19 @@
     b = Math.max(a, Math.min(text.length, b));
     let s = text.lastIndexOf("\n\n", a); s = s < 0 ? 0 : s + 2;
     let e = text.indexOf("\n\n", b); e = e < 0 ? text.length : e;
+    // BUG-166z：边界不得落在 $ 公式内部——\n\n 段边界可能在公式块前后，但起点/终点仍可能
+    // 落在公式体内（切片首尾各半个 $）：extractMath 的贪婪配对从半个 $ 吞到下个 $，
+    // 中间正文（如 "and similarly"）被吞进公式体 → 渲染失败红字 → 正文"消失"+偏移全错位。
+    // 判定：边界前出现奇数个 $ → 边界在公式内 → 继续向外扩到公式外。
+    const inMath = (idx) => {
+      let n = 0;
+      for (let i = idx - 2; i >= 0; i = text.indexOf("$", i + 2)) { const j = text.indexOf("$", i); if (j < 0 || j >= idx) break; n++; i = j; if (n > 10000) break; }
+      return (n % 2) === 1;
+    };
+    let guard = 0;
+    while (s > 0 && inMath(s) && guard++ < 200) { const p = text.lastIndexOf("\n\n", s - 2); s = p < 0 ? 0 : p + 2; }
+    guard = 0;
+    while (e < text.length && inMath(e) && guard++ < 200) { const q = text.indexOf("\n\n", e + 2); e = q < 0 ? text.length : q; }
     return { start: s, end: e };
   }
   function lineOfOffset(off) { let l = 0; for (let i = 0; i < editorLineStarts.length; i++) { if (editorLineStarts[i] <= off) l = i; else break; } return l; }
@@ -963,11 +1545,12 @@
     let text = textNoBib;
     const codeStore = [];
     const CPH = (i) => "​CODE" + i + "​";
-    text = text.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); });
+    text = text.replace(/```[\s\S]*?```|^[ \t]{0,3}~~~[^\S\n]*\n[\s\S]*?^[ \t]{0,3}~~~/gm, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); }); // BUG-166z：~~~ 围栏须行首（marked 规范）——LaTeX 的 ~（不断行空格，OCR 连续 ~~~）在行中，旧正则把公式当代码围栏吞掉跨段内容（含 $$ 与正文→"内容消失"）
     text = text.replace(/`[^`\n]+`/g, (m) => { codeStore.push(m); return CPH(codeStore.length - 1); });
     const { src, store } = extractMath(text);
     const { src: src2, citeList } = scanCitations(src);
-    const s = src2.replace(/​CODE(\d+)​/g, (_m, i) => codeStore[+i] || "");
+    const { src: s2, wikiList } = scanWikilinks(src2);
+    const s = s2.replace(/​CODE(\d+)​/g, (_m, i) => codeStore[+i] || "");
     // 偏移（绝对 = start + 块内偏移）：lex 窗口原文取每块起点；html：parse 窗口 src。同源→严格对齐。
     const offsets = [];
     if (window.marked && marked.lexer) {
@@ -990,13 +1573,21 @@
       const rendered = store.map((x) => {
         let out;
         try { out = katex.renderToString(x.tex, { displayMode: x.display, throwOnError: false, trust: false, strict: false }); }
-        catch (e) { out = '<span style="color:#d33">' + escapeHtml(x.tex) + '</span>'; }
-        if (x.display) out = '<span class="mdmath" data-tex="' + encodeURIComponent(x.tex) + '">' + out + '</span>';
+        catch (e) { out = '<span class="katex-error" title="render failed">' + escapeHtml(x.tex) + '</span>'; }
+        if (x.display) {
+          // BUG-166y：同主渲染管线——失败公式 defunct 块 + 按源码行数 min-height（视觉对齐）
+          const dead2 = out.indexOf("katex-error") >= 0;
+          const sl2 = x.tex.split("\n").length + Math.floor(x.tex.length / 90);
+          const mh2 = dead2 ? Math.min(1600, 96 + sl2 * 24) : 0;
+          out = '<span class="mdmath' + (dead2 ? " defunct" : "") + '"' + (dead2 ? ' style="min-height:' + mh2 + 'px"' : "") +
+            ' data-tex="' + encodeURIComponent(x.tex) + '">' + out + '</span>';
+        }
         return out;
       });
       html = html.replace(/​MATH(\d+)​/g, (_m, i) => rendered[+i] || "");
     }
     html = renderCitations(html, citeList, bibDB);
+    html = renderWikilinks(html, wikiList);
     html = await renderMermaidInHtml(html);
     return { html, offsets };
   }
@@ -1119,12 +1710,15 @@
     } catch (e) { console.log("renderWindow", e); } finally { winRenderActive--; }
   }
   function positionWindow(forceOff) { // 把编辑区中心对应的预览块居中
-    if (scrollSrc === "preview") return; // 预览驱动（编辑器正被同步滚动）→ 不强制居中，否则把预览 yank 回编辑器中心
+    // BUG-166i：预览用户滚动活跃期（含 scrollSrc 已被 scrollend 重置的间隙）不写预览位置——
+    // 快拖中 renderWindow 扩窗/裁剪后的"钉中央"会与用户滚动交错成回摆（测试 91-92% 段实测）。
+    // 活跃期唯一写入者是 syncAnchors rAF 跟随；静置后 settle 统一对齐。
+    if (scrollSrc === "preview" || performance.now() - lastPreviewUser < 250) return;
     scrollSrc = "editor"; // 防预览滚动回环
     const centerOff = forceOff != null ? forceOff : editorYToOff(editor.scrollTop + editor.clientHeight / 2);
     if (centerOff < 0) return;
     const y = previewOffsetToY(centerOff); // vContent 覆盖时实测；不覆盖时 offToPreviewY 钳窗口内(vContent 末,实测,不空白)，renderWindow 完成后 positionWindow(centerOff) 精确对齐
-    if (y != null && isFinite(y)) preview.scrollTop = Math.max(0, y - (preview.clientHeight || 600) / 2);
+    if (y != null && isFinite(y)) setPvScroll(y - (preview.clientHeight || 600) / 2);
   }
   function updateWindowPos(centerLine) { // 状态栏位置指示（窗口模式）
     const el = $("s-winpos"); if (!el) return;
@@ -1135,6 +1729,7 @@
   // 滚动触发：编辑区中心移出当前窗口内圈 → 防抖重渲新窗口（不依赖 scrollSrc，故预览驱动编辑器越过窗口边也触发）
   function scheduleWindowRecenter() {
     if (winStart < 0 || !editorLineStarts.length) return;
+    if (cmGestureActive) return; // BUG-165：编辑器按住手势期间冻结 recenter（程序挪用户视口=敌对）
     if (winRecenterRaf) return;
     winRecenterRaf = requestAnimationFrame(() => { winRecenterRaf = 0; renderWindow(false); });
   }
@@ -1205,7 +1800,7 @@
       const keepScroll = preview.scrollTop;
       vClear();
       vSetup(tpl);          // 复用已解析的 template，不再二次解析
-      preview.scrollTop = Math.min(keepScroll, vprefix[vblocks.length] - (preview.clientHeight || 0));
+      markPvProg(() => { preview.scrollTop = Math.min(keepScroll, vprefix[vblocks.length] - (preview.clientHeight || 0)); });
       renderVisible();
     } else {
       vClear();
@@ -1313,6 +1908,7 @@
      当前窗口已 parse 块（保留窗口化性能），spacer 用全文骨架 winSkel/winPrefix 撑起。骨架 MVP 按 \n\n
      切块 + estBlockByRaw 估高（零 lexer 成本，规避 BUG-141 全文 parse 慢）。全程 if(winSkel.length) 守卫。 */
   // 按源码 raw 文本估块高（不依赖 DOM，常量与 estimateFromNode 对齐）。供 buildWinSkelByLines 用。
+  const estMathOkCache = new Map(); // BUG-166y：KaTeX 成败探测缓存（key=长度+首尾摘要）
   function estBlockByRaw(raw) {
     const s = raw.trim();
     if (!s) return 20;
@@ -1341,6 +1937,40 @@
       return 36 + ps * 28;
     }
     if (/^!\[.*\]\(|<img/i.test(s)) return 312;      // 图片块：MVP 占位 300+margin，滚入实测回填修正
+    if (/^!\[.*\]\(|<img/i.test(s)) return 312;      // 图片块：MVP 占位 300+margin，滚入实测回填修正
+    // BUG-166y：display 公式块（$$...$$ 独立块）。旧按散文估高对 KaTeX 失败的公式严重高估：
+    // 失败时 KaTeX 输出【红字源码文本】（等宽、按预览宽度折行）——源码 900 字符实际仅 ~130px，
+    // 旧散文估算 ~514-700px，单块差 600px，窗口内多个坏公式累积数千 px → 编辑↔预览对不齐。
+    // 方案：离屏同步试渲染（纯字符串，无 DOM 成本）判成败——
+    //   失败 → 按红字源码显示宽度折行估高（与 KaTeX 实际输出同形态，实测误差 <15%）；
+    //   成功 → 按环境行数估（array/aligned 行×46，单式 64），滚入视口后 winMeasuresFill 实测回填。
+    if (/^\$\$[\s\S]*\$\$$/.test(s)) {
+      const body = s.replace(/^\$\$/, "").replace(/\$\$$/, "").trim();
+      // 成败探测（带 3 次缓存避免重复 parse）
+      let ok = true;
+      if (window.katex) {
+        try {
+          const key = "​K" + body.length + ":" + (body.slice(0, 40) + body.slice(-24));
+          if (estMathOkCache.get(key) === undefined) {
+            estMathOkCache.set(key, !!katex.renderToString(body, { throwOnError: true, strict: false, trust: false }));
+          }
+          ok = estMathOkCache.get(key);
+        } catch (_) { ok = false; }
+      }
+      if (!ok) {
+        // 失败：defunct 块（BUG-166y）——min-height = min(1600, 96+源码行数×24)，与渲染管线
+        // 的 defunct 内联 min-height 同公式，骨架/实测一致 → 滚动同步不因坏公式漂移。
+        const sl = body.split("\n").length + Math.floor(body.length / 90);
+        const mh = Math.min(1600, 96 + sl * 24);
+        // 红字实际折行高（可能超过 min-height）：等宽 12px≈91字符/行×18px
+        const w = body.length + (body.match(/[　-鿿가-힯＀-￯]/g) || []).length;
+        const rows = Math.max(1, Math.ceil(w / 91));
+        return Math.max(mh, 16 + rows * 18 + 12);
+      }
+      const envRows = (body.match(/\\\\(?!\w)/g) || []).length;
+      const rows2 = Math.max(1, envRows + 1);
+      return 24 + rows2 * 46 + 12;
+    }
     const tlen = s.length;                           // 散文：行数×26 + 长文补偿
     return 28 + Math.max(1, lines.length) * 26 + (tlen > 200 ? Math.floor((tlen - 200) / 40) * 24 : 0);
   }
@@ -1420,8 +2050,8 @@
   function updateWindowSpacers() {
     if (!winSkel.length || !vSpacerTop) return;
     const total = winPrefix[winPrefix.length - 1] || 0;
-    vSpacerTop.style.height = winPrefixOf(winStart) + "px";
-    vSpacerBottom.style.height = Math.max(0, total - winOffToY(winEnd)) + "px";
+    vSpacerTop.style.height = (isFinite(winPrefixOf(winStart)) ? winPrefixOf(winStart) : 0) + "px"; // BUG-166x NaN 防护
+    vSpacerBottom.style.height = (isFinite(total - winOffToY(winEnd)) ? Math.max(0, total - winOffToY(winEnd)) : 0) + "px"; // BUG-166x
   }
   // 预览驱动：滚到未 parse 区时懒解析该段。是否需要解析以「视口中心是否已被 vContent 覆盖」为准
   // （DOM 实测，准），而非骨架 off 判断（累积误差会误判已在窗口内 → 视口停在空白 spacer）。
@@ -1436,8 +2066,15 @@
     // 视口中心是否已被 vContent 块覆盖（实测，不受骨架估高累积误差影响）
     let inVc = false;
     for (const k of vContent.children) { const r = k.getBoundingClientRect(); if (midAbs >= r.top && midAbs < r.bottom) { inVc = true; break; } }
-    if (inVc) return; // 视口已有内容，无需懒解析（细粒度同步由 syncAnchors 处理）
-    const targetOff = winYToOff(preview.scrollTop + ch / 2); // 骨架估算目标 off（仅决定解析哪段，偏差由实测重定位吸收）
+    // BUG-166y 补：视口中心虽被覆盖，但覆盖的是【骨架偏移前解析的旧段】（程序按 off 定位
+    // 预览时，骨架 off→Y 与实际 DOM Y 偏差大，视口落在旧窗内容上=inVc 误判，永远不换段）。
+    // 双保险：骨架目标 off 必须也落在当前窗口内才允许 early-return。
+    const targetOff = winYToOff(preview.scrollTop + ch / 2);
+    if (inVc && !(winStart >= 0 && (targetOff < winStart - 500 || targetOff > winEnd + 500))) return; // 视口已有内容且骨架目标一致，无需懒解析
+    if (inVc && winStart >= 0 && (targetOff < winStart - 500 || targetOff > winEnd + 500)) {
+      // 视口有内容但骨架说目标在窗外（骨架/实际错位）→ 主动按骨架目标换窗（去盖住目标）
+      return renderWindowLazyAtOff(targetOff);
+    }
     const cLine = lineOfOffset(targetOff);
     const visibleLines = Math.max(20, Math.round(ch / editorLH));
     const halfWin = Math.min(200, Math.round(visibleLines * 2)); // 预览驱动用较小窗口(~4视口)：parse 快、拖动跟手少空白；编辑器驱动走 renderWindow 用 ~6 视口
@@ -1462,10 +2099,15 @@
         // (realY=null：curOff=winE 边界无块含此 off)。旧回退 winOffToY(骨架)在 chapter1(公式/代码)严重低估 off→Y
         // (off20770 骨架估9706 vs 实际12772，低24%)→preview 回跳3000px→触发 editor→preview 级联(用户感"跳回")。
         // realY 无效/偏差大→不重定位，保持 preview，下帧 renderWindowLazy 重新 parse 正确段。
+        // BUG-166i/j：暂停期（syncDragPaused）懒解析只挂内容、绝不定位——对齐统一推迟到
+        // 静置 settle。非暂停的用户滚动活跃期只容 ≤0.3 视口换段收窄微调（骨架估高→
+        // 实测修正的固有收窄；不微调会堆积到下段一次性回摆 0.3-0.5 视口，测试 91-92% 段实测）。
+        const pvUserActive = performance.now() - lastPreviewUser < 250;
         const realY = previewOffsetToY(curOff);
-        if (realY != null && isFinite(realY)) {
+        if (!syncDragPaused && realY != null && isFinite(realY)) {
           const newPv = Math.max(0, realY - ch / 2);
-          if (Math.abs(newPv - preview.scrollTop) < ch) preview.scrollTop = newPv;
+          const cap = pvUserActive ? ch * 0.3 : ch;   // 活跃期只容收窄微调
+          if (Math.abs(newPv - preview.scrollTop) <= cap) setPvScroll(newPv);
         }
       }
       updateWindowPos(cLine);
@@ -1474,6 +2116,45 @@
   function scheduleWindowLazyParse() {
     if (winLazyRaf) return;
     winLazyRaf = requestAnimationFrame(() => { winLazyRaf = 0; renderWindowLazy(); });
+  }
+  // BUG-166v：拖滑块（editor 驱动）时的懒解析——解析目标取【编辑器中心 off】而非 preview 当前位
+  //（preview 还没被推、停在旧段，旧 renderWindowLazy 会反复解析旧段永远追不上）。解析完不定位
+  // preview（推 preview 由 syncAnchors 的 editor→preview 精确路径负责），只换窗+更新 winStart/winEnd。
+  async function renderWindowLazyAtEditor() {
+    if (!winSkel.length || !vContent) return;
+    const ls = editorLineStarts;
+    if (!ls.length) return;
+    const center = editor.scrollTop + editor.clientHeight / 2;
+    const off = editorYToOff(center);
+    if (off < 0) return;
+    return renderWindowLazyAtOff(off);
+  }
+  // BUG-166y：按【指定源 off】换窗（骨架估算的"比例落点"不准时，让窗口主动去盖住目标 off，
+  // 而非等视口中心恰好落在旧窗内容上——renderWindowLazy 的 inVc 判定在骨架偏移后会误判
+  // "已覆盖"而永远不换段）。renderWindowLazyAtEditor 与预览比例定位都走这里。
+  async function renderWindowLazyAtOff(off) {
+    if (!winSkel.length || !vContent) return;
+    const ls = editorLineStarts;
+    if (!ls.length || off < 0) return;
+    const cLine = lineOfOffset(off);
+    const ch = preview.clientHeight || 600;
+    const visibleLines = Math.max(20, Math.round(ch / editorLH));
+    const halfWin = Math.min(300, Math.round(visibleLines * 3));
+    const ev = editor.value;
+    const a0 = ls[Math.max(0, cLine - halfWin)] || 0;
+    const b0 = (cLine + halfWin + 1 < ls.length) ? ls[cLine + halfWin + 1] : ev.length;
+    if (a0 <= winStart && b0 >= winEnd) return; // 当前窗已覆盖，无需重解析
+    const wb = expandToBlockBounds(ev, a0, b0);
+    winRenderActive++;
+    try {
+      const g = ++renderGen;
+      const { html, offsets } = await runWindowPipeline(ev, wb.start, wb.end);
+      if (g !== renderGen) return;
+      winStart = wb.start; winEnd = wb.end; srcBlockOffsets = offsets;
+      vContent.innerHTML = "";
+      mountSliceBlocks(html, offsets, "append", wb.end);
+      updateWindowPos(cLine);
+    } catch (e) { console.log("renderWindowLazyAtOff", e); } finally { winRenderActive--; }
   }
   function renderVisible() {
     if (!vblocks.length || !vContent) return;
@@ -1487,12 +2168,12 @@
     if (e <= s) e = Math.min(vblocks.length, s + 1);
     if (s === vRangeStart && e === vRangeEnd) return;
     vRangeStart = s; vRangeEnd = e;
-    vSpacerTop.style.height = vprefix[s] + "px";
+    vSpacerTop.style.height = (isFinite(vprefix[s]) ? vprefix[s] : 0) + "px"; // BUG-166x
     vContent.innerHTML = "";
     const frag = document.createDocumentFragment();
     for (let i = s; i < e; i++) frag.appendChild(vblocks[i].cloneNode(true));
     vContent.appendChild(frag);
-    vSpacerBottom.style.height = (vprefix[vblocks.length] - vprefix[e]) + "px";
+    vSpacerBottom.style.height = (isFinite(vprefix[vblocks.length] - vprefix[e]) ? (vprefix[vblocks.length] - vprefix[e]) : 0) + "px"; // BUG-166x
     // 先缩放超长公式（会改变其高度），再实测块高度，避免高度缓存失真
     wrapDisplayMath(vContent);
     // 实测可见块高度并回填缓存，修正滚动条
@@ -1505,8 +2186,8 @@
     }
     if (changed) {
       vRecomputePrefix();
-      vSpacerTop.style.height = vprefix[s] + "px";
-      vSpacerBottom.style.height = (vprefix[vblocks.length] - vprefix[e]) + "px";
+      vSpacerTop.style.height = (isFinite(vprefix[s]) ? vprefix[s] : 0) + "px"; // BUG-166x
+      vSpacerBottom.style.height = (isFinite(vprefix[vblocks.length] - vprefix[e]) ? (vprefix[vblocks.length] - vprefix[e]) : 0) + "px"; // BUG-166x
     }
     // 高亮可见代码块（已可见，无需懒加载）
     if (window.hljs) {
@@ -1686,8 +2367,8 @@
     navSuppress = true;
     try {
       if (pos.tabId !== activeId) switchTab(pos.tabId);
-      editor.setSelectionRange(pos.offset, pos.offset);
-      editor.scrollTop = pos.scrollTop;
+      editor.setSelectionRange(pos.offset, pos.offset, true);
+      markEdProg(() => { editor.scrollTop = pos.scrollTop; });
       editor.focus();
     } finally { navIdx = idx; navSuppress = false; updateNavBtns(); }
   }
@@ -1793,6 +2474,10 @@
       if (e.altKey && !e.shiftKey && !(e.metaKey || e.ctrlKey)) {
         if (e.key === "ArrowLeft") { e.preventDefault(); navBack(); }
         else if (e.key === "ArrowRight") { e.preventDefault(); navFwd(); }
+      }
+      // 浏览器降级：Ctrl/Cmd+Shift+B 切侧栏（Tauri 下由原生菜单加速键触发，避免重复）
+      if (!isTauri && (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "b") {
+        e.preventDefault(); toggleWorkspace();
       }
     });
   })();
@@ -3022,6 +3707,8 @@
   function loadTab(tab) {
     if (!tab) { editor.value = ""; updateStats(); updateCursor(); return; }
     editor.value = tab.content;
+    // 工作区侧栏（Phase 1b）：切标签刷新树高亮 + 反链面板
+    if (ws.root) { refreshSbActive(); if (ws.tab === "links") renderSbLinks(); }
     editor.setSelectionRange(tab.selStart || 0, tab.selEnd || 0);
     resetUndo(); // 切标签→重置撤销/重做栈；必须在载入内容之后，否则 undoLast 基线为空/旧值，
                  // 程序化编辑(如 Ctrl+K 链接)的 pushUndo 会把空基线入栈，Ctrl+Z 把文档清空
@@ -3029,7 +3716,7 @@
     // 延后一帧再渲染预览：先让编辑器文本绘制出来（大文件下用户立刻看到内容），
     // 随后才进入较重的预览渲染，避免打开时整窗卡住几秒。
     requestAnimationFrame(() => render());
-    if (tab.scrollTop) editor.scrollTop = tab.scrollTop;
+    if (tab.scrollTop) markEdProg(() => { editor.scrollTop = tab.scrollTop; });
     updateCursor();
     updateStats(); // 立即刷新底部状态栏（文件绝对路径），不等 rAF 渲染
     // 切标签时同步文献库徽标条数
@@ -3274,6 +3961,15 @@
     toast(t("opened") + tab.name);
   }
 
+  // 载入 Wikilink 工作区示例到新标签（文档内 [[#标题]] 跳转 + 跨文件 [[页面]] 解析说明）
+  function openWikiExample() {
+    const content = getSampleDoc("wiki");
+    const tab = createTab({ name: "wiki-example.md", content, type: "md", sample: { kind: "wiki", ver: SAMPLE_VER } });
+    switchTab(tab.id);
+    renderTabs();
+    toast(t("opened") + tab.name);
+  }
+
   // 载入 MDeX 简介/示例文档到新标签（即安装后自动显示的欢迎文档，可随时从「帮助」菜单重新打开）
   function openMdexExample() {
     const tab = createTab({ name: "MDeX-example.md", content: getSampleDoc("mdex"), type: "md", sample: { kind: "mdex", ver: SAMPLE_VER }, dir: appIconPath ? appIconPath.replace(/[\/\\][^\/\\]*$/, "") : "" });
@@ -3310,6 +4006,7 @@
         const after = await invoke("file_mtime", { path: tab.path }).catch(() => null);
         if (after != null) tab.mtime = after;
         renderTabs(); toast(t("saved"));
+        if (ws.root) refreshWikiIndex();   // Phase 1b：保存后刷新 vault 索引（反链/跨文件解析跟随最新）
         return true;
       } catch (e) { toast(t("saveFail") + e); return false; }
     }
@@ -3608,10 +4305,14 @@
             // 引用占位（在 marked 前，避免 [@key] 被 marked 触动；\cite 同理，见 BUG-029）
             let citeList;
             ({ src: text, citeList } = scanCitations(text));
+            // wikilink 占位（同层；导出中 wiki-link 保样式无交互、pending 置灰）
+            let wikiList;
+            ({ src: text, wikiList } = scanWikilinks(text));
             try { srcHtml = marked.parse(text); } catch (e) { srcHtml = text; }
             srcHtml = srcHtml.replace(/​MATH(\d+)​/g, (_m, i) => mathStore[+i] || "");
             // 还原引用 + 追加文献表（与预览一致）
             srcHtml = renderCitations(srcHtml, citeList, bibDB);
+            srcHtml = renderWikilinks(srcHtml, wikiList);
           }
           const content = buildStandaloneHtml(tab.name, srcHtml);
           await invoke("write_file_at", { path, content });
@@ -3686,7 +4387,7 @@
       });
     }
     const body = tpl.innerHTML;
-    const sels = [":root", "#preview", ".katex", ".hljs", ".cite", ".bibliography", ".bibitem", ".biblist", ".bib-title", ".mermaid-wrap", ".mermaid-err"];
+    const sels = [":root", "#preview", ".katex", ".hljs", ".cite", ".bibliography", ".bibitem", ".biblist", ".bib-title", ".mermaid-wrap", ".mermaid-err", ".wiki-link", ".wiki-pending"];
     let css = "";
     for (const sheet of document.styleSheets) {
       try {
@@ -3903,6 +4604,16 @@
   }
   async function handleDropPaths(paths) {
     document.body.classList.remove("dragging"); dragCnt = 0;
+    // 拖入文件夹 → 开工作区（Phase 1b）。单一路径且无扩展名按目录探测，交给后端判定
+    const dirs = paths.filter((p) => !/\.[a-z0-9]{1,8}$/i.test(p.replace(/[\\/]$/, "")));
+    if (dirs.length && isTauri) {
+      for (const d of dirs) {
+        try { if (await invoke("path_exists", { path: d })) { await openWorkspace(d); continue; } } catch (_) {}
+        await openPath(d).catch(() => {});   // 不是目录 → 当文档打开（原行为）
+      }
+      paths = paths.filter((p) => !dirs.includes(p));
+      if (!paths.length) return;
+    }
     const docs = paths.filter((p) => DROP_DOC_EXT.test(p));
     const imgs = paths.filter((p) => DROP_IMG_EXT.test(p));
     for (const p of docs) await openPath(p);   // 先打开文档
@@ -4052,6 +4763,18 @@
       cites.push("\\cite{" + keys.join(",") + "}");
       return " X" + (cites.length - 1) + " ";
     });
+    // wikilink 占位：[[#标题]]/[[页面]] → 纯文本（别名优先；1a 无 \ref label，同 cites 占位思路）
+    // 语境排斥与 scanWikilinks 一致（!\[\[ 嵌入、\[\\[ 转义、[[x]](url) 链接）。
+    // heading 型去掉前导 #（# 经 texEsc 会变 \#，标题文本里不该有）。
+    const wikis = [];
+    s = s.replace(/(^|[^!\\\[])\[\[([^\[\]\n|]+)(?:\|([^\[\]\n]*))?\]\](?!\()/g, (m, pre, target, alias) => {
+      target = target.trim();
+      if (!target || target === "#") return m;
+      if (target.startsWith("#")) target = target.slice(1).trim();
+      if (!target) return m;
+      wikis.push(texEscText(alias || target));
+      return pre + " W" + (wikis.length - 1) + " ";
+    });
     // 颜色 span：<span style="color: …">…</span> → \textcolor{…}{…}（需 xcolor）。须在 texEsc 前占位：
     // body 内的 \ _ 等需经 texEsc，且 span 的 <> 虽不被 texEsc 转义但会以 HTML 字面量残留在 .tex。
     const colors = [];
@@ -4072,6 +4795,7 @@
     s = s.replace(/ C(\d+) /g, (_m, n) => codes[+n]);
     s = s.replace(/ M(\d+) /g, (_m, n) => math[+n]);
     s = s.replace(/ X(\d+) /g, (_m, n) => cites[+n]);
+    s = s.replace(/ W(\d+) /g, (_m, n) => wikis[+n]);
     s = s.replace(/ K(\d+) /g, (_m, n) => colors[+n]);
     return s;
   }
@@ -4434,6 +5158,10 @@
 
   /* ---------- 同步滚动 ---------- */
   let scrollSrc = null, scrollReset;
+  // BUG-166w：预览点击定位后 preview 保持锚定直至 editor 的余波 scroll 全部落定。
+  // editor 的 scroll 可能延迟 >600ms（WKWebView 平滑滚动），期间绝不用 editor→preview
+  // 重推 preview（映射非完美互逆，重推必离开用户点击处）。pvAnchorUntil 之后恢复常规。
+  let pvAnchorUntil = 0;
   let lastPvSnapSt = -1; // syncAnchors 预览驱动方向感知防抖：上次 preview 中心(判断前进/后退)
   let lastPreviewH = 0; // 上次预览 scrollHeight；图片/mermaid 等异步渲染改变高度会使 Y 缓存过期 → syncAnchors 检测变化则重测
   let imgLoadT = 0; // 图片 load 后重测 Y 缓存的防抖定时器
@@ -4674,19 +5402,41 @@
     return -1;
   }
   // 锚点式滚动同步（替换原全局比例）：以各自中线偏移互映射；无锚点时回退比例
+  let sbDragging = false, sbSyncRaf = 0, sbAligning = false; // BUG-166v 自绘滚动条拖动中（声明先于 syncAnchors，防 TDZ）
   function syncAnchors(src, dst) {
     if (!syncScroll) return;
+    // BUG-166v 豁免：自绘滚动条拖动中（sbDragging），editor 是用户手里拖着的锚——
+    // editor→preview 方向放行（实时跟随）；其余方向仍守暂停契约（尤其 preview→editor 反向必须挡）。
+    if (syncDragPaused && !(sbDragging && src === editor && dst === preview)) return; // BUG-166j：惯性拖动暂停期零程序写入（settle 收尾先解除暂停再调）
+    // BUG-166l（第9份日志 ED -102547）：用户拖【编辑器】后，懒解析已把预览内容换到编辑器所在段
+    // 但预览【没滚】（契约不动它）——其视口显示的内容不再代表任何用户位置。此时任何途径的
+    // preview→editor 都会把 editor 对到"预览视口正显示的内容"= 拉回。根治：preview→editor 方向
+    // 只在【用户最近确实在操作预览】（lastPreviewUser 新鲜）时合法；预览静置超时后该方向彻底沉默。
+    // （用户拖预览的收尾 pvSettleT 自己在新鲜窗口内先跑，不受影响。）
+    if (src === preview && dst === editor && performance.now() - lastPreviewUser > 600) return;
     if (winRenderActive > 0 && src === editor) return; // 窗口重渲期间冻结 editor→preview：replace vContent 时 previewOffsetToY 用半换 DOM 会错。preview→editor 不冻结：用 previewYToOffDom(实时旧 vContent DOM)+CM lineBlockAt，不依赖 preview 缓存；旧冻结致 renderWindowLazy async parse(~150ms)期间 editor 卡住不跟、preview 继续滚→parse 完成 curOff 大跳→editor 一次性追上=用户感"卡后大跳"。
     // 图片/mermaid/KaTeX 等异步渲染会撑高预览 → fineYCache/previewBlockY 过期（预览偏上、越往后越偏）→ 检测 scrollHeight 变化则重测
     if (preview.scrollHeight !== lastPreviewH) { buildPreviewBlockY(); lastPreviewH = preview.scrollHeight; }
     if (!pbyLen() && !winSkel.length) { // 仅非窗口化且无块才比例回退；窗口化(winSkel 有)走下方锚点同步(vContent 未覆盖 eOff 则不推，绝不回退骨架/比例——否则把视口推到空白 spacer)
       const r = src.scrollTop / (src.scrollHeight - src.clientHeight || 1);
-      dst.scrollTop = r * (dst.scrollHeight - dst.clientHeight); return;
+      const tgt = r * (dst.scrollHeight - dst.clientHeight);
+      if (dst === preview) markPvProg(() => { dst.scrollTop = tgt; });   // BUG-166b：程序推 preview 须标记
+      else markEdProg(() => { dst.scrollTop = tgt; });                   // BUG-166：程序推 editor 须标记
+      return;
     }
     const center = src.scrollTop + src.clientHeight / 2;
     let y = null, eOff = null;
     if (src === editor) {
       eOff = editorYToOff(center); if (eOff < 0) return;
+      // BUG-166v：拖滑块实时跟随的覆盖闸——快速拖动时预览懒解析(~150ms/窗)跟不上，eOff 落在
+      // 已挂窗口外；此时 previewOffsetToY 无覆盖元素会回退骨架估算(公式/代码段误差可达 24%)
+      // → 一把推到底(pvMax)。未覆盖→跳过本帧（预览保持原位）+ 立刻按【编辑器中心】换窗解析
+      //（旧 scheduleWindowLazyParse 按 preview 当前位选段——preview 还没被推、停在旧段，会
+      // 反复解析旧段永远追不上），解析完成后续帧精确推——拖动中预览"分段跳跟"而非乱推。
+      if (sbDragging && winStart >= 0 && winSkel.length && (eOff < winStart || eOff > winEnd)) {
+        renderWindowLazyAtEditor();
+        return;
+      }
       // posAtCoords 异常校验：cm.lineBlockAtHeight 算视口真实行偏移范围(基于行块树，不依赖 hit-test，比 posAtCoords/
       // coordsAtPos 稳定——后两者 WKWebView 下都走 hit-test，深处可能同时异常使 coordsAtPos 守卫失效)。
       // eOff 出范围(±1 视口余量)→posAtCoords 把中段错映射成偏前/开头 off→previewOffsetToY 命中偏前块→预览跳开头→跳过本帧。
@@ -4705,6 +5455,11 @@
         if (winRenderActive > 0) return; // 重渲期间滚出旧 vContent→previewYToOff(fineYCache)可能 stale→跳过(editor 保持，下帧 vContent 更新后跟)，不卡后大跳
         off = previewYToOff(center);
       }
+      // BUG-166k（第8份日志 ED -247962）：预览停在旧段（用户拖的是编辑器，懒解析没跟预览侧）
+      // 时，任何途径触发的 preview→editor 都在用【旧段映射】反推 editor 位置，把用户刚拖好的
+      // 编辑器一步拉回。覆盖闸：实测 off 必须落在已挂载窗口 [winStart,winEnd] 内才允许写
+      // editor——旧段/未覆盖时跳过本帧（editor 保持，懒解析对准后自然恢复）。
+      if (winStart >= 0 && winSkel.length && (off < winStart || off > winEnd)) return;
       y = offToEditorY(off);
       // offToEditorY：视口内 coordsAtPos 精确；屏外回退 cm.lineBlockAt(高度树，单调稳定)→ editor 始终跟随 preview，不卡。
       // 安全：preview 驱动 scrollSrc="preview" 阻断 editor→preview 反拉；editor 跟到≈preview off，renderWindow 即便 reset 也居中同 off、preview 不错位。
@@ -4721,12 +5476,26 @@
       const curEd = dst.scrollTop; // editor 实际当前位(可能因平滑滚动偏离上次目标)
       if (adv && want < curEd - 80) { lastPvSnapSt = center; return; }
       if (!adv && want > curEd + 80) { lastPvSnapSt = center; return; }
+      // BUG-166f：真机日志 ED -173616——快速拖动中 renderWindowLazy 的旧段偏移把 editor 反向
+      // 大步拉回。80px 防抖挡不住 stale 大步（平滑滚动中 editor 实际位落后目标很多，curEd
+      // 判据失真）。硬上限：与 preview 前进方向相反、超过 1 视口的 editor 位移一律放弃本帧。
+      // 正常跟随时 editor 与 preview 同向单调；反向 >1 视口只可能是 stale 目标或用户反向起步
+      // （后者首帧跳过后下一帧 lastPvSnapSt 更新即放行，代价一帧延迟）。
+      if (adv && want < curEd - dst.clientHeight) { lastPvSnapSt = center; return; }
+      if (!adv && want > curEd + dst.clientHeight) { lastPvSnapSt = center; return; }
       lastPvSnapSt = center;
-      dst.scrollTop = want;
+      markEdProg(() => { dst.scrollTop = want; }); // BUG-166：程序推 editor 须标记，防其 scroll 被当用户驱动
       return;
     }
     if (dst === preview) scrollSrc = "editor"; // editor→preview 推预览前标记 editor 驱动：syncAnchors 设 preview.scrollTop 会触发 preview scroll 事件，若此时 scrollSrc 已被 scrollend(120ms)重置为 null，preview scroll 监工会误判"用户拖 preview"→设 scrollSrc="preview"→scheduleSync(preview,editor)→把 editor 拉回 preview 位置→editor scroll 守卫(scrollSrc!=="preview")无法恢复"editor"→死锁→editor 卡 content 被反复拉回(用户感"跳回开头")。positionWindow/renderWindowLazy/img load 推 preview 前都已标，唯独 syncAnchors 漏。
-    dst.scrollTop = Math.max(0, Math.min(max || 0, y - dst.clientHeight / 2));
+    // BUG-166x：isFinite 防护——y 为 NaN/Infinity 时 Math.max/min 原样传播，写 NaN 污染布局
+    if (dst === preview) {
+      const want = y - dst.clientHeight / 2;
+      if (isFinite(want)) markPvProg(() => { dst.scrollTop = Math.max(0, Math.min(max || 0, want)); }); // BUG-166b：程序推 preview 须标记
+    } else {
+      const want2 = y - dst.clientHeight / 2;
+      if (isFinite(want2)) markEdProg(() => { dst.scrollTop = Math.max(0, Math.min(max || 0, want2)); });
+    }
   }
   // 滚动同步用 requestAnimationFrame 合并（每帧最多一次），避免滚动卡顿
   let syncRaf = 0, syncDir = null;
@@ -4740,15 +5509,145 @@
   // scrollSrc 被 scrollend 重置为 null 后才到达)若误判为用户拖→preview→editor 把 editor 拉回 preview 位置→editor scroll 守卫(scrollSrc!=="preview")
   // 无法恢复"editor"→死锁→editor 卡 content 区被反复拉回(用户感"跳回开头")。scrollSrc 时序判断不可靠，故用用户交互时间戳兜底。
   let lastPreviewUser = 0;
+  // BUG-166b（镜像 166）：预览侧同样问题——原生滚动条拖动只产生 scroll（无 wheel/pointerdown 持续流），
+  // pointerdown 仅按下瞬间更新一次 lastPreviewUser，拖动 >600ms 后窗口过期 → 后续 scroll 全被当程序
+  // 余波 → 同步停摆 → editor 大额欠账（实测拖 1s editor 纹丝不动）→ 点击/反向滚时一次还账=大跳。
+  // 修（对称）：程序推 preview 设 scrollTop 前记 pvProgAt 时间戳；其 120ms 窗外的 scroll = 用户驱动
+  // （滚动条拖动的持续 scroll 流、惯性滚动的连发 scroll 都算）。
+  let pvProgAt = -1e9;
+  const markPvProg = (fn) => { pvProgAt = performance.now(); try { fn(); } catch (e) {} };
+  // BUG-166x：NaN 防护——公式段骨架/实测映射偶发算出 NaN/Infinity（winOffToY 骨架边、
+  // KaTeX 失败块高度 0 等），直接写 scrollTop=NaN 会污染 WebKit 布局（后续 elementFromPoint
+  // 全抛 non-finite）。非有限值直接丢弃（预览保持原位，下帧重算）。
+  const setPvScroll = (y) => { if (!isFinite(y)) return; markPvProg(() => { preview.scrollTop = Math.max(0, y); }); };
   preview.addEventListener("wheel", () => { lastPreviewUser = performance.now(); }, { passive: true });
   preview.addEventListener("touchstart", () => { lastPreviewUser = performance.now(); }, { passive: true });
   preview.addEventListener("pointerdown", () => { lastPreviewUser = performance.now(); });
-  preview.addEventListener("scroll", () => {
-    if (performance.now() - lastPreviewUser < 600 && scrollSrc !== "editor") {
-      scrollSrc = "preview"; scheduleSync(preview, editor);
-      if (winSkel.length) scheduleWindowLazyParse(); // 窗口化：用户主动滚预览→懒解析未 parse 区
+  let pvSettleT = 0;
+  let edSettleT = 0;
+  // BUG-166j（第6份真机日志后的方向性重构）：此前 10 层守卫都在修"快拖中保持同步准确"——
+  // 这条路本身走不通：大文档预览窗口化，窗口外高度是骨架估算（公式/代码段低估 24%），
+  // 快拖时估算与实测必然脱节，基于它的任何 off↔像素换算都可能是错值；守卫越多共享
+  // 状态越多，真机总能组合出新竞态（ED 拉回拖动前位置 + PV 推向另一头同毫秒出现）。
+  // 改交互契约（Xcode/BBEdit 同款）：【惯性拖动中不同步，静置后一次对齐】。
+  // 判定：单步滚动 >800px = 滑块拖动/深惯性（滚轮每步仅 50-120px）→ 进入 syncDragPaused，
+  // 期间【零程序写入】两侧滚动位置（懒解析照常挂内容，但不定位）；静置 300ms 后
+  // 以实测位置做一次对齐（settle 收尾）。拖动中用户只看拖动侧，另一侧不动无损失。
+  let syncDragPaused = false, pvLastRaw = -1, edLastRaw = -1;
+  // BUG-166v：自绘滚动条拖动的同步控制中心（createCMEditor 早于此声明执行，经全局句柄挂钩）。
+  // 契约：拖动期间【editor 实时驱动 preview】——scrollSrc="editor" + rAF 节流 scheduleSync
+  //（syncAnchors 的 syncDragPaused 闸对 editor→preview 方向豁免：用户拖的是 editor，
+  //  它是锚，实时拉 preview 不会反馈拉回自己）；松手立即终对齐 + 刷新 lastEditorUser。
+  window.__setSyncDragPaused = (v) => {
+    syncDragPaused = v;
+    sbDragging = v;
+    if (v) {
+      scrollSrc = "editor";          // 拖动期间 editor 恒为驱动侧：preview scroll 余波不反向拉 editor
+      lastEditorUser = performance.now();
+    } else {
+      lastEditorUser = performance.now();
+      if (sbSyncRaf) { cancelAnimationFrame(sbSyncRaf); sbSyncRaf = 0; }
+      scrollSrc = "editor";          // 松手终对齐：仍以 editor（用户拖的侧）为锚拉 preview
+      scheduleSync(editor, preview);
+      setTimeout(sbFinishAlign, 120); // 主推一帧后跑覆盖重试链（懒解析未跟上时按编辑器位换窗再推）
     }
+  };
+  // 拖动中每次 scrollTop 写入后调（pointermove 内）：rAF 合并的实时跟随
+  window.__sbDragTick = () => {
+    if (!sbDragging) return;
+    lastEditorUser = performance.now();
+    if (sbSyncRaf) return;
+    sbSyncRaf = requestAnimationFrame(() => {
+      sbSyncRaf = 0;
+      if (!sbDragging) return;
+      scrollSrc = "editor";
+      scheduleSync(editor, preview);
+    });
+  };
+  // BUG-166v：editor 为锚的【收尾对齐 + 覆盖重试】共享链——松手终对齐与点击编辑区对齐共用。
+  // 快速拖动后懒解析可能仍未覆盖编辑器位置：未覆盖则按编辑器中心换窗解析、150ms 后重试
+  //（上限 ~1.2s，超时放弃由后续滚轮兜底）。sbAligning 期间豁免 166k 覆盖闸（那是防
+  // preview→editor 旧段拉回的，本方向 editor→preview 需要"未覆盖即解析"而非跳过）。
+  function sbFinishAlign() {
+    if (sbDragging || sbAligning) return;
+    sbAligning = true;
+    scrollSrc = "editor";
+    lastEditorUser = performance.now();
+    let tries = 0;
+    const attempt = () => {
+      if (sbDragging) { sbAligning = false; return; }
+      // BUG-166y：锚=【光标行】优先（点击语义：用户点的那行贴预览中心），回退视口中心。
+      // syncAnchors 的中心映射在公式区两侧中心差可达半块（~200px 块高）。
+      const head = cm && cm.state ? cm.state.selection.main.head : -1;
+      const useHead = head >= 0 && head >= winStart && head <= winEnd;
+      const anchor = useHead ? head : editorYToOff(editor.scrollTop + editor.clientHeight / 2);
+      const covered = anchor >= 0 && (winStart < 0 || !winSkel.length || (anchor >= winStart && anchor <= winEnd));
+      if (covered && useHead) {
+        const y = previewOffsetToY(anchor);
+        if (y != null && isFinite(y) && y >= 0) {
+          const maxPv = preview.scrollHeight - preview.clientHeight;
+          setPvScroll(Math.max(0, Math.min(maxPv, y - preview.clientHeight / 2)));
+        } else {
+          syncAnchors(editor, preview);
+        }
+      } else {
+        syncAnchors(editor, preview);             // 回退：中心映射（未覆盖时内部闸跳过）
+      }
+      if (covered || ++tries > 8) { sbAligning = false; return; }
+      renderWindowLazyAtEditor();                 // 按【编辑器中心】换窗解析（非 preview 当前位）
+      setTimeout(attempt, 150);                   // 解析 ~150ms/次，重试直到覆盖
+    };
+    attempt();
+  }
+  window.__sbClickAlign = sbFinishAlign;
+  preview.addEventListener("scroll", () => {
+    // BUG-166n（第11份日志 ED -93000）：scroll 推断"用户"的判定【整个删除】——
+    // 所有真实用户预览滚动都有原生事件（wheel=滚轮/触控板、touchstart=触屏、
+    // pointerdown=点击），滑块拖动由下方 >800px 大步检测接管（syncDragPaused）。
+    // 之前"程序推后 120/500ms 窗外算用户"的推断，无论窗多宽都挡不住 WKWebView
+    // 平滑滚动余波（延迟可达 1s+）——余波被误判用户 → 污染 lastPreviewUser →
+    // 反向同步把刚拖好的 editor 拉回。删除后 lastPreviewUser 只由原生事件更新，
+    // 程序余波在语义上永不可能成为"用户"。
+    if (pvLastRaw >= 0 && Math.abs(preview.scrollTop - pvLastRaw) > 800) {
+      syncDragPaused = true;                          // 大步惯性/滑块拖动 → 暂停同步
+    }
+    pvLastRaw = preview.scrollTop;
+    // BUG-166e：scrollSrc!=='editor' 不可依赖为"预览可接管"——img load 等程序路径会把 scrollSrc
+    // 设成 'editor' 且无人复位，冷启动后用户第一次滚预览被永久 gate（同步+懒 parse 全不跑，
+    // 实测拖 30 步 editor 纹丝不动）。改为：新鲜的用户预览滚动 > 陈旧的方向标记——
+    // lastEditorUser 新鲜（用户刚在编辑器滚/点）才尊重 'editor' 方向。
+    const edDriving = scrollSrc === "editor" && performance.now() - lastEditorUser < 600;
+    if (!syncDragPaused && performance.now() - lastPreviewUser < 600 && !edDriving) {
+      scrollSrc = "preview"; scheduleSync(preview, editor);
+    }
+    if (winSkel.length && (syncDragPaused || performance.now() - lastPreviewUser < 600)) scheduleWindowLazyParse(); // 窗口化：用户滚预览（或拖动暂停期）→ 懒解析只挂内容不定位
     if (vblocks.length) scheduleRenderVisible(); // 虚拟化：滚动时按需切换可见块
+    // BUG-166d：拖滑块期间 editor 每帧只跟一步（rAF 合并 + 大文档懒解析），停下后剩余欠账
+    // 无帧可推 → 永久滞留（实测 pv=500000 时 ed=365629 不补）→ 下次任何交互触发 syncAnchors
+    // 一步补 13 万 px = "点击后大跳"。滚动静置后统一对齐（BUG-166j 契约的收尾）。
+    clearTimeout(pvSettleT);
+    pvSettleT = setTimeout(() => {
+      // BUG-166y：pvSettleT 允许"程序大步定位预览"收尾——WKWebView 滚动条拖动零事件（不设
+      // lastPreviewUser）、程序按 off 定位也不设；若只认 lastPreviewUser，暂停后窗口虽已换段
+      // 但【重定位永不发生】。但也不能无条件放行：加载/初始化时 pvLastRaw 大步同样置暂停，
+      // 若放行会在临时 DOM 上对齐把预览一步推到底（实测 pv 693010=底部）。
+      // 判据：暂停由【非程序推预览】的大步引起（距上次 markPvProg >1.5s = 不是我们刚推的余波）。
+      const progQuiet = performance.now() - pvProgAt > 1500;
+      const pvUserish = performance.now() - lastPreviewUser < 900 || (syncDragPaused && progQuiet && pvLastRaw >= 0);
+      if (pvUserish && scrollSrc !== "editor") {
+        // BUG-166j 收尾：拖动暂停结束（静置 300ms）→ 解除暂停 + 一次对齐。
+        // 【锚定规则】（第7份日志教训）：用户拖的是哪侧，那侧就是锚，只拉对侧——
+        // 此分支由 pvSettleT 触发=用户刚在拖【预览】→ 以 preview 为锚拉 editor。
+        // 拖编辑器的收尾在 editor scroll handler 的 edSettleT（对称）。
+        // 且对齐前验证覆盖：previewYToOffDom 命中须在已挂窗口内，否则等懒解析（不对齐，无跳）。
+        syncDragPaused = false;
+        const off = previewYToOffDom(preview.scrollTop + preview.clientHeight / 2);
+        if (off >= 0 && off >= winStart && off <= winEnd) {
+          scrollSrc = "preview";
+          syncAnchors(preview, editor);
+        }
+      }
+    }, 300);
   });
   // 图片异步加载会撑高预览，使 fineYCache/previewBlockY 过期（图片后内容偏上、文档后半部分累积偏差），
   // 且加载后预览内容位移、原本对齐错位 → img load 后防抖重测缓存，再以编辑区当前中心为准重新定位预览。
@@ -4886,7 +5785,7 @@
     // 均会让该值偏离真实像素位置，匹配越靠后（上方折行段落越多）偏差越大：首条能居中、后续大多
     // 落到视口下方甚至不可见。搜索时 textarea 未聚焦（避免按键灌入正文），浏览器原生「滚动选区
     // 到可见」不触发，故必须用实测 Y 手动滚到位（与编辑↔预览滚动同步同源，BUG-060/104）。
-    { const _y = offToEditorY(pos); if (_y >= 0) editor.scrollTop = _y - editor.clientHeight / 2; }
+    { const _y = offToEditorY(pos); if (_y >= 0) markEdProg(() => { editor.scrollTop = _y - editor.clientHeight / 2; }); }
     $("search-count").textContent = (searchIdx + 1) + "/" + searchMatches.length;
     renderEditorHighlight(); // 刷新高亮：当前条 current 闪一闪
     highlightPreview();
@@ -4937,21 +5836,66 @@
   // scrollend→scrollSrc=null 之后→裸 scrollSrc!=="preview" 误判为用户驱动→editor→preview 把 preview 反拉回 editor 滞后位
   // (深度预览滚动 line547+ 复现回跳)。scrollSrc 时序不可靠，故镜像 preview 侧(lastPreviewUser)用用户交互时间戳兜底。
   let lastEditorUser = 0;
+  // BUG-166：macOS/Windows 原生滚动条拖动不产生任何 web 事件（wheel/pointerdown 都没有，只有 scroll）
+  // → lastEditorUser 不更新 → userEditor=false → 同步/recenter 全不跟：预览欠账停在原位，
+  // 松手后点击编辑区 click handler 一步把 preview 拉几十万 px → renderWindowLazy 异步 parse 新段
+  // 再反拉 = 用户见"很大跳动"（快速长拖尤其剧烈）。修：scroll 序列本身也是用户信号——
+  // 程序推 editor（syncAnchors/offToEditorY 等）设 scrollTop 前记 edProgAt 时间戳，其后【120ms 窗口内】
+  // 的 scroll 都算程序（WKWebView 下程序设置的 scroll 事件异步延迟到达，setTimeout(0) 标记窗太窄，
+  // 事件落在窗外被当用户→editor→preview 反拉=跳回，webkit test-preview 实测回归）；
+  // 窗口外/无标记的 scroll（= 滚动条拖动/键盘 Home 等）都算用户驱动。
+  let edProgAt = -1e9;
+  const markEdProg = (fn) => { edProgAt = performance.now(); try { fn(); } catch (e) {} };
   editor.addEventListener("wheel", () => { lastEditorUser = performance.now(); }, { passive: true });
   editor.addEventListener("touchstart", () => { lastEditorUser = performance.now(); }, { passive: true });
   editor.addEventListener("pointerdown", () => { lastEditorUser = performance.now(); });
   editor.addEventListener("keydown", () => { lastEditorUser = performance.now(); }, { passive: true }); // CM 键盘滚屏
   editor.addEventListener("scroll", () => {
     if (editorHl) { editorHl.scrollTop = editor.scrollTop; editorHl.scrollLeft = editor.scrollLeft; }
+    // BUG-166j/n（对称）：编辑器侧大步滚动（滑块拖动）进入暂停契约。
+    // scroll 推断"用户"的判定删除（同预览侧 166n）：真实用户滚动都有原生事件
+    // （wheel/触控板/键盘/pointerdown），滑块拖动由 >800px 大步检测接管。
+    // 程序推 editor 后的平滑滚动余波（延迟可达 1s+）永不再污染 lastEditorUser。
+    if (edLastRaw < 0 || Math.abs(editor.scrollTop - edLastRaw) > 800) {
+      if (edLastRaw >= 0) syncDragPaused = true;
+    }
+    edLastRaw = editor.scrollTop;
     // 窗口模式：编辑区中心移出当前窗口内圈 -> 防抖重渲新窗口。
     // 预览驱动(scrollSrc="preview")时跳过：此时 editor 被 syncAnchors(offToEditorY lineBlockAt 回退)推着跟随 preview，
     // 若触发 renderWindow reset 会以"进入时 editor off"为中心【异步】重 parse——await 期间 preview 继续滚→vContent 落在
     // stale off≠当前 preview→错位/回跳(深度预览滚动 line225+ 复现)。预览驱动的 vContent 重 parse 专由 renderWindowLazy
     // (scheduleWindowLazyParse，围绕 preview 实测 off)负责，renderWindow 仅服务 editor 驱动。editor 仍由 syncAnchors 跟随。
     const userEditor = performance.now() - lastEditorUser < 600;
-    if (winStart >= 0 && scrollSrc !== "preview" && userEditor) scheduleWindowRecenter();
-    // 编辑区滚动 -> 预览跟随：仅"近期有 editor 用户输入"且非 preview 驱动时触发；preview 推 editor 的余波 scroll(无用户输入)被 gate
-    if (scrollSrc !== "preview" && userEditor) { scrollSrc = "editor"; scheduleSync(editor, preview); }
+    const pvDriving = scrollSrc === "preview" || performance.now() - lastPreviewUser < 600; // 预览驱动期（含 scrollend 已重置 null 的间隙）
+    // BUG-166j：暂停期零程序写入——recenter 与双向同步都让位，静置后 settle 统一收尾。
+    // 暂停期编辑器侧窗口内容若已滚出旧窗口很远，渲染窗口靠下方"暂停期扩窗"分支维持。
+    if (syncDragPaused) {
+      if (winStart >= 0) scheduleWindowLazyParse();  // 内容照常挂（以编辑器中心解析）
+      // 编辑器侧静置收尾（对称 pvSettleT）：300ms 无滚动 → 解除暂停 + 一次对齐。
+      // 【锚定规则】用户拖的是【编辑器】→ editor 是锚，只拉 preview。
+      // 对齐前先确保预览懒解析已对准编辑器位置（vContent 覆盖编辑器中心 off，
+      // 由暂停期的 scheduleWindowLazyParse 挂好）；未覆盖则只解除暂停、不对齐
+      // （preview 保持原位，等下次正常滚动对齐——绝不用旧段映射拉 preview）。
+      clearTimeout(edSettleT);
+      edSettleT = setTimeout(() => {
+        if (performance.now() - lastEditorUser < 900 && performance.now() - lastPreviewUser > 600) {
+          syncDragPaused = false;
+          const edOff = editorYToOff(editor.scrollTop + editor.clientHeight / 2);
+          if (edOff >= 0 && edOff >= winStart && edOff <= winEnd) {
+            scrollSrc = "editor";
+            syncAnchors(editor, preview);
+          }
+        }
+      }, 300);
+      return;
+    }
+    if (winStart >= 0 && scrollSrc !== "preview" && userEditor && !pvDriving) scheduleWindowRecenter();
+    // 编辑区滚动 -> 预览跟随：仅"近期有 editor 用户输入"且非 preview 驱动时触发；preview 推 editor 的余波 scroll(无用户输入)被 gate。
+    // scrollSrc 在 WKWebView scrollend(120ms) 后被重置 null——拖滑块长于 120ms 时此判空失效，
+    // 被推 editor 的余波 scroll 反向设 scrollSrc="editor" 打断 preview 驱动链（拖动中 editor 永停 0 实测）→ 用 lastPreviewUser 兜底。
+    // BUG-166w：预览点击锚定窗内 editor→preview 沉默（pvAnchorUntil 见 preview click 定位处）。
+    if (performance.now() < pvAnchorUntil) return;
+    if (scrollSrc !== "preview" && userEditor && !pvDriving) { scrollSrc = "editor"; scheduleSync(editor, preview); }
   });
   editor.addEventListener("input", () => {
     if (!searchBar.hidden) { updateSearchMatches(); renderEditorHighlight(); }
@@ -4969,29 +5913,43 @@
       scrollReset = setTimeout(() => (scrollSrc = null), 300);
       if (!srcBlockOffsets.length) return;
       const pos = editor.selectionStart;
+      // BUG-166c：大文档窗口化下，点击 off 可能在已挂载窗口外（拖滑块后 recenter 未完成/竞态重置）。
+      // 此时 previewOffsetToY 走 offToPreviewY 回退会【钳到 winStart】→ 预览被拉回窗口头/文档头
+      // （实测 pv 495762→0 一步归零=用户看到的"跳到很远"）。点击落点窗外 → 不推预览：
+      // 保持原位，recenter/懒解析就位后自然对齐——绝不让一次点击把预视拉走。
+      if (winStart >= 0 && winSkel.length && (pos < winStart || pos > winEnd)) return;
       // 二分查找：找到最后一个 offset <= pos 的块
       let lo = 0, hi = srcBlockOffsets.length;
       while (lo < hi) { const mid = (lo + hi) >> 1; if (srcBlockOffsets[mid] <= pos) lo = mid + 1; else hi = mid; }
       const blockIdx = Math.max(0, lo - 1);
       const half = preview.clientHeight / 2;
-      // 优先：测量式锚点分段线性（精确到 li/tr 与块内位置）
-      const py = previewOffsetToY(pos);
-      if (py != null) { preview.scrollTop = Math.max(0, py - half); }
-      else {
-        // 回退：块内字符比例（锚点表为空时）
+      // BUG-166h（真机日志 PV ±30 万 px 震荡）：快拖后 vContent 挂载段与视口短暂失配，
+      // 窗口内 off 的实测 Y 也可能错出几万~几十万 px（骨架估高累积偏差传导）。
+      // 距离守卫：点击行在编辑器视口内，其预览对应位置与当前预览位置的偏差物理上不可能
+      // 超过 ~2 视口（两区单调对应）。超过 = 错值 → 本次点击不推预览（下轮自然对齐）。
+      const pvMaxJump = preview.clientHeight * 2.5;
+      const py0 = previewOffsetToY(pos);
+      if (py0 != null && Math.abs(Math.max(0, py0 - half) - preview.scrollTop) <= pvMaxJump) {
+        setPvScroll(py0 - half);
+        return;
+      }
+      // py 缺失或超出距离守卫（错值）→ 不推预览（保持原位，下轮 recenter/懒解析自然对齐）。
+      // 旧回退路径（块内字符比例/vprefix/children 直查）同样受骨架偏差影响，一并停用：
+      // 大文档下宁可这次点击不动预览，也不引入 ±30 万 px 震荡（BUG-166h）。
+      if (!winSkel.length) {
         const bs = srcBlockOffsets[blockIdx];
         const be = blockIdx + 1 < srcBlockOffsets.length ? srcBlockOffsets[blockIdx + 1] : editor.value.length;
         const ratio = be > bs ? (pos - bs) / (be - bs) : 0;
         if (vblocks.length && blockIdx < vprefix.length) {
           const top = vprefix[blockIdx];
           const h = (blockIdx + 1 < vprefix.length ? vprefix[blockIdx + 1] : vprefix[vblocks.length]) - top;
-          preview.scrollTop = Math.max(0, top + ratio * h - half);
+          setPvScroll(top + ratio * h - half);
         } else {
           const el = preview.children[blockIdx];
           if (el) {
             const pvRect = preview.getBoundingClientRect();
             const top = el.getBoundingClientRect().top - pvRect.top + preview.scrollTop;
-            preview.scrollTop = Math.max(0, top + ratio * /** @type {HTMLElement} */ (el).offsetHeight - half);
+            setPvScroll(top + ratio * /** @type {HTMLElement} */ (el).offsetHeight - half);
           }
         }
       }
@@ -5005,7 +5963,7 @@
     if (target) {
       const pr = preview.getBoundingClientRect();
       const top = target.getBoundingClientRect().top - pr.top + preview.scrollTop;
-      preview.scrollTop = Math.max(0, top - 40);
+      setPvScroll(top - 40);
       flashBib(target);
       return;
     }
@@ -5013,7 +5971,7 @@
       for (let i = 0; i < vblocks.length; i++) {
         const node = vblocks[i];
         if ((node.id && node.id === id) || (node.querySelector && node.querySelector("#" + id))) {
-          preview.scrollTop = Math.max(0, (vprefix[i] || 0) - 40);
+          setPvScroll((vprefix[i] || 0) - 40);
           // 滚动后虚拟化会挂载该块，延迟高亮
           setTimeout(() => { const t = document.getElementById(id); if (t) flashBib(t); }, 80);
           return;
@@ -5058,26 +6016,26 @@
     if (!srcBlockOffsets.length && !winSkel.length) return;
     if (winSkel.length) { // 窗口化：窗口外骨架定位+懒解析；窗口内 vContent 实测
       if (offset < winStart || offset > winEnd) {
-        scrollSrc = "editor"; preview.scrollTop = Math.max(0, winOffToY(offset) - 20);
+        scrollSrc = "editor"; setPvScroll(winOffToY(offset) - 20);
         scheduleWindowLazyParse(); return;
       }
       let lo = 0, hi = srcBlockOffsets.length;
       while (lo < hi) { const mid = (lo + hi) >> 1; if (srcBlockOffsets[mid] <= offset) lo = mid + 1; else hi = mid; }
       const el = vContent && vContent.children[Math.max(0, lo - 1)];
-      if (el) { const pvRect = preview.getBoundingClientRect(); preview.scrollTop = el.getBoundingClientRect().top - pvRect.top + preview.scrollTop - 20; return; }
-      preview.scrollTop = Math.max(0, winOffToY(offset) - 20); return;
+      if (el) { const pvRect = preview.getBoundingClientRect(); setPvScroll(el.getBoundingClientRect().top - pvRect.top + preview.scrollTop - 20); return; }
+      setPvScroll(winOffToY(offset) - 20); return;
     }
     if (!srcBlockOffsets.length) return;
     let lo = 0, hi = srcBlockOffsets.length;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (srcBlockOffsets[mid] <= offset) lo = mid + 1; else hi = mid; }
     const blockIdx = Math.max(0, lo - 1);
     if (vblocks.length && blockIdx < vprefix.length) {
-      preview.scrollTop = Math.max(0, vprefix[blockIdx] - 20);
+      setPvScroll(vprefix[blockIdx] - 20);
     } else {
       const el = preview.children[blockIdx]; // 顶层块（li/tr 也带 data-src-offset，故只取顶层 children）
       if (el) {
         const pvRect = preview.getBoundingClientRect();
-        preview.scrollTop = el.getBoundingClientRect().top - pvRect.top + preview.scrollTop - 20;
+        setPvScroll(el.getBoundingClientRect().top - pvRect.top + preview.scrollTop - 20);
       }
     }
   }
@@ -5085,7 +6043,7 @@
   // i = 该 key 的第 i 处引用（0 基），用于在 DOM 里匹配第 i 个含 href=#ref-n 的 <sup>（非虚拟化时精确到引用位置）。
   function jumpToCitation(o, i, n) {
     editor.focus();
-    editor.setSelectionRange(o.offset, o.offset);
+    editor.setSelectionRange(o.offset, o.offset, true);
     updateCursor();
     scrollSrc = "editor";
     clearTimeout(scrollReset);
@@ -5097,7 +6055,7 @@
       if (sup) {
         const pvRect = preview.getBoundingClientRect();
         const top = sup.getBoundingClientRect().top - pvRect.top + preview.scrollTop;
-        preview.scrollTop = Math.max(0, top - Math.max(20, Math.floor(preview.clientHeight / 3)));
+        setPvScroll(top - Math.max(20, Math.floor(preview.clientHeight / 3)));
         flashEl(sup);
         return;
       }
@@ -5125,6 +6083,32 @@
     $("cite-jump-mask").hidden = false;
   }
   function closeCiteJump() { const m = $("cite-jump-mask"); if (m) m.hidden = true; }
+
+  // wikilink 跳转：编辑器光标定位到标题行 + 预览滚到该标题（镜像 jumpToCitation 的
+  // scrollSrc/scrollReset 模式，防 WKWebView 反馈循环，见 BUG-148/150）。
+  // 预览定位优先 DOM 实测（非虚拟化时 querySelector 命中标题块）；虚拟化/窗口化回退
+  // scrollPreviewToSrcOffset（块级，best-effort）。
+  function jumpToHeading(heading) {
+    const off = findHeadingOffset(editor.value, heading);
+    if (off < 0) { toast(t("wikiNotFound").replace("{h}", heading)); return; }
+    editor.focus();
+    editor.setSelectionRange(off, off, true);
+    updateCursor();
+    scrollSrc = "editor";
+    clearTimeout(scrollReset);
+    scrollReset = setTimeout(() => (scrollSrc = null), 300);
+    navPush(); // 跳转点记入导航历史（◀ 返回可回）
+    // 预览滚动：非虚拟化直接找标题元素（data-src-offset 精确等于标题行首）
+    const el = preview.querySelector('[data-src-offset="' + off + '"]');
+    if (el && /^H[1-6]$/.test(el.tagName)) {
+      const pvRect = preview.getBoundingClientRect();
+      const top = el.getBoundingClientRect().top - pvRect.top + preview.scrollTop;
+      setPvScroll(top - 20);
+      flashEl(el);
+      return;
+    }
+    scrollPreviewToSrcOffset(off); // 虚拟化/窗口化/未命中回退：块级
+  }
 
   // 已打开的 mermaid 查看器窗口跟踪（live update）：{label, offset}。编辑区重渲后按 data-src-offset
   // 找到对应块的新 SVG，经 emit_viewer_update 定向推给查看器窗口。块内编辑时起始偏移不变→稳定匹配。
@@ -5182,6 +6166,22 @@
       scrollToCite(n);
       return;
     }
+    // wikilink：[[#标题]] 跳转到该标题（编辑器光标+预览滚动）；[[页面]] 跨文件打开（工作区）。
+    // 无 href，须在通用 a[href] 前拦截
+    const wl = t.closest(".wiki-link");
+    if (wl) {
+      e.preventDefault();
+      if (wl.classList.contains("wiki-page")) {
+        let p = wl.getAttribute("data-wiki-p") || "";
+        try { p = decodeURIComponent(p); } catch (_) {}
+        jumpToWikiPage(p);
+      } else {
+        let h = wl.getAttribute("data-wiki-h") || "";
+        try { h = decodeURIComponent(h); } catch (_) {}
+        jumpToHeading(h);
+      }
+      return;
+    }
     // 普通链接：http(s) 交由 document 级 opener（开系统浏览器）；mailto 由 webview 原生；
     // 文档内 #锚点 → 滚动定位；本地文件链接(.md/.html 等) → 新标签页打开，绝不替换当前文档。
     const linkA = t.closest("a[href]");
@@ -5216,20 +6216,113 @@
       }
       if (offset >= 0) {
         scrollSrc = "preview";
+        // BUG-166w：锚定保持窗——点击后 editor 被滚到位，其余波 scroll 在 WKWebView 可延迟
+        // >600ms，若落在 lastPreviewUser 时窗外会被判"用户滚编辑器"→ editor→preview 用编辑器
+        // 侧映射重推 preview → 预览离开用户点击的位置（两向映射非完美互逆，重推必偏）——
+        // 即"预览点击对不齐、编辑器点击对得齐"的不对称根因。1.3s 内 preview 保持锚。
+        pvAnchorUntil = performance.now() + 1300;
+        lastPreviewUser = performance.now();
+        // BUG-166w②：两段式深定位（顺序关键：粗滚【先于】focus）——
+        // ① 直接 scrollIntoView 在 1.38MB 大文档上会把 editor 滚到文档末尾（CM 高度树深处
+        //    未测量，scrollTarget 严重失真；实测 off=554876 一步滚到 562800=edMax）；
+        // ② editor.focus() 的 CM 焦点恢复会快照并还原 scrollTop——若 focus 先行，粗滚会被
+        //    焦点恢复用旧位置(测试初始的文档末尾)覆盖。故：粗滚 → focus → 350ms 精滚。
+        const docLen = editor.value.length;
+        const maxEd0 = editor.scrollHeight - editor.clientHeight;
+        if (docLen > 0 && maxEd0 > 0) markEdProg(() => { editor.scrollTop = (offset / docLen) * maxEd0; });
         editor.focus();
-        editor.setSelectionRange(offset, offset);
+        // 三段式：③ 居中微调——scrollIntoView 是"最小滚动"语义（目标在下方时只滚到视口
+        // 下缘刚好可见），与反向（编辑器点击→预览中心对齐）几何不对称=用户感"位置贴近
+        // 下边界"。精滚后目标行已在视口边缘（局部高度树已测量），把它挪到视口中心。
+        setTimeout(() => {
+          editor.setSelectionRange(offset, offset, true);
+          updateCursor();
+          setTimeout(() => {
+            try {
+              const blk = cm && cm.lineBlockAt ? cm.lineBlockAt(offset) : null;
+              if (blk && isFinite(blk.top)) {
+                const maxEd = editor.scrollHeight - editor.clientHeight;
+                const want = Math.max(0, Math.min(maxEd, blk.top - editor.clientHeight / 2));
+                if (Math.abs(want - editor.scrollTop) <= editor.clientHeight) {  // 只容 ≤1 视口的微调（防树未收敛大跳）
+                  markEdProg(() => { editor.scrollTop = want; });
+                }
+              }
+            } catch (_) {}
+            // BUG-166x：④ 窗口跟随 + 收尾对齐——上面三段全是程序写入（markEdProg/dispatch），
+            // 不带"用户输入"标记 → editor scroll handler 的 recenter/scheduleSync 全被闸 →
+            // 预览懒解析窗口不换段（该句不在 vcontent，实测 not-in-window）→ 对齐只能用骨架
+            // 估算，公式段（尤其 KaTeX 失败的红色短块 vs 估高）误差最大=用户看到"对不齐"。
+            // 定位落定后：按编辑器位置换预览窗口，再以 editor 为锚终对齐（新窗口实测精确）。
+            setTimeout(() => {
+              scrollSrc = "editor";
+              lastEditorUser = performance.now();
+              if (winStart >= 0 && winSkel.length) {
+                renderWindowLazyAtEditor();
+                // 换窗(~150ms) 后终对齐；连续重试至多 6 次直到窗口覆盖点击 off
+                let n = 0;
+                const align = () => {
+                  if (++n > 6) return;
+                  const c2 = offset;
+                  if (c2 >= winStart && c2 <= winEnd) {
+                    scrollSrc = "editor";
+                    // BUG-166y：终对齐升级为【光标行贴预览中心】——syncAnchors 用编辑器视口
+                    // 中心做映射，公式区两侧中心差可达半块(块高~200px)；点击语义下用户关心
+                    // "点的那一行"，直接 previewOffsetToY(offset) 把该行贴到预览视口中心。
+                    const y = previewOffsetToY(c2);
+                    if (y != null && isFinite(y) && y >= 0) {
+                      const maxPv = preview.scrollHeight - preview.clientHeight;
+                      const wantPv = Math.max(0, Math.min(maxPv, y - preview.clientHeight / 2));
+                      setPvScroll(wantPv);
+                    } else {
+                      syncAnchors(editor, preview);   // 回退：实测未命中时走中心映射
+                    }
+                  } else {
+                    renderWindowLazyAtEditor();
+                    setTimeout(align, 160);
+                  }
+                };
+                setTimeout(align, 180);
+              } else {
+                syncAnchors(editor, preview);
+              }
+            }, 80);
+          }, 60);
+        }, 350);
         navPush(); // 点击定位：记一条导航点（程序化 setSelectionRange 不触发 navOnEdit）
         return;
       }
     }
-    // 回退：按 Y 比例
+    // 回退：点击落在块间隙/容器空白（unit=null）——旧按 Y 比例换算极粗（预览↔编辑高度
+    // 非线性，深处可偏几十屏=用户感"对不齐"）。改用 previewYToOffDom 同款几何插值
+    //（含间隙上下块跨段线性插值，永不落空）；定位与主分支同款两段式+锚定窗。
     const rect = preview.getBoundingClientRect();
     const y = e.clientY - rect.top + preview.scrollTop;
-    const r = y / (preview.scrollHeight || 1);
-    const epos = Math.round(r * editor.value.length);
+    const off2 = previewYToOffDom(y);
+    const epos = off2 >= 0 ? Math.round(off2) : Math.round((y / (preview.scrollHeight || 1)) * editor.value.length);
     scrollSrc = "preview";
+    pvAnchorUntil = performance.now() + 1300;   // BUG-166w：锚定窗（同主分支）
+    lastPreviewUser = performance.now();
+    // BUG-166w②：两段式深定位（同主分支：粗滚→focus→精滚+居中微调）
+    const docLen2 = editor.value.length;
+    const maxEd2 = editor.scrollHeight - editor.clientHeight;
+    if (docLen2 > 0 && maxEd2 > 0) markEdProg(() => { editor.scrollTop = (epos / docLen2) * maxEd2; });
     editor.focus();
-    editor.setSelectionRange(epos, epos);
+    setTimeout(() => {
+      editor.setSelectionRange(epos, epos, true);
+      updateCursor();
+      setTimeout(() => {   // ③ 居中微调（同主分支）
+        try {
+          const blk2 = cm && cm.lineBlockAt ? cm.lineBlockAt(epos) : null;
+          if (blk2 && isFinite(blk2.top)) {
+            const maxEd3 = editor.scrollHeight - editor.clientHeight;
+            const want2 = Math.max(0, Math.min(maxEd3, blk2.top - editor.clientHeight / 2));
+            if (Math.abs(want2 - editor.scrollTop) <= editor.clientHeight) {
+              markEdProg(() => { editor.scrollTop = want2; });
+            }
+          }
+        } catch (_) {}
+      }, 60);
+    }, 350);
   });
 
   /* ---------- 编辑器事件 ---------- */
@@ -5264,6 +6357,7 @@
     switch (id) {
       case "new": newFile(); break;
       case "open": openFile(); break;
+      case "open-folder": menuOpenFolder(); break;
       case "close-file": closeFile(); break;
       case "save": saveFile(); break;
       case "save-as": saveAs(); break;
@@ -5294,11 +6388,14 @@
       case "clear-bib": unloadBib(); break;
       case "cite-example": openCiteExample(); break;
       case "mermaid-example": openMermaidExample(); break;
+      case "wiki-example": openWikiExample(); break;
       case "mdex-example": openMdexExample(); break;
       default:
         if (id.indexOf("lang-") === 0) setLang(id.slice(5));
         break;
       case "view-split": setViewMode("split"); break;
+      case "toggle-sidebar": toggleWorkspace(); break;      // 视图菜单/⌘⇧B：隐藏后唯一恢复入口
+      case "close-workspace": closeWorkspace(); break;      // 视图菜单：删掉 vault（清状态+索引+侧栏）
       case "view-editor": setViewMode("editor"); break;
       case "view-preview": setViewMode("preview"); break;
     }
@@ -5497,8 +6594,7 @@
   }
 
   /* ---------- 帮助文档 ---------- */
-  // 帮助正文随界面语言切换；17 种界面语言各有对应文案。联系人在中文界面用「郑法伟」，
-  // 其余语言用「Fawei Zheng (郑法伟)」。代码片段（快捷键、Markdown 语法）跨语言共用。
+  // 帮助正文随界面语言切换；17 种界面语言各有对应文案。代码片段（快捷键、Markdown 语法）跨语言共用。
   // 帮助文档「联系我们」区两个外部链接（GitHub 源码 / 下载站点）的本地化标签。URL 本身各语言相同。
   const LINK_LABELS = {
     zh: { source: "源代码", download: "下载站点" },
@@ -5638,10 +6734,11 @@
       "<h2>" + s.hMd + "</h2>", lis(s.md),
       "<h2>" + s.hMath + "</h2>", lis(s.math),
       "<h2>" + s.hCite + "</h2>", lis(s.cite),
+      "<h2>" + s.hWiki + "</h2>", lis(s.wiki),
       "<h2>" + s.hExport + "</h2>", "<p>" + s.pExport + "</p>", pairs(s.export),
       "<h2>" + s.hLicense + "</h2>", "<p>" + s.pLicense + "</p>",
       "<h2>" + s.hContact + "</h2>", "<p>" + s.pContact + "</p>",
-      "<div class=\"contact\"><a href=\"mailto:fwzheng@bit.edu.cn\">fwzheng@bit.edu.cn</a></div>",
+      "<div class=\"contact\"><a href=\"mailto:fw@spinss.cn\">fw@spinss.cn</a></div>",
     ].join("");
   }
   // 文献引用帮助：按「情形」分组介绍，中英两版；其余界面语言复用英文版
@@ -6097,7 +7194,9 @@
     applyLang();            // 应用界面语言（含工具栏/状态栏/占位符/主题按钮文字）
     if (initFontZoom) initFontZoom(); // 应用编辑区/预览区字体缩放（须在首帧 render 前，否则首测字号错）
     initMermaid();          // 初始化 mermaid（主题跟随当前深浅）
-    if (cur && cur.scrollTop) editor.scrollTop = cur.scrollTop;
+    initWorkspaceUi();      // 工作区侧栏（Phase 1b）UI 绑定
+    restoreWorkspace();     // 恢复上次工作区（vault 仍存在才恢复；索引异步建，不阻塞首屏）
+    if (cur && cur.scrollTop) markEdProg(() => { editor.scrollTop = cur.scrollTop; });
     renderTabs();
     if (isTauri && curLang !== "zh") invoke("change_language", { lang: curLang }).catch(() => {});
     requestAnimationFrame(() => render()); // 延后一帧，先绘编辑器再渲预览（大文件启动更顺畅）

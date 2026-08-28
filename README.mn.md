@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.4.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · "em-dex" (/ˌemˈdɛks/) гэж дуудна — M үсгийн дараа "dex" гэж бичигдсэн, хоёр үе бүхий үг.
 
@@ -244,4 +244,4 @@ markdown/
 
 ## 📬 Холбоо
 
-Асуудал эсвэл санал хүсэлтийн хувьд: **fwzheng@bit.edu.cn**
+Асуудал эсвэл санал хүсэлтийн хувьд: **fw@spinss.cn**

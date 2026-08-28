@@ -51,6 +51,34 @@ window.HELP_DATA = (() => {
     "<strong>LaTeX</strong>: <code>[@key]</code> → <code>\\cite{key}</code>; <code>[@a; @b]</code> → <code>\\cite{a,b}</code>; existing <code>\\cite{}</code> commands are kept as-is (locators are dropped in LaTeX export)",
     "<strong>Example</strong>: menu Help → Citation Example loads a full sample into a new tab",
   ];
+  const WIKI_HELP_ZH = [
+    "<strong>一、文档内 wikilink（无需工作区）</strong>",
+    "<strong>标题跳转</strong>：<code>[[#标题]]</code>（支持 <code>[[#标题|别名]]</code>）渲染为虚线链接，点击把编辑器光标定位到标题行首、预览滚到该标题并闪烁提示；标题匹配走「精确 → 忽略大小写/首尾空白 → 子串」三级回退",
+    "<strong>待解析页面</strong>：未开工作区时 <code>[[页面]]</code> 渲染为置灰待解析样式（悬停提示「跨文件链接将在工作区模式中支持」），不产生断链观感",
+    "<strong>语法排斥</strong>：<code>![[嵌入]]</code>、<code>[[x]](url)</code>（markdown 链接）、转义的 <code>\\[[</code> 原样透传不受误伤；空目标 <code>[[]]</code> / <code>[[#]]</code> 不处理",
+    "<strong>二、工作区（vault）与跨文件链接</strong>",
+    "<strong>建立 vault</strong>：菜单「文件 → 打开文件夹」或直接把文件夹拖进窗口；左侧出现可隐藏侧栏（菜单「视图 → 切换侧栏」或 <code>⌘⇧B</code>）",
+    "<strong>文件树</strong>：懒加载（展开才枚举子目录，跳过隐藏目录）；点击文件开标签、当前文件高亮",
+    "<strong>跨文件解析</strong>：<code>[[页面]]</code> 依 vault 索引解析为真实文件——同目录优先 → basename 唯一 → 最短路径；点击在新标签打开目标文件",
+    "<strong>反向链接面板</strong>：侧栏「反链」页签列出链接到当前文件的所有来源（源文件名 + 链接文本），点击跳转",
+    "<strong>索引刷新</strong>：保存任何文件后索引自动重扫",
+    "<strong>断链保守处理</strong>：目标不存在时 toast「未找到页面」，不自动建页",
+    "<strong>示例</strong>：菜单「帮助 → Wikilink 示例」可载入一份完整示例到新标签",
+  ];
+  const WIKI_HELP_EN = [
+    "<strong>1. In-document wikilinks (no workspace needed)</strong>",
+    "<strong>Heading jump</strong>: <code>[[#heading]]</code> (also <code>[[#heading|alias]]</code>) renders as a dashed link — click to place the editor cursor at that heading and scroll the preview to it (exact → case/whitespace-insensitive → substring fallback)",
+    "<strong>Pending page</strong>: without a workspace, <code>[[page]]</code> renders dimmed as pending (hover tip: cross-file links are supported in workspace mode) — no broken-link look",
+    "<strong>Exclusions</strong>: <code>![[embed]]</code>, <code>[[x]](url)</code> (markdown link), and escaped <code>\\[[</code> pass through untouched; empty <code>[[]]</code> / <code>[[#]]</code> are ignored",
+    "<strong>2. Workspace (vault) & cross-file links</strong>",
+    "<strong>Open a vault</strong>: menu File → Open Folder, or drop a folder onto the window; a hideable sidebar appears (View → Toggle Sidebar, or <code>⌘⇧B</code>)",
+    "<strong>File tree</strong>: lazily loaded (directories enumerate on expand; hidden dirs skipped); click a file to open a tab, active file highlighted",
+    "<strong>Cross-file resolve</strong>: <code>[[page]]</code> resolves against the vault index — same-directory first → unique basename → shortest path; click opens the target in a new tab",
+    "<strong>Backlinks panel</strong>: the sidebar Backlinks tab lists every source linking to the current file (source name + link text); click to jump",
+    "<strong>Index refresh</strong>: re-scanned automatically after every save",
+    "<strong>Broken links</strong>: a gentle toast (no auto-create)",
+    "<strong>Example</strong>: menu Help → Wikilink Example loads a full sample into a new tab",
+  ];
   const HELP_STRINGS = {
     zh: {
       hIntro: "简介",
@@ -70,6 +98,7 @@ window.HELP_DATA = (() => {
         { b: "Mermaid 图", t: "：<code>```mermaid</code> 代码块渲染为流程图 / 时序图 / 类图 / 状态图 / 甘特图 / 饼图等；点击预览区的 mermaid 图可弹出独立窗口放大查看（缩放 / 平移 / 居中 / 全屏），并跟随编辑实时更新；菜单「帮助 → Mermaid 图示例」载入完整示例。" },
         { b: "字体缩放", t: "：编辑区、预览区各自独立放大 / 缩小（pane-head 的 −/百分比/+ 或快捷键 ⌘=/−/0），点百分比重置；倍率持久化。" },
         { b: "文献引用", t: "：BibTeX numeric 风格，文末自动生成「参考文献」表，正文 [n] 与条目双向跳转（详见下文）。" },
+        { b: "Wikilink 工作区（LLM Wiki 风格）", t: "：<code>[[#标题]]</code> 渲染为文档内虚线链接，点击跳转编辑器光标并把预览滚到该标题。「文件 → 打开文件夹」（或直接拖文件夹进窗口）建立 vault 后，左侧可隐藏侧栏（⌘⇧B）提供文件树与<strong>反向链接</strong>面板；<code>[[页面]]</code> 依 vault 索引解析为真实文件（同目录优先 → basename 唯一 → 最短路径）并跨文件打开，保存后索引自动刷新；断链仅 toast 提示不建页（详见下文）。" },
         { b: "HTML 支持", t: "：可直接打开 <code>.html</code> 渲染预览；支持 HTML ↔ Markdown 互转（菜单「文件」→「转为 Markdown / HTML」）。" },
         { b: "主题 / 语言", t: "：深色 / 浅色主题，17 种界面语言；阿拉伯语、乌尔都语自动右到左。" },
         { b: "自动草稿", t: "：内容定时暂存，意外关闭 / 崩溃后可恢复。" },
@@ -104,7 +133,7 @@ window.HELP_DATA = (() => {
         "超长公式自动在 <code>= + -</code> 处折行重渲为多行；无法折行的等比缩小以适应宽度。",
         "支持 <code>align</code> / <code>aligned</code>、矩阵、分段函数 <code>cases</code> 等常用环境。",
       ],
-       hCite: "文献引用（BibTeX）", cite: CITE_HELP_ZH,hExport: "导出（另存为）",
+       hCite: "文献引用（BibTeX）", cite: CITE_HELP_ZH,hWiki: "Wikilink 工作区（LLM Wiki）", wiki: WIKI_HELP_ZH,hExport: "导出（另存为）",
       pExport: "点击「另存为」后选择格式：",
       export: [
         { b: "Markdown (.md)", t: "：保存源文件，并更新当前标签的文件名与路径。" },
@@ -116,7 +145,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX 自身代码依据 <strong>Apache License 2.0</strong> 开源。内置组件（marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown 及 Tauri 等）各自遵循其原始许可证（MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0）。",
       hContact: "联系我们",
       pContact: "欢迎使用 MDeX！如果您在使用中遇到问题，或有任何意见与建议，欢迎联系：",
-      contactName: "郑法伟",
+      contactName: "",
     },
     en: {
       hIntro: "Overview",
@@ -173,7 +202,7 @@ window.HELP_DATA = (() => {
         "Long equations auto-wrap at <code>= + -</code> into multiple lines; those that cannot wrap are scaled down to fit.",
         "Supports <code>align</code> / <code>aligned</code>, matrices, <code>cases</code> and other common environments.",
       ],
-       hCite: "Citations (BibTeX)", cite: CITE_HELP_EN,hExport: "Export (Save As)",
+       hCite: "Citations (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Export (Save As)",
       pExport: "Click \"Save As\" and pick a format:",
       export: [
         { b: "Markdown (.md)", t: ": save the source and update the current tab's name / path." },
@@ -185,7 +214,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX is open-sourced under the <strong>Apache License 2.0</strong>. Bundled components (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown and Tauri, etc.) remain under their original licenses (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Contact",
       pContact: "Thanks for using MDeX! For problems or suggestions, feel free to reach out:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     fr: {
       hIntro: "Présentation",
@@ -231,7 +260,7 @@ window.HELP_DATA = (() => {
         "En bloc : encadrer par <code>$$</code>, peut s'étendre sur plusieurs lignes, ex. <code>$$\\int_0^1 x\\,dx$$</code>",
         "Utilise la syntaxe LaTeX, rendue par KaTeX. Le <code>$</code> dans les blocs de code n'est pas traité comme délimiteur de formule.",
       ],
-       hCite: "Citations (BibTeX)", cite: CITE_HELP_EN,hExport: "Export (Enregistrer sous)",
+       hCite: "Citations (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Export (Enregistrer sous)",
       pExport: "Cliquez « Enregistrer sous » et choisissez un format :",
       export: [
         { b: "Markdown (.md)", t: " : enregistre la source et met à jour le nom / chemin de l'onglet courant." },
@@ -242,7 +271,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX est open-source sous <strong>Apache License 2.0</strong>. Les composants intégrés (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro et Tauri, etc.) restent sous leurs licences d'origine (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Contact",
       pContact: "Merci d'utiliser MDeX ! Pour tout problème ou suggestion, n'hésitez pas à contacter :",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     de: {
       hIntro: "Überblick",
@@ -288,7 +317,7 @@ window.HELP_DATA = (() => {
         "Block: mit <code>$$</code> umschließen, kann mehrere Zeilen umfassen, z. B. <code>$$\\int_0^1 x\\,dx$$</code>",
         "Verwendet LaTeX-Syntax, gerendert durch KaTeX. <code>$</code> in Code-Blöcken wird nicht als Formelbegrenzer behandelt.",
       ],
-       hCite: "Zitierungen (BibTeX)", cite: CITE_HELP_EN,hExport: "Export (Speichern unter)",
+       hCite: "Zitierungen (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Export (Speichern unter)",
       pExport: "Klicken Sie „Speichern unter\" und wählen Sie ein Format:",
       export: [
         { b: "Markdown (.md)", t: ": speichert die Quelle und aktualisiert Name / Pfad des aktuellen Tabs." },
@@ -299,7 +328,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX ist unter <strong>Apache License 2.0</strong> Open Source. Mitgelieferte Komponenten (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro und Tauri usw.) bleiben unter ihren ursprünglichen Lizenzen (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Kontakt",
       pContact: "Danke für die Nutzung von MDeX! Bei Problemen oder Vorschlägen erreichen Sie uns unter:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     ru: {
       hIntro: "Обзор",
@@ -345,7 +374,7 @@ window.HELP_DATA = (() => {
         "Блочные: обрамить <code>$$</code>, может занимать несколько строк, напр. <code>$$\\int_0^1 x\\,dx$$</code>",
         "Использует синтаксис LaTeX, рендер KaTeX. <code>$</code> в блоках кода не считается разделителем формул.",
       ],
-       hCite: "Цитирование (BibTeX)", cite: CITE_HELP_EN,hExport: "Экспорт (Сохранить как)",
+       hCite: "Цитирование (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Экспорт (Сохранить как)",
       pExport: "Нажмите «Сохранить как» и выберите формат:",
       export: [
         { b: "Markdown (.md)", t: ": сохраняет исходник и обновляет имя / путь текущей вкладки." },
@@ -356,7 +385,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX распространяется под <strong>Apache License 2.0</strong>. Встроенные компоненты (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro и Tauri и др.) остаются под своими исходными лицензиями (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Контакты",
       pContact: "Спасибо за использование MDeX! С вопросами и предложениями обращайтесь:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     it: {
       hIntro: "Panoramica",
@@ -402,7 +431,7 @@ window.HELP_DATA = (() => {
         "Blocco: racchiudi con <code>$$</code>, può occupare più righe, es. <code>$$\\int_0^1 x\\,dx$$</code>",
         "Usa la sintassi LaTeX, renderizzata da KaTeX. <code>$</code> nei blocchi di codice non è trattato come delimitatore di formula.",
       ],
-       hCite: "Citazioni (BibTeX)", cite: CITE_HELP_EN,hExport: "Esporta (Salva con nome)",
+       hCite: "Citazioni (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Esporta (Salva con nome)",
       pExport: "Clicca «Salva con nome» e scegli un formato:",
       export: [
         { b: "Markdown (.md)", t: ": salva la sorgente e aggiorna nome / percorso della scheda corrente." },
@@ -413,7 +442,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX è open-source sotto <strong>Apache License 2.0</strong>. I componenti inclusi (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro e Tauri, ecc.) restano sotto le loro licenze originali (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Contatti",
       pContact: "Grazie per usare MDeX! Per problemi o suggerimenti, contattaci:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     ja: {
       hIntro: "概要",
@@ -459,7 +488,7 @@ window.HELP_DATA = (() => {
         "ブロック：<code>$$</code> で囲む、複数行可、例 <code>$$\\int_0^1 x\\,dx$$</code>",
         "LaTeX 構文、KaTeX が描画。コードブロック内の <code>$</code> は数式区切りとして扱いません。",
       ],
-       hCite: "文献引用（BibTeX）", cite: CITE_HELP_EN,hExport: "エクスポート（名前を付けて保存）",
+       hCite: "文献引用（BibTeX）", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "エクスポート（名前を付けて保存）",
       pExport: "「名前を付けて保存」をクリックしフォーマットを選択：",
       export: [
         { b: "Markdown (.md)", t: "：ソースを保存し、現在のタブの名前 / パスを更新。" },
@@ -470,7 +499,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX は <strong>Apache License 2.0</strong> でオープンソース。同梱コンポーネント（marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro および Tauri 等）は各々の元ライセンス（MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0）に従います。",
       hContact: "お問い合わせ",
       pContact: "MDeX をご利用いただきありがとうございます！問題やご要望はこちらまで：",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     ko: {
       hIntro: "개요",
@@ -516,7 +545,7 @@ window.HELP_DATA = (() => {
         "블록: <code>$$</code>로 감싸기, 여러 줄 가능, 예 <code>$$\\int_0^1 x\\,dx$$</code>",
         "LaTeX 구문, KaTeX가 렌더링. 코드 블록 안의 <code>$</code>는 수식 구분자로 취급하지 않습니다.",
       ],
-       hCite: "인용 (BibTeX)", cite: CITE_HELP_EN,hExport: "내보내기 (다른 이름으로 저장)",
+       hCite: "인용 (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "내보내기 (다른 이름으로 저장)",
       pExport: "「다른 이름으로 저장」을 클릭하고 포맷을 선택:",
       export: [
         { b: "Markdown (.md)", t: ": 소스를 저장하고 현재 탭의 이름 / 경로를 업데이트." },
@@ -527,7 +556,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX는 <strong>Apache License 2.0</strong>로 오픈소스. 번들된 구성 요소(marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro 및 Tauri 등)는 각각의 원래 라이선스(MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0)를 따릅니다.",
       hContact: "연락처",
       pContact: "MDeX를 사용해 주셔서 감사합니다! 문제나 제안 사항이 있으면 연락 주세요:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     es: {
       hIntro: "Descripción",
@@ -573,7 +602,7 @@ window.HELP_DATA = (() => {
         "En bloque: envolver con <code>$$</code>, puede abarcar varias líneas, p. ej. <code>$$\\int_0^1 x\\,dx$$</code>",
         "Usa sintaxis LaTeX, renderizada por KaTeX. <code>$</code> dentro de bloques de código no se trata como delimitador de fórmula.",
       ],
-       hCite: "Citas (BibTeX)", cite: CITE_HELP_EN,hExport: "Exportar (Guardar como)",
+       hCite: "Citas (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Exportar (Guardar como)",
       pExport: "Haz clic en «Guardar como» y elige un formato:",
       export: [
         { b: "Markdown (.md)", t: ": guarda el origen y actualiza el nombre / ruta de la pestaña actual." },
@@ -584,7 +613,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX es de código abierto bajo <strong>Apache License 2.0</strong>. Los componentes incluidos (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro y Tauri, etc.) permanecen bajo sus licencias originales (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Contacto",
       pContact: "¡Gracias por usar MDeX! Para problemas o sugerencias, contáctanos en:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     pt: {
       hIntro: "Visão geral",
@@ -630,7 +659,7 @@ window.HELP_DATA = (() => {
         "Em bloco: envolver com <code>$$</code>, pode ocupar várias linhas, ex. <code>$$\\int_0^1 x\\,dx$$</code>",
         "Usa sintaxe LaTeX, renderizada por KaTeX. <code>$</code> dentro de blocos de código não é tratado como delimitador de fórmula.",
       ],
-       hCite: "Citações (BibTeX)", cite: CITE_HELP_EN,hExport: "Exportar (Salvar como)",
+       hCite: "Citações (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Exportar (Salvar como)",
       pExport: "Clique em «Salvar como» e escolha um formato:",
       export: [
         { b: "Markdown (.md)", t: ": salva a origem e atualiza o nome / caminho da aba atual." },
@@ -641,7 +670,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX é de código aberto sob <strong>Apache License 2.0</strong>. Os componentes incluídos (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro e Tauri, etc.) permanecem sob suas licenças originais (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Contato",
       pContact: "Obrigado por usar o MDeX! Para problemas ou sugestões, entre em contato:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     ar: {
       hIntro: "نظرة عامة",
@@ -687,7 +716,7 @@ window.HELP_DATA = (() => {
         "كتلية: أحطها بـ <code>$$</code>، قد تمتد لأسطر، مثل <code>$$\\int_0^1 x\\,dx$$</code>",
         "يستخدم صياغة LaTeX، يُعرض بـ KaTeX. <code>$</code> داخل كتل الكود لا يُعامل كفاصل صيغة.",
       ],
-       hCite: "الاستشهادات (BibTeX)", cite: CITE_HELP_EN,hExport: "تصدير (حفظ باسم)",
+       hCite: "الاستشهادات (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "تصدير (حفظ باسم)",
       pExport: "انقر «حفظ باسم» واختر صيغة:",
       export: [
         { b: "Markdown (.md)", t: ": يحفظ المصدر ويحدّث اسم / مسار التبويب الحالي." },
@@ -698,7 +727,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX مفتوح المصدر تحت <strong>Apache License 2.0</strong>. المكونات المضمَّنة (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro و Tauri إلخ) تبقى تحت رخصها الأصلية (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "تواصل",
       pContact: "شكرًا لاستخدام MDeX! للمشاكل أو الاقتراحات، تواصل معنا:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     hi: {
       hIntro: "परिचय",
@@ -751,7 +780,7 @@ window.HELP_DATA = (() => {
         "ब्लॉक: <code>$$</code> से घिरा, कई पंक्तियाँ, जैसे <code>$$\\int_0^1 x\\,dx$$</code> (<code>\\[...\\]</code> भी)",
         "LaTeX सिंटैक्स, KaTeX द्वारा। कोड ब्लॉक के अंदर <code>$</code> गणित विभाजक नहीं।",
       ],
-       hCite: "उद्धरण (BibTeX)", cite: CITE_HELP_EN,hExport: "निर्यात (नाम से सहेजें)",
+       hCite: "उद्धरण (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "निर्यात (नाम से सहेजें)",
       pExport: "\"नाम से सहेजें\" चुनें और प्रारूप चुनें:",
       export: [
         { b: "Markdown (.md)", t: ": स्रोत सहेजता व टैब का नाम / पथ अद्यतन करता है।" },
@@ -762,7 +791,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX <strong>Apache License 2.0</strong> के अंतर्गत मुक्त-स्रोत। बंडल घटक (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown व Tauri आदि) अपनी मूल लाइसेंस (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0) में।",
       hContact: "संपर्क",
       pContact: "MDeX चुनने के लिए धन्यवाद! समस्याओं या सुझावों के लिए संपर्क करें:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     pa: {
       hIntro: "ਜਾਣ-ਪਛਾਣ",
@@ -815,7 +844,7 @@ window.HELP_DATA = (() => {
         "ਬਲਾਕ: <code>$$</code> ਨਾਲ ਘਿਰਿਆ, ਕਈ ਸਤਰਾਂ, ਜਿਵੇਂ <code>$$\\int_0^1 x\\,dx$$</code> (<code>\\[...\\]</code> ਵੀ)",
         "LaTeX ਸਿੰਟੈਕਸ, KaTeX ਰਾਹੀਂ। ਕੋਡ ਬਲਾਕ ਅੰਦਰ <code>$</code> ਗਣਿਤ ਵਿਭਾਜਕ ਨਹੀਂ।",
       ],
-       hCite: "ਹਵਾਲੇ (BibTeX)", cite: CITE_HELP_EN,hExport: "ਨਿਰਯਾਤ (ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ)",
+       hCite: "ਹਵਾਲੇ (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "ਨਿਰਯਾਤ (ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ)",
       pExport: "\"ਨਾਮ ਨਾਲ ਸੰਭਾਲੋ\" ਚੁਣੋ ਤੇ ਫਾਰਮੈਟ ਚੁਣੋ:",
       export: [
         { b: "Markdown (.md)", t: ": ਸਰੋਤ ਸੰਭਾਲਦਾ ਤੇ ਟੈਬ ਦਾ ਨਾਮ / ਰਾਹ ਅੱਪਡੇਟ ਕਰਦਾ।" },
@@ -826,7 +855,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX <strong>Apache License 2.0</strong> ਹੇਠ ਓਪਨ-ਸ੍ਰੋਤ। ਬੰਡਲ ਭਾਗ (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown ਤੇ Tauri ਆਦਿ) ਆਪਣੀ ਮੂਲ ਲਾਈਸੈਂਸ (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0) ਹੇਠ।",
       hContact: "ਸੰਪਰਕ",
       pContact: "MDeX ਵਰਤਣ ਲਈ ਧੰਨਵਾਦ! ਸਮੱਸਿਆਵਾਂ ਜਾਂ ਸੁਝਾਅ ਲਈ ਸੰਪਰਕ ਕਰੋ:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     vi: {
       hIntro: "Tổng quan",
@@ -879,7 +908,7 @@ window.HELP_DATA = (() => {
         "Khối: bọc bằng <code>$$</code>, có thể nhiều dòng, vd. <code>$$\\int_0^1 x\\,dx$$</code> (cả <code>\\[...\\]</code>)",
         "Dùng cú pháp LaTeX, kết xuất bởi KaTeX. <code>$</code> trong khối mã không là dấu phân cách công thức.",
       ],
-       hCite: "Trích dẫn (BibTeX)", cite: CITE_HELP_EN,hExport: "Xuất (Lưu thành)",
+       hCite: "Trích dẫn (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Xuất (Lưu thành)",
       pExport: "Bấm \"Lưu thành\" và chọn định dạng:",
       export: [
         { b: "Markdown (.md)", t: ": lưu nguồn và cập nhật tên / đường dẫn thẻ hiện tại." },
@@ -890,7 +919,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX là mã nguồn mở theo <strong>Apache License 2.0</strong>. Các thành phần đi kèm (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown và Tauri, v.v.) giữ giấy phép gốc (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Liên hệ",
       pContact: "Cảm ơn bạn dùng MDeX! Mọi vấn đề hoặc góp ý, liên hệ:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     id: {
       hIntro: "Ikhtisar",
@@ -943,7 +972,7 @@ window.HELP_DATA = (() => {
         "Blok: bungkus <code>$$</code>, bisa beberapa baris, mis. <code>$$\\int_0^1 x\\,dx$$</code> (juga <code>\\[...\\]</code>)",
         "Memakai sintaks LaTeX, dirender KaTeX. <code>$</code> di dalam blok kode bukan pembatas matematika.",
       ],
-       hCite: "Kutipan (BibTeX)", cite: CITE_HELP_EN,hExport: "Ekspor (Simpan Sebagai)",
+       hCite: "Kutipan (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Ekspor (Simpan Sebagai)",
       pExport: "Klik \"Simpan Sebagai\" dan pilih format:",
       export: [
         { b: "Markdown (.md)", t: ": menyimpan sumber dan memperbarui nama / path tab kini." },
@@ -954,7 +983,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX bersumber terbuka di bawah <strong>Apache License 2.0</strong>. Komponen yang dibundel (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown dan Tauri dll.) tetap di bawah lisensi aslinya (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0).",
       hContact: "Kontak",
       pContact: "Terima kasih memakai MDeX! Untuk masalah atau saran, hubungi:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     ur: {
       hIntro: "تعارف",
@@ -1007,7 +1036,7 @@ window.HELP_DATA = (() => {
         "بلاک: <code>$$</code> سے گھرا، کئی سطریں، جیسے <code>$$\\int_0^1 x\\,dx$$</code> (<code>\\[...\\]</code> بھی)",
         "LaTeX نحوی استعمال، KaTeX رینڈر۔ کوڈ بلاک کے اندر <code>$</code> ریاضی تقسیم کار نہیں۔",
       ],
-       hCite: "حوالے (BibTeX)", cite: CITE_HELP_EN,hExport: "برآمد (اس نام سے محفوظ)",
+       hCite: "حوالے (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "برآمد (اس نام سے محفوظ)",
       pExport: "\"اس نام سے محفوظ\" چنیں اور فارمیٹ منتخب کریں:",
       export: [
         { b: "Markdown (.md)", t: ": ماخذ محفوظ اور ٹیب کا نام / راستہ اپ ڈیٹ کرتا ہے۔" },
@@ -1018,7 +1047,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX <strong>Apache License 2.0</strong> کے تحت اوپن سورس۔ بنڈل شدہ اجزاء (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown اور Tauri وغیرہ) اپنی اصل لائسنس (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0) میں رہتے۔",
       hContact: "رابطہ",
       pContact: "MDeX چننے کا شکریہ! مسائل یا تجاویز کے لیے رابطہ کریں:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
     mn: {
       hIntro: "Тойм",
@@ -1071,7 +1100,7 @@ window.HELP_DATA = (() => {
         "Блок: <code>$$</code>-ээр хүрээлэх, хэд хэдэн мөр болно, жишээ нь <code>$$\\int_0^1 x\\,dx$$</code> (<code>\\[...\\]</code> бас)",
         "LaTeX бичиглэл ашиглана, KaTeX-ээр хөрвүүлнэ. Кодын блок дотор <code>$</code> нь математик тусгаарлагч биш.",
       ],
-       hCite: "Эшлэл (BibTeX)", cite: CITE_HELP_EN,hExport: "Экспорт (Өөр нэрээр хадгалах)",
+       hCite: "Эшлэл (BibTeX)", cite: CITE_HELP_EN,hWiki: "Wikilinks (workspace)", wiki: WIKI_HELP_EN,hExport: "Экспорт (Өөр нэрээр хадгалах)",
       pExport: "\"Өөр нэрээр хадгалах\"-г дарж форматыг сонго:",
       export: [
         { b: "Markdown (.md)", t: ": эхийг хадгалж одоогийн табын нэр / замыг шинэчилнэ." },
@@ -1082,7 +1111,7 @@ window.HELP_DATA = (() => {
       pLicense: "MDeX нь <strong>Apache License 2.0</strong>-ийн дор нээлттэй эхийн. Багцалсан бүрэлдэхүүнүүд (marked / KaTeX / highlight.js / DOMPurify / jsPDF / html2canvas-pro / turndown болон Tauri гэх мэт) анхны лицензээрээ (MIT / BSD-3-Clause / Apache-2.0 / MPL-2.0) үлдэнэ.",
       hContact: "Холбоо",
       pContact: "MDeX-г сонгосонд баярлалаа! Асуудал эсвэл санал хүсэлт байвал холбоо барина уу:",
-      contactName: "Fawei Zheng (郑法伟)",
+      contactName: "",
     },
   };
   return { HELP_STRINGS };

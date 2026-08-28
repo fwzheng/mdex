@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.4.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · diucapkan "em-dex" (/ˌemˈdɛks/) — huruf M diikuti "dex", dua suku kata.
 
@@ -244,4 +244,4 @@ Persyaratan distribusi: berdasarkan lisensi Apache-2.0, mendistribusikan ulang p
 
 ## 📬 Kontak
 
-Untuk masalah atau saran: **fwzheng@bit.edu.cn**
+Untuk masalah atau saran: **fw@spinss.cn**

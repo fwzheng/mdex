@@ -6,7 +6,7 @@
 // 仅升级 CM 版本时跑 `npm run build:cm` 重新生成 vendor/codemirror.js 并提交。
 // 新增需要的 API：在这里 import 并加入 window.CM，然后重跑 build:cm。
 import { EditorState, EditorSelection, Transaction, StateField, StateEffect } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightSpecialChars, Decoration, ViewPlugin, WidgetType, drawSelection } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightSpecialChars, Decoration, ViewPlugin, WidgetType, drawSelection, mouseSelectionStyle } from "@codemirror/view";
 import { history, historyKeymap, defaultKeymap, undo, redo, indentWithTab } from "@codemirror/commands";
 import { search, openSearchPanel, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from "@codemirror/language";
@@ -16,7 +16,7 @@ window.CM = {
   // state
   EditorState, EditorSelection, Transaction, StateField, StateEffect,
   // view
-  EditorView, keymap, lineNumbers, highlightActiveLine, highlightSpecialChars, Decoration, ViewPlugin, WidgetType, drawSelection,
+  EditorView, keymap, lineNumbers, highlightActiveLine, highlightSpecialChars, Decoration, ViewPlugin, WidgetType, drawSelection, mouseSelectionStyle,
   // commands
   history, historyKeymap, defaultKeymap, undo, redo, indentWithTab,
   // search

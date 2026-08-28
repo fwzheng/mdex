@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>
+// Copyright 2026 <fw@spinss.cn>
 //
 // 把 CodeMirror 6 + Lezer markdown 等多包经 esbuild 打成单 IIFE → vendor/codemirror.js，
 // 入口 src/cm-entry.js 内已赋 window.CM = {...}，故无需 globalName。

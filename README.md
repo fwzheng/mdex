@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.4.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · pronounced "em-dex" (/ˌemˈdɛks/) — the letter M followed by "dex", two syllables.
 
@@ -42,6 +42,7 @@ The interface ships in **17 languages**: English, 简体中文, Français, Deuts
 - **Font zoom**: zoom the editor and preview fonts independently (−/percentage/+ controls, or `⌘/Ctrl + =/−/0`); persists across restarts.
 - **Tables**: GFM tables; narrow tables are centered to content, wide ones scroll horizontally without clipping.
 - **Citations (BibTeX)**: `[@key]` / `\cite{key}` syntax, numeric style; a References list is generated at the end, with two-way jumps between in-text `[n]` and the entry; supports an embedded ` ```bibtex ` block or a separately loaded `.bib`.
+- **Wikilinks & workspace (LLM-wiki style)**: `[[#heading]]` renders as a dashed in-document link — click to jump the editor cursor and scroll the preview to that heading. Open a folder (File menu, or drop it onto the window) to establish a **vault**: a hideable sidebar (⌘/Ctrl+Shift+B) with a lazily-loaded file tree and a **backlinks** panel. Inside a vault, `[[page]]` resolves to a real file (same-directory first → unique basename → shortest path) and opens it in a new tab on click; the index refreshes after every save. Broken links show a gentle toast instead of creating pages. Syntax exclusions (`![[embed]]`, `[[x]](url)`, escaped `\[[`) pass through untouched.
 - **HTML support**: open `.html` files for rendering; convert between HTML and Markdown.
 - **Theme / language**: dark / light, **17 UI languages** (中文, English, Français, Deutsch, Русский, Italiano, 日本語, 한국어, Español, Português, العربية, हिन्दी, ਪੰਜਾਬੀ, Tiếng Việt, Bahasa Indonesia, اردو, Монгол (Кирилл) — Arabic & Urdu auto right-to-left).
 - **Auto-draft**: content is saved periodically and restored after an unexpected close / crash.
@@ -148,6 +149,7 @@ Use `⌘` on macOS, `Ctrl` on Windows / Linux.
 | `Esc` | Cancel column select |
 | `⌘/Ctrl + =/−/0` | Zoom the last-clicked pane (editor or preview) in / out / reset |
 | `⌘/Ctrl + J` | AI-assisted editing |
+| `⌘/Ctrl + Shift + B` | Show / hide the workspace sidebar (when a vault is open) |
 
 > With multiple windows open, shortcuts only affect the focused window. When the image viewer window is open, `⌘/Ctrl + =/−/0` zooms the image instead.
 
@@ -160,6 +162,8 @@ Use `⌘` on macOS, `Ctrl` on Windows / Linux.
 **Math**: inline `$E = mc^2$`; block `$$\int_0^1 x\,dx$$` (may span lines). Uses LaTeX syntax, rendered by KaTeX; `$` inside code blocks is not treated as a math delimiter. Supports `align` / `aligned`, matrices, `cases` and other common environments.
 
 **Citations**: write `[@key]` or `[@a; @b]` in the text (LaTeX-compatible `\cite{key}`), embed the library via a ` ```bibtex ` block or load a `.bib` with the "Refs" button. A References list is generated at the end; in-text `[n]` is clickable.
+
+**Wikilinks (LLM-wiki style)**: `[[#heading]]` jumps within the document; with a folder open as a vault, `[[page]]` resolves and opens the target file in a new tab; `![[embed]]` and `[[x]](url)` pass through untouched.
 
 ---
 
@@ -245,4 +249,4 @@ Distribution requirements: under the Apache-2.0 license, redistributing this pro
 
 ## 📬 Contact
 
-For problems or suggestions: **fwzheng@bit.edu.cn**
+For problems or suggestions: **fw@spinss.cn**

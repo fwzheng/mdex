@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.4.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · تلفظ "em-dex" (/ˌemˈdɛks/) — حرف M کے بعد "dex"، دو حصے۔
 
@@ -245,4 +245,4 @@ markdown/
 
 ## 📬 رابطہ
 
-مسائل یا تجاویز کے لیے: **fwzheng@bit.edu.cn**
+مسائل یا تجاویز کے لیے: **fw@spinss.cn**

@@ -6,7 +6,7 @@
 </details>
 
 
-# MDeX v2.3.1 (macOS · Windows · Linux · Tauri v2)
+# MDeX v2.4.0 (macOS · Windows · Linux · Tauri v2)
 
 > **MDeX** · произносится «эм-декс» (/ˌemˈdɛks/) — буква M, за которой следует «dex», два слога.
 
@@ -244,4 +244,4 @@ markdown/
 
 ## 📬 Контакты
 
-По проблемам или предложениям: **fwzheng@bit.edu.cn**
+По проблемам или предложениям: **fw@spinss.cn**

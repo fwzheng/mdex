@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>
+// Copyright 2026 <fw@spinss.cn>
 //
 // 把 vendor/ 内联进 app-shell.html → dist/index.html，产出完全离线的单文件。
 // KaTeX 字体以 base64 内嵌（无任何远程字体请求）。

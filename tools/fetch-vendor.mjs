@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>
+// Copyright 2026 <fw@spinss.cn>
 //
 // 一次性下载前端依赖到 vendor/（构建时内联，运行时完全离线）。
 // 仅在准备阶段需要网络；之后所有构建都不再联网。

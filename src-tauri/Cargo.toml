@@ -1,8 +1,8 @@
 [package]
 name = "mdex"
-version = "2.3.1"
+version = "2.4.0"
 description = "macOS 离线 Markdown 阅读编辑器"
-authors = ["郑法伟 (Fawei Zheng) <fwzheng@bit.edu.cn>"]
+authors = ["fw@spinss.cn"]
 license = "Apache-2.0"
 edition = "2021"
 rust-version = "1.77.2"
