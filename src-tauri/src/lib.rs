@@ -1120,6 +1120,93 @@ async fn scan_wiki_index(root: String) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "files": files, "links": links }))
 }
 
+/// 工作区「Wikilink 示例」：在系统临时目录写一份完整示例 vault（多文件），返回其根路径。
+/// 前端随后 openWorkspace(root) 显示侧栏、openPath 打开入口文件——跨文件 [[页面]] 链接
+/// 与反向链接因此真正可用（单文件示例无法演示 vault）。每次调用覆盖重写，内容保持最新。
+/// 示例文件内容硬编码中文（演示文档，非 UI 文案，无需多语言）。
+#[tauri::command]
+fn create_wiki_example() -> Result<String, String> {
+    let base = std::env::temp_dir().join("mdex-wiki-example");
+    fs::create_dir_all(&base).map_err(|e| format!("创建示例目录失败: {e}"))?;
+    let files: [(&str, &str); 4] = [
+        (
+            "wiki-example.md",
+            r#"# Wikilink 工作区示例
+
+本示例已自动建立一个 vault（含多个 Markdown 文件）。左侧侧栏显示文件树与反向链接。
+
+## 文档内跳转
+
+点下面的链接，编辑器光标会跳到对应标题、预览滚到该标题：
+
+- 跳到「[[#核心概念]]」
+- 带别名的写法：[[#核心概念|看这里]]
+
+## 跨文件链接（点击在新标签打开）
+
+- [[术语表]]（同目录）
+- [[注意力机制]]（子目录）
+
+## 反向链接
+
+打开侧栏「反链」页签，可看到哪些文件链接到当前文件。也可以打开「笔记/ideas」，它链接回本文件。
+
+## 语法排斥（不会被误伤）
+
+- `![[image.png]]` 嵌入语法原样透传
+- [[示例]](https://example.com) 是 markdown 链接，不受影响
+- `\[[不是链接]]` 转义后不解析
+
+## 核心概念
+
+这是 `[[#核心概念]]` 跳转的目标标题。点击上面的链接会回到这里。
+"#,
+        ),
+        (
+            "术语表.md",
+            r#"# 术语表
+
+一些 LLM Wiki 常用术语。
+
+## 注意力机制
+
+见 [[注意力机制]]。
+
+返回：[[wiki-example|入口]]
+"#,
+        ),
+        (
+            "概念/注意力机制.md",
+            r#"# 注意力机制
+
+Transformer 模型的核心组件，用于让模型在生成时关注输入的不同部分。
+
+相关：[[术语表]]
+
+返回：[[wiki-example|入口]]
+"#,
+        ),
+        (
+            "笔记/ideas.md",
+            r#"# 想法
+
+- 用 wikilink 把知识组织成网状结构
+- 从 [[wiki-example|入口文档]] 了解完整功能
+
+相关：[[术语表]]
+"#,
+        ),
+    ];
+    for (rel, content) in files {
+        let p = base.join(rel);
+        if let Some(parent) = p.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {e}"))?;
+        }
+        fs::write(&p, content).map_err(|e| format!("写入失败: {e}"))?;
+    }
+    Ok(base.to_string_lossy().into_owned())
+}
+
 /// 解析 Markdown 内的链接（相对 base_dir 或绝对），返回指向【已存在文件】的规范路径；
 /// 目录(如 `./`)、失效链接、带协议(http/mailto/...)、锚点(#x) 一律返回 None。
 /// 用于「渲染区点链接 → 新标签页打开」，避免误把目录/外链当文件打开后替换当前文档。
@@ -2072,6 +2159,7 @@ pub fn run() {
             pick_folder,
             list_dir,
             scan_wiki_index,
+            create_wiki_example,
             write_bytes_at,
             read_file_at,
             resolve_doc_link,

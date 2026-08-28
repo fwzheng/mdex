@@ -3961,8 +3961,18 @@
     toast(t("opened") + tab.name);
   }
 
-  // 载入 Wikilink 工作区示例到新标签（文档内 [[#标题]] 跳转 + 跨文件 [[页面]] 解析说明）
-  function openWikiExample() {
+  // 载入 Wikilink 工作区示例。Tauri：后端在临时目录写一份完整示例 vault（多文件）→
+  // openWorkspace 显示侧栏（文件树+反向链接）→ openPath 打开入口文件，跨文件 [[页面]]
+  // 链接与反向链接真正可用。浏览器（无文件系统）：回退单文件示例（内联模板）。
+  async function openWikiExample() {
+    if (isTauri) {
+      try {
+        const root = await invoke("create_wiki_example");
+        await openWorkspace(root);
+        await openPath(root + "/wiki-example.md");
+      } catch (e) { toast(t("openFail") + e); }
+      return;
+    }
     const content = getSampleDoc("wiki");
     const tab = createTab({ name: "wiki-example.md", content, type: "md", sample: { kind: "wiki", ver: SAMPLE_VER } });
     switchTab(tab.id);

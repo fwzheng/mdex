@@ -2137,7 +2137,7 @@ SHERLOCK платформ [@gootenberg2017] хээрийн оношилгоон�
 打开文件夹后，下面的 `[[页面]]` 会解析为 vault 里的真实文件，点击在新标签打开：
 
 - [[术语表]]
-- [[概念/注意力机制]]
+- [[注意力机制]]
 
 （工作区未打开时，这两个会显示为置灰的待解析样式，不报错。）
 
@@ -5150,50 +5150,6 @@ def fib(n):
 
 <script>
 <!--APP:js-->
-</script>
-<!-- 诊断探针（临时，BUG-165/166 真机定位用，发版前删）：
-     右上角黑窗记录编辑器(ED)/预览(PV)所有 >300px 单步滚动跳变，格式 [ms] 侧 旧→新 (Δ位移) -->
-<div id="jump-log" hidden style="position: fixed; top: 44px; right: 8px; z-index: 99999; max-width: 420px; background: rgba(0,0,0,.82); color: #7ee787; font: 11px/1.5 monospace; padding: 6px 9px; border-radius: 6px; white-space: pre; pointer-events: auto; max-height: 46vh; overflow: auto; direction: ltr; text-align: left;"></div>
-<script>
-(function () {
-  var recs = [];
-  function render() {
-    var e = document.getElementById('jump-log'); if (!e) return;
-    e.hidden = false;
-    e.textContent = recs.slice(-12).join('\n') || '（暂无跳变）';
-    e.scrollTop = e.scrollHeight;
-  }
-  function hook(getter, name, anchorEl) {
-    var last = -1, lastAy = null, t0 = performance.now();
-    setInterval(function () {
-      var now = getter();
-      // BUG-166t 视觉锚点（red-team 实验1）：scrollTop 跳但锚行 lineY 稳定 = 异步读数跳（无害）；
-      // 两者同跳 = 真实视口跳。V前缀行=视觉跳，R前缀行=仅读数跳。
-      var ay = null;
-      if (anchorEl) {
-        var probe = anchorEl.querySelector('.cm-line') || (anchorEl.id === 'preview' ? anchorEl.firstElementChild : null);
-        if (probe) { var r = probe.getBoundingClientRect(); ay = r ? r.top : null; }
-      }
-      if (last >= 0 && Math.abs(now - last) > 300) {
-        var vJump = (ay != null && lastAy != null && Math.abs(ay - lastAy) > 60);
-        recs.push('[' + Math.round(performance.now() - t0) + 'ms] ' + (vJump ? 'V' : 'R') + name + ' ' +
-          Math.round(last) + '→' + Math.round(now) + ' (Δ' + (now > last ? '+' : '') + Math.round(now - last) + ')' +
-          (ay != null && lastAy != null ? ' ayΔ' + Math.round(ay - lastAy) : ''));
-        render();
-      }
-      last = now; lastAy = ay;
-    }, 25);
-  }
-  function boot() {
-    var sd = document.querySelector('.cm-scroller');
-    var pv = document.getElementById('preview');
-    if (!sd || !pv || !pv.children.length) return setTimeout(boot, 200);
-    hook(function () { return sd.scrollTop; }, 'ED', sd);
-    hook(function () { return pv.scrollTop; }, 'PV', pv);
-    render();
-  }
-  boot();
-})();
 </script>
 </body>
 </html>
